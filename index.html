@@ -94,15 +94,17 @@ h2{font-size:17px;margin:0 0 8px}
 .bounce{animation:bounce 1.6s ease-in-out infinite}
 @keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
 @media (prefers-reduced-motion:reduce){.dog .ear,.bounce{animation:none}}
+.chip.on{background:var(--accent);color:var(--accent-text)}
+.item .main .muted .tag{margin-left:0}
 </style>
 </head>
 <body>
 <header class="top"><button id="backBtn" class="hidden" aria-label="Back">‹</button><span id="headDog"></span><h1 id="title" class="brand">PricePup</h1><a id="syncBadge" class="hidden" href="#settings"></a></header>
 <main id="app"></main>
 <nav class="tabs">
-  <a href="#home" data-tab="home"><span>🦴</span><b data-t="tabProducts"></b></a>
+  <a href="#home" data-tab="home"><span>🦴</span><b data-t="tabItems"></b></a>
   <a href="#scan" data-tab="scan"><span>🐾</span><b data-t="tabScan"></b></a>
-  <a href="#compare" data-tab="compare"><span>⚖️</span><b data-t="tabCompare"></b></a>
+  <a href="#deals" data-tab="deals"><span>🏷️</span><b data-t="tabDeals"></b></a>
   <a href="#settings" data-tab="settings"><span>🏠</span><b data-t="tabSettings"></b></a>
 </nav>
 
@@ -130,97 +132,76 @@ h2{font-size:17px;margin:0 0 8px}
 
 <script>
 'use strict';
-const APP_VERSION = '3.2.0';
+const APP_VERSION = '4.0.0';
 const $ = s => document.querySelector(s);
 const app = $('#app');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const pad = n => String(n).padStart(2, '0');
 const today = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; };
 const fmtDate = s => { if (!s) return ''; const [y,m,d] = s.split('-'); return `${y}/${+m}/${+d}`; };
-const eff = p => p.price / (p.multi || 1);
+const daysAgo = s => Math.round((Date.parse(today()) - Date.parse(s)) / 864e5);
 const lsGet = k => { try { return localStorage.getItem(k); } catch(e) { return null; } };
 const lsSet = (k,v) => { try { localStorage.setItem(k, v); } catch(e) {} };
 const LB_G = 453.592;
+const newId = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2));
 
 /* ---------- i18n ---------- */
 const I18N = {
-  appName:['格價狗','PricePup'], tagline:['幫你嗅出最抵價！','Sniffing out the best deals!'],
-  tabProducts:['產品','Items'], tabScan:['掃描','Scan'], tabCompare:['比較','Compare'], tabSettings:['設定','Settings'],
-  scanBtn:['掃描 barcode','Scan barcode'], noBarcode:['＋ 冇 barcode（例如肉、菜）','＋ No barcode (meat, produce)'],
-  search:['搜尋產品、牌子、類別、舖頭…','Search items, brands, categories, stores…'],
-  emptyList:['仲未有產品。撳「掃描 barcode」，等狗狗幫你記低第一件貨！','No items yet. Tap "Scan barcode" and let the pup log your first one!'],
-  noMatch:['狗狗搵唔到符合嘅產品','The pup found no matching items'], histLow:['歷史最低','All-time low'], noPrice:['未有價錢','No price yet'],
-  latest:['最近一次','Latest'], addPrice:['記錄新價錢','Log a new price'], storeLow:['各舖最低價','Lowest by store'],
-  store:['舖頭','Store'], lowest:['最低','Lowest'], cheapest:['最平','Cheapest'], best:['最抵','Best value'],
-  noRecords:['仲未有價錢紀錄。','No prices logged yet.'], trend:['價錢走勢','Price trend'],
-  edit:['編輯產品','Edit item'], del:['刪除產品','Delete item'],
-  confirmDelProd:['刪除呢件產品同埋佢所有價錢紀錄？','Delete this item and all its prices?'], confirmDelPrice:['刪除呢筆價錢紀錄？','Delete this price record?'],
-  deleted:['已刪除','Deleted'], noBarcodeLbl:['冇 barcode','No barcode'], newProduct:['新增產品','New item'],
-  fCode:['Barcode','Barcode'], fCodePh:['冇 barcode 可以留空','Leave blank if none'], fName:['產品名稱','Item name'],
-  fNamePh:['例如 Tide 洗衣液 Original','e.g. Tide Original Liquid'], fBrand:['牌子','Brand'],
-  fBasis:['計價方式','Priced by'], basisItem:['按件／包','Per pack'], basisLb:['按磅 $/lb','Per lb'], basisKg:['按公斤 $/kg','Per kg'],
-  fSize:['容量／重量','Size'], fUnit:['單位','Unit'], unitCount:['件／個','pcs'],
-  fUses:['可用次數（選填，例如洗衣液 64 次）','Number of uses (optional, e.g. 64 loads)'],
-  fCat:['類別（用嚟比較，例如「洗衣液」）','Category (for comparing, e.g. "Detergent")'],
-  fPhoto:['相片','Photo'], takePhoto:['影產品相','Take photo'], save:['儲存','Save'], saveThenPrice:['儲存，再記錄價錢','Save & log price'],
-  lookingUp:['🔎 狗狗查緊產品資料…','🔎 The pup is sniffing out product info…'], found:['✅ 搵到資料，請核對一次','✅ Found it! Please double-check'],
-  notFound:['資料庫搵唔到，請自己填一次（下次掃就會認得）',"Not in the database — fill it in once (it'll remember next time)"],
-  codeExists:['呢個 barcode 已經有產品','This barcode already exists'], needName:['請填產品名稱','Please enter a name'], saved:['已儲存','Saved'],
-  logPrice:['記錄價錢','Log price'], ocrBtn:['📷 影價錢牌（自動讀價）','📷 Snap price tag (auto-read)'],
-  price:['價錢 ($)','Price ($)'], priceLb:['價錢 ($/lb)','Price ($/lb)'], priceKg:['價錢 ($/kg)','Price ($/kg)'],
-  multi:['幾多件呢個價（例如「2 件 $5」就填 2）','Items for this price (e.g. "2 for $5" → 2)'],
-  storePh:['例如 Superstore Deerfoot','e.g. Superstore Deerfoot'], date:['日期','Date'], sale:['特價','On sale'],
-  note:['備註（選填）','Note (optional)'], notePh:['例如 會員價、清貨','e.g. member price, clearance'], needPrice:['請輸入價錢','Please enter a price'],
-  ocrFirst:['🔎 第一次用要下載文字辨識（約 10MB，之後唔使），請等等…','🔎 First use downloads the text reader (~10MB, once only)…'],
-  ocrReading:['🔎 狗狗讀緊價錢牌…','🔎 The pup is reading the tag…'],
-  ocrNone:['讀唔到價錢，請手動輸入（或者影近啲、正面啲再試）',"Couldn't read a price — type it in, or retry closer and straight-on"],
-  ocrPick:['撳選正確嘅價錢（第一個已自動填入，請核對）：','Tap the right price (the first is filled in — please check):'],
-  ocrCents:['讀唔到毫子，請補返（例如 .97）',"Couldn't read the cents — please add them (e.g. .97)"],
-  ocrFail:['文字辨識載入失敗（第一次要上網），請手動輸入','Text reader failed to load (needs internet the first time) — please type it in'],
-  each:['每件','Each'], vType:['輸入價錢，狗狗即刻同歷史比較','Type a price and the pup compares it with history'], vFirst:['第一次記錄呢件貨','First record for this item'],
-  latestPrefix:['最近一次：','Latest: '], savedLow:['汪！已儲存：歷史新低！🎉','Woof! Saved — new all-time low! 🎉'], savedEq:['已儲存：同歷史最低一樣','Saved — matches the all-time low'],
-  cmpTitle:['單位價比較','Unit price compare'], cmpCat:['類別','Category'], cmpNoCat:['（仲未有類別）','(no categories yet)'], cmpBasis:['比較方法','Compare by'],
-  cmpSize:['按容量／重量（$/100mL、$/kg）','Size / weight ($/100mL, $/kg)'], cmpUses:['按可用次數（$/次，洗衣液最準）','Number of uses ($/use, best for detergent)'],
-  cmpHint:['用每件產品嘅歷史最低價計。喺產品資料填「類別」就會出現喺度。',"Uses each item's all-time low. Set a category on an item to see it here."],
-  cmpItem:['產品','Item'], cmpLow:['最低價','Low'], cmpUnit:['單位價','Unit price'], whatUses:['「可用次數」','number of uses'], whatSize:['容量／重量','size/weight'],
-  cmpNoData:['呢個類別未有價錢紀錄。','No prices in this category yet.'],
-  cmpEmpty:['喺產品資料填「類別」（例如「洗衣液」），同類產品就可以喺度比較單位價。','Set a category on items (e.g. "Detergent") to compare unit prices here.'],
-  setTitle:['設定','Settings'], lang:['語言 Language','Language 語言'], data:['數據','Data'], dataLocal:['數據只存喺呢部電話。','Data is stored only on this phone.'],
-  persistOn:['已啟用持久儲存 ✅','Persistent storage on ✅'], persistOff:['未啟用持久儲存（裝到主畫面後會自動申請）','Persistent storage off (requested after installing)'],
-  backup:['備份','Backup'], export:['⬆️ 匯出備份','⬆️ Export backup'], import:['⬇️ 匯入備份（合併）','⬇️ Import backup (merge)'],
-  backupHint:['建議每個月匯出一次，存去 Google Drive。換電話或者同屋企人共用數據都係用呢個方法。','Export monthly to Google Drive. Use the same to move phones or share with family.'],
-  importFail:['匯入失敗：檔案格式唔啱','Import failed: wrong file format'], danger:['危險區','Danger zone'], wipe:['刪除所有數據','Delete all data'],
-  wipeConfirm:['真係刪除呢部電話入面所有產品同價錢？（冇得復原）','Really delete all items and prices on this phone? (Cannot undo)'], dataCloud:['數據同步緊雲端，兩部電話共用同一份數據。','Data is synced to the cloud and shared by both phones.'], wiped:['已刪除所有數據','All data deleted'],
-  credit:['產品資料來自 Open Food Facts','Product info from Open Food Facts'],
-  scanAim:['將 barcode 對準方框','Point at the barcode'], scanNo:['呢個瀏覽器唔支援即時掃描，請手動輸入 barcode','Live scanning not supported — type the barcode'],
-  scanCam:['開唔到相機（請允許相機權限），可以用相片或者手動輸入','Camera unavailable (allow permission) — use a photo or type it'],
+  appName:['格價狗','PricePup'], tagline:['幫你嗅出最抵價！','Sniffing out the best deals!'], hello:['今日去邊度格價？','Where are we shopping today?'],
+  tabItems:['產品','Items'], tabScan:['掃描','Scan'], tabDeals:['特價','Deals'], tabSettings:['設定','Settings'],
+  scanBtn:['掃描 barcode','Scan barcode'], logNoBarcode:['＋ 記錄價錢（冇 barcode）','＋ Log a price (no barcode)'],
+  search:['搜尋產品、牌子、舖頭…','Search items, brands, stores…'], emptyList:['仲未有產品。登入同步之後就會見到共用數據。','No items yet. Sign in to sync to see shared data.'],
+  noMatch:['狗狗搵唔到符合嘅產品','The pup found no matching items'], histLow:['歷史最低','All-time low'], bestNow:['近 30 日最平','Best last 30 days'],
+  noPrice:['未有價錢','No price yet'], addPrice:['記錄價錢','Log a price'], byStore:['各舖價錢（近 30 日）','Prices by store (last 30 days)'],
+  noRecent:['近 30 日冇價錢紀錄','No prices in the last 30 days'], store:['舖頭','Store'], variant:['款式','Variant'], price:['價錢','Price'], unitP:['單位價','Unit price'],
+  cheapest:['最抵','Best'], sale:['特價','Sale'], trend:['單位價走勢','Unit price trend'], history:['全部紀錄','All records'], variants:['款式（牌子／容量）','Variants (brand / size)'],
+  reg:['原價','Reg.'], perLb:['/lb','/lb'], perKg:['/kg','/kg'], perL:['/L','/L'], perPc:['/件','/ea'], perUse:['/次','/use'],
+  chooseItem:['揀主產品','Choose item'], chooseItemHint:['呢件貨屬於邊件主產品？例如「洗衣液」、「白米」、「平椰菜」','Which main item is this? e.g. "Laundry detergent", "Rice", "Flat cabbage"'],
+  newItem:['＋ 新增主產品','＋ New main item'], itemName:['主產品名稱（中文）','Item name (Chinese)'], itemEn:['英文名（選填）','English name (optional)'],
+  cat:['類別','Category'], mode:['點樣比較','Compare by'], modePack:['包裝貨（比 $/L、$/kg 或 $/件）','Packaged ($/L, $/kg or $/ea)'], modeWeight:['散裝秤重（比 $/lb）','Loose by weight ($/lb)'],
+  useLoads:['按可用次數比較（例如洗衣液 $/次）','Compare per use (e.g. detergent $/load)'],
+  newVariant:['＋ 新款式','＋ New variant'], brand:['牌子','Brand'], desc:['款式描述（選填）','Description (optional)'], size:['容量／重量','Size'], unit:['單位','Unit'],
+  uses:['可用次數（選填）','Number of uses (optional)'], barcode:['Barcode','Barcode'], unitCount:['件／個','pcs'],
+  pricePack:['價錢 ($)','Price ($)'], priceLb:['價錢 ($/lb)','Price ($/lb)'], priceKg:['價錢 ($/kg)','Price ($/kg)'], perWhat:['價錢單位','Priced per'],
+  multi:['幾多件呢個價（例如「2 件 $5」就填 2）','Items for this price (e.g. "2 for $5" → 2)'], storePh:['例如 Superstore Seton','e.g. Superstore Seton'],
+  date:['日期','Date'], note:['備註（選填）','Note (optional)'], save:['儲存','Save'], saved:['已儲存','Saved'], needPrice:['請輸入價錢','Please enter a price'],
+  needName:['請填名稱','Please enter a name'], needVariant:['請揀或者新增款式','Choose or add a variant'], needSize:['請填容量／重量','Please enter the size'],
+  ocrBtn:['📷 影價錢牌（自動讀價）','📷 Snap price tag (auto-read)'], ocrFirst:['🔎 第一次用要下載文字辨識（約 10MB），請等等…','🔎 First use downloads the text reader (~10MB)…'],
+  ocrReading:['🔎 狗狗讀緊價錢牌…','🔎 The pup is reading the tag…'], ocrNone:['讀唔到價錢，請手動輸入','Couldn\'t read a price — please type it'],
+  ocrPick:['撳選正確嘅價錢（第一個已自動填入）：','Tap the right price (first one is filled in):'], ocrCents:['讀唔到毫子，請補返','Couldn\'t read the cents — please add them'],
+  ocrFail:['文字辨識載入失敗，請手動輸入','Text reader failed to load — please type it'], each:['每件','Each'],
+  vType:['輸入價錢，狗狗即刻同歷史比較','Type a price and the pup compares it with history'], vFirst:['第一次記錄呢件貨','First record for this item'],
+  savedLow:['汪！已儲存：歷史新低！🎉','Woof! Saved — new all-time low! 🎉'], savedEq:['已儲存：同歷史最低一樣','Saved — matches the all-time low'],
+  lookingUp:['🔎 狗狗查緊產品資料…','🔎 The pup is sniffing out product info…'], found:['✅ 搵到：','✅ Found: '], notFound:['資料庫搵唔到呢個 barcode，請揀返主產品','Barcode not in the database — choose the main item'],
+  dealsTitle:['今期特價','Current deals'], dealsHint:['近 14 日嘅特價，按折扣排序','Sales from the last 14 days, biggest discount first'], noDeals:['近 14 日未有特價紀錄','No sales recorded in the last 14 days'],
+  setTitle:['設定','Settings'], lang:['語言 Language','Language 語言'], syncTitle:['數據同步','Data sync'],
+  syncDesc:['用 Google 登入之後，兩部電話共用同一份數據，冇網絡時都照用。','Sign in with Google to share one database across both phones. Works offline.'],
+  signIn:['用 Google 登入並開始同步','Sign in with Google to sync'], signOut:['登出','Sign out'], signedInAs:['已登入：','Signed in: '],
+  sOff:['未開啟','Off'], sConnecting:['連接中…','Connecting…'], sSynced:['已同步','Synced'], sSyncing:['同步中…','Syncing…'], sOffline:['離線（稍後自動上傳）','Offline (uploads later)'], sError:['同步出錯','Sync error'],
+  notAllowed:['呢個 Google 帳戶未獲准使用','This Google account is not allowed'], signInFail:['登入失敗，請再試','Sign-in failed, please try again'],
+  data:['數據','Data'], credit:['產品資料來自 Open Food Facts 同各超市網上 flyer','Product info from Open Food Facts and store flyers'],
+  scanAim:['將 barcode 對準方框','Point at the barcode'], scanNo:['呢個瀏覽器唔支援即時掃描，請手動輸入','Live scanning not supported — type the barcode'],
+  scanCam:['開唔到相機（請允許相機權限），可以用相片或者手動輸入','Camera unavailable — use a photo or type it'],
   torch:['電筒','Torch'], fromPhoto:['用相片讀','From photo'], close:['關閉','Close'], manualPh:['或者手動輸入 barcode 數字','Or type the barcode number'], ok:['確定','OK'],
   needCode:['請輸入 barcode 數字','Enter the barcode digits'], badCode:['barcode 唔啱','Invalid barcode'], noDetect:['呢個瀏覽器唔支援讀 barcode','Barcode reading not supported'],
-  photoNoCode:['相入面搵唔到 barcode，試吓影近啲、清楚啲','No barcode found — try closer and sharper'], photoFail:['讀唔到相片',"Couldn't read the photo"],
-  unnamed:['（未命名）','(unnamed)'], noStore:['（未填舖頭）','(no store)'], uses:['次','uses'], pcs:['件','pcs'], perUse:['/次','/use'], perPc:['/件','/pc'],
-  byWeight:['按重量計價','priced by weight'], hello:['今日去邊度格價？','Where are we shopping today?'],
-  syncTitle:['數據同步','Data sync'], syncDesc:['用 Google 登入之後，你哋兩部電話嘅數據會即時同步，冇網絡時都照用，返到有網絡自動上傳。','Sign in with Google and both phones stay in sync instantly. Works offline and uploads when back online.'],
-  signIn:['用 Google 登入並開始同步','Sign in with Google to sync'], signOut:['登出（停止同步）','Sign out (stop syncing)'],
-  sOff:['未開啟','Off'], sConnecting:['連接中…','Connecting…'], sSynced:['已同步','Synced'], sSyncing:['同步中…','Syncing…'], sOffline:['離線（稍後自動上傳）','Offline (will upload later)'], sError:['同步出錯','Sync error'],
-  notAllowed:['呢個 Google 帳戶未獲准使用同步','This Google account is not allowed to sync'], signInFail:['登入失敗，請再試','Sign-in failed, please try again'],
-  signedInAs:['已登入：','Signed in: '], wipeSynced:['同步開咗時唔可以喺度刪除全部數據（會刪埋對方嘅）。請先登出。','Cannot delete all data while syncing (it would delete the other phone too). Sign out first.'],
-  dupName:['已經有同名產品，直接用返：','Item already exists, using: '],
-  merged:['已將呢部電話嘅數據合併到共用數據庫','Merged this phone\'s data into the shared database']
+  photoNoCode:['相入面搵唔到 barcode','No barcode found in the photo'], photoFail:['讀唔到相片','Couldn\'t read the photo'],
+  takePhoto:['影相','Take photo'], photo:['相片','Photo'], photoHint:['網上搵到相就唔使影；影嘅相會壓縮後存入雲端','No need to shoot if a web photo was found; photos are compressed and saved to the cloud'], unnamed:['（未命名）','(unnamed)'], loose:['散裝','loose'], records:['筆紀錄','records'], items:['件產品','items'], off:['折','off']
 };
 const I18NF = {
-  vLow:[(d,m,s)=>`汪！歷史新低！比之前最低（${m}，${s}）平 ${d}`,(d,m,s)=>`Woof! New all-time low — ${d} cheaper than the previous low (${m}, ${s})`],
+  vLow:[(d,m,s)=>`汪！歷史新低！比之前最低（${m}，${s}）平 ${d}`,(d,m,s)=>`Woof! New all-time low — ${d} below the previous low (${m}, ${s})`],
   vEq:[(s,dt)=>`同歷史最低一樣（${s}，${dt}）`,(s,dt)=>`Same as the all-time low (${s}, ${dt})`],
   vHigh:[(d,p,m,s,dt)=>`比歷史最低 ${m}（${s}，${dt}）貴 ${d}（+${p}%）`,(d,p,m,s,dt)=>`${d} (+${p}%) above the all-time low of ${m} (${s}, ${dt})`],
-  cmpMissing:[w=>`以下產品缺少${w}，未能比較：`,w=>`Missing ${w}, can't compare: `],
-  dataCount:[(p,r)=>`${p} 件產品 · ${r} 筆價錢紀錄`,(p,r)=>`${p} items · ${r} price records`],
-  imported:[(p,r)=>`已匯入 ${p} 件產品、${r} 筆新價錢`,(p,r)=>`Imported ${p} items, ${r} new prices`],
-  itemsAt:[(n,pr)=>`${n} 件 ${pr}`,(n,pr)=>`${n} for ${pr}`],
-  recCount:[n=>`全部紀錄（${n}）`,n=>`All records (${n})`]
+  itemsAt:[(n,pr)=>`${n} 件 ${pr}`,(n,pr)=>`${n} for ${pr}`], count:[(i,o)=>`${i} 件產品 · ${o} 筆價錢`,(i,o)=>`${i} items · ${o} prices`],
+  ago:[d=>d<=0?'今日':d===1?'琴日':`${d} 日前`,d=>d<=0?'today':d===1?'yesterday':`${d} days ago`]
 };
 let LANG = lsGet('lang') || ((navigator.language || '').toLowerCase().startsWith('zh') ? 'zh' : 'en');
 const LI = () => LANG === 'zh' ? 0 : 1;
 const t = k => (I18N[k] || [k, k])[LI()];
 const tf = (k, ...a) => I18NF[k][LI()](...a);
+const CATS = [['水果蔬菜','Produce'],['肉類','Meat'],['海鮮','Seafood'],['奶類蛋','Dairy & eggs'],['麵包','Bakery'],['米麵乾貨','Rice, noodles & pantry'],['調味醬料','Sauces & seasoning'],['早餐穀物','Breakfast'],['零食','Snacks'],['飲品','Drinks'],['急凍','Frozen'],['清潔用品','Household cleaning'],['個人護理','Personal care'],['其他','Other']];
+const catLabel = c => { const f = CATS.find(x => x[0] === c); return f ? f[LI()] : (c || ''); };
+const itemName = it => LANG === 'en' && it.en ? it.en : (it.name || it.en || t('unnamed'));
+const itemSub = it => LANG === 'en' ? (it.name && it.en ? it.name : '') : (it.en || '');
 function applyStatic() {
   document.documentElement.lang = LANG === 'zh' ? 'zh-Hant' : 'en';
   document.querySelectorAll('[data-t]').forEach(el => el.textContent = t(el.dataset.t));
@@ -276,21 +257,23 @@ function dog(mood = 'happy', acc = '', cls = '') {
     ${extra}</svg>`;
 }
 
+
+
 function toast(msg, ms = 2600) {
   const el = $('#toast'); el.textContent = msg; el.classList.add('show');
   clearTimeout(toast._t); toast._t = setTimeout(() => el.classList.remove('show'), ms);
 }
 
-/* ---------- IndexedDB ---------- */
+/* ---------- Local database (mirror of the shared Firestore data) ---------- */
 let db;
 function openDB() {
   return new Promise((res, rej) => {
-    const r = indexedDB.open('gaakgaa', 1);
+    const r = indexedDB.open('pricepup', 1);
     r.onupgradeneeded = () => {
       const d = r.result;
-      d.createObjectStore('products', { keyPath: 'id' });
-      const p = d.createObjectStore('prices', { keyPath: 'id', autoIncrement: true });
-      p.createIndex('productId', 'productId');
+      d.createObjectStore('items', { keyPath: 'id' });
+      const o = d.createObjectStore('obs', { keyPath: 'id' });
+      o.createIndex('itemId', 'itemId');
     };
     r.onsuccess = () => { db = r.result; res(); };
     r.onerror = () => rej(r.error);
@@ -302,13 +285,72 @@ const getAll = s => p2(store(s).getAll());
 const getOne = (s, k) => p2(store(s).get(k));
 const putOne = (s, v) => p2(store(s, 'readwrite').put(v));
 const delOne = (s, k) => p2(store(s, 'readwrite').delete(k));
-const pricesFor = id => p2(store('prices').index('productId').getAll(id));
-const newId = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2));
-// Every change goes to the phone first, then (if signed in) to the shared Firestore database.
-async function save(name, obj) { await putOne(name, obj); remotePut(name, obj); }
-async function remove(name, id) { await delOne(name, id); remoteDel(name, id); }
+const obsFor = id => p2(store('obs').index('itemId').getAll(id));
+async function save(name, obj) { obj.updated = Date.now(); await putOne(name, obj); remotePut(name, obj); }
 
-/* ---------- Family sync (Firebase Firestore, realtime) ---------- */
+/* ---------- Units & unit prices ---------- */
+const UNITS = { mL:{b:'mL',f:1}, L:{b:'mL',f:1000}, g:{b:'g',f:1}, kg:{b:'g',f:1000}, lb:{b:'g',f:LB_G}, oz:{b:'g',f:28.3495}, count:{b:'count',f:1} };
+const money = n => (n == null || isNaN(n)) ? '—' : '$' + Number(n).toFixed(2);
+const eachPrice = o => o.price / (o.multi || 1);
+// Unit price of one observation, in the item's comparison unit. Returns {v, label, key} or null.
+function unitPrice(it, o) {
+  const p = eachPrice(o);
+  if (it.mode === 'weight') {
+    let perLb = o.per === 'kg' ? p * LB_G / 1000 : p;
+    if (o.per === 'pack') { // a bagged/packed variant of a loose item, e.g. a 3 lb bag of lemons
+      const va = (it.variants || {})[o.vid], u = va && UNITS[va.unit];
+      if (!u || u.b !== 'g' || !(va.size > 0)) return null;
+      perLb = p / (va.size * u.f) * LB_G;
+    }
+    return { v: perLb, label: '/lb', key: 'lb', alt: `$${(perLb / LB_G * 1000).toFixed(2)}/kg` };
+  }
+  const va = (it.variants || {})[o.vid];
+  if (!va) return null;
+  if (it.cmpUses && va.uses > 0) return { v: p / va.uses, label: t('perUse'), key: 'use' };
+  const u = UNITS[va.unit]; if (!u || !(va.size > 0)) return null;
+  const amt = va.size * u.f;
+  if (u.b === 'mL') return { v: p / amt * 1000, label: '/L', key: 'L' };
+  if (u.b === 'g') return { v: p / amt * 1000, label: '/kg', key: 'kg', alt: `$${(p / amt * LB_G).toFixed(2)}/lb` };
+  return { v: p / amt, label: t('perPc'), key: 'pc' };
+}
+const fmtU = u => u ? `$${u.v < 0.1 ? u.v.toFixed(3) : u.v.toFixed(2)}${u.label}` : '';
+const variantText = (it, vid) => {
+  const va = (it.variants || {})[vid]; if (!va) return it.mode === 'weight' ? t('loose') : '';
+  const sz = va.size ? `${+va.size}${va.unit === 'count' ? ' ' + t('unitCount') : ' ' + va.unit}` : '';
+  return [va.brand, va.desc, sz, va.uses ? `${va.uses}${LANG === 'zh' ? ' 次' : ' uses'}` : ''].filter(Boolean).join(' · ');
+};
+const priceText = (it, o) => (o.multi > 1 ? tf('itemsAt', o.multi, money(o.price)) : money(o.price)) + (it.mode === 'weight' && o.per !== 'pack' ? (o.per === 'kg' ? '/kg' : '/lb') : '');
+
+// Summary of an item's observations, compared by unit price.
+function summarize(it, obs) {
+  const rows = obs.map(o => ({ o, u: unitPrice(it, o) })).filter(r => r.u);
+  if (!rows.length) return null;
+  const byDate = (a, b) => a.o.date < b.o.date ? 1 : a.o.date > b.o.date ? -1 : (b.o.ts || 0) - (a.o.ts || 0);
+  rows.sort(byDate);
+  // compare only within the most common unit key (e.g. /L vs /kg can't be compared)
+  const keyCount = {}; rows.forEach(r => keyCount[r.u.key] = (keyCount[r.u.key] || 0) + 1);
+  const key = Object.keys(keyCount).sort((a, b) => keyCount[b] - keyCount[a])[0];
+  const R = rows.filter(r => r.u.key === key);
+  let low = R[0]; for (const r of R) if (r.u.v < low.u.v - 1e-9) low = r;
+  const recent = R.filter(r => daysAgo(r.o.date) <= 30);
+  const latestPer = {}; // latest per store+variant within 30 days
+  for (const r of recent) { const k = r.o.store + '|' + (r.o.vid || ''); if (!latestPer[k]) latestPer[k] = r; }
+  const board = Object.values(latestPer).sort((a, b) => a.u.v - b.u.v);
+  return { rows: R, low, best: board[0] || null, board, key };
+}
+function verdict(it, o, sum) {
+  const u = unitPrice(it, o);
+  if (!u || !(o.price > 0)) return { cls: 'none', mood: 'sniff', acc: 'glass', text: t('vType') };
+  if (!sum) return { cls: 'none', mood: 'normal', acc: 'tag', text: t('vFirst'), u };
+  const m = sum.low.u.v, d = u.v - m, st = esc(sum.low.o.store || ''), dt = fmtDate(sum.low.o.date);
+  const f = v => fmtU({ v, label: u.label });
+  if (d < -0.0004) return { cls: 'good', mood: 'happy', acc: 'party', text: tf('vLow', f(-d), f(m), st), u };
+  if (Math.abs(d) <= 0.0004) return { cls: 'eq', mood: 'happy', acc: '', text: tf('vEq', st, dt), u };
+  return { cls: 'bad', mood: 'sad', acc: d / m > 0.15 ? 'tear' : '', text: tf('vHigh', f(d), Math.round(d / m * 100), f(m), st, dt), u };
+}
+const verdictHtml = (v, sub = '') => `<div class="verdict ${v.cls}">${dog(v.mood, v.acc)}<div>${v.text}${sub ? `<div class="muted" style="font-weight:500;margin-top:3px">${sub}</div>` : ''}</div></div>`;
+
+/* ---------- Data sync (Firebase Firestore, realtime) ---------- */
 const FB_CONFIG = { apiKey: 'AIzaSyCBHCl3Wd-hCblhagOwfcdUuRRFG3uxZqo', authDomain: 'pricepup-b02ce.firebaseapp.com', projectId: 'pricepup-b02ce',
   storageBucket: 'pricepup-b02ce.firebasestorage.app', messagingSenderId: '809962807683', appId: '1:809962807683:web:4679d6222913b15a4dd6b6' };
 const HOUSEHOLD = 'silver-sumina';
@@ -337,19 +379,14 @@ function remotePut(name, obj) {
   const { id, ...data } = obj;
   fb.F.setDoc(docRef(name, id), clean(data)).catch(e => setSync('error', e.code));
 }
-function remoteDel(name, id) {
-  if (!syncOn()) return;
-  fb.F.deleteDoc(docRef(name, id)).catch(e => setSync('error', e.code));
-}
 function setSync(st, detail) {
   syncState = st;
   const b = $('#syncBadge');
-  if (st === 'off') { b.classList.add('hidden'); }
+  if (st === 'off') b.classList.add('hidden');
   else {
     b.classList.remove('hidden');
     b.className = st === 'synced' ? 'ok' : (st === 'error' || st === 'offline') ? 'warn' : '';
     b.textContent = { connecting: '☁️ …', synced: '☁️ ✓', syncing: '☁️ ↻', offline: '☁️ ✕', error: '☁️ !' }[st] || '☁️';
-    b.title = syncLabel();
   }
   if (detail) console.warn('sync', detail);
   const el = $('#syncStatus'); if (el) el.textContent = syncLabel();
@@ -360,46 +397,16 @@ async function onAuth(user) {
   if (!user) { fbUser = null; setSync('off'); if (location.hash === '#settings') viewSettings(); return; }
   if (!ALLOWED.includes((user.email || '').toLowerCase())) { toast(t('notAllowed')); await fb.A.signOut(fb.auth); return; }
   fbUser = user; lsSet('sync', '1'); setSync('connecting');
-  try { await mergeLocalIntoRemote(); } catch (e) { setSync('error', e.code || e.message); }
   startListeners();
   if (location.hash === '#settings') viewSettings();
-}
-// First sign-in on a phone: push anything only this phone has; give old records global IDs;
-// reuse the shared copy of a no-barcode item with the same name instead of duplicating it.
-async function mergeLocalIntoRemote() {
-  const [rp, rr] = await Promise.all([fb.F.getDocs(col('products')), fb.F.getDocs(col('prices'))]);
-  const remoteProds = new Map(rp.docs.map(d => [d.id, d.data()]));
-  const remotePrices = new Set(rr.docs.map(d => d.id));
-  const byName = new Map([...remoteProds].map(([id, p]) => [String(p.name || '').trim().toLowerCase() + '|' + (p.basis || 'item'), id]));
-  const remap = {};
-  let n = 0;
-  for (const p of await getAll('products')) {
-    if (remoteProds.has(p.id)) continue;
-    const k = String(p.name || '').trim().toLowerCase() + '|' + (p.basis || 'item');
-    if (p.id.startsWith('M') && byName.has(k)) { remap[p.id] = byName.get(k); await delOne('products', p.id); continue; }
-    remotePut('products', p); n++;
-  }
-  for (const x of await getAll('prices')) {
-    let rec = x;
-    if (typeof x.id !== 'string' || remap[x.productId]) {
-      await delOne('prices', x.id);
-      rec = { ...x, id: typeof x.id === 'string' ? x.id : newId(), productId: remap[x.productId] || x.productId };
-      await putOne('prices', rec);
-    }
-    if (!remotePrices.has(rec.id)) { remotePut('prices', rec); n++; }
-  }
-  if (n) toast(t('merged'));
 }
 let rerenderT = null;
 function scheduleRerender() {
   clearTimeout(rerenderT);
-  rerenderT = setTimeout(() => {
-    const r = location.hash.slice(1).split('/')[0];
-    if (['', 'home', 'product', 'compare'].includes(r)) route(true);
-  }, 300);
+  rerenderT = setTimeout(() => { const r = location.hash.slice(1).split('/')[0]; if (['', 'home', 'item', 'deals'].includes(r)) route(true); }, 300);
 }
 function startListeners() {
-  for (const name of ['products', 'prices']) {
+  for (const name of ['items', 'obs']) {
     unsubs.push(fb.F.onSnapshot(col(name), { includeMetadataChanges: true }, async snap => {
       let changed = false;
       for (const ch of snap.docChanges()) {
@@ -424,136 +431,62 @@ async function signIn() {
     }
   } catch (e) { console.warn(e); toast(t('signInFail')); }
 }
-async function signOutSync() {
-  lsSet('sync', '0'); stopListeners();
-  if (fb) await fb.A.signOut(fb.auth);
-  fbUser = null; setSync('off'); viewSettings();
-}
-
-/* ---------- Units & money ---------- */
-const UNITS = { mL:{base:'mL',f:1}, L:{base:'mL',f:1000}, g:{base:'g',f:1}, kg:{base:'g',f:1000}, count:{base:'count',f:1} };
-const isWeight = p => p.basis === 'lb' || p.basis === 'kg';
-const money = n => (n == null || isNaN(n)) ? '—' : '$' + Number(n).toFixed(2);
-const pMoney = (p, n) => money(n) + (p.basis === 'lb' ? '/lb' : p.basis === 'kg' ? '/kg' : '');
-function unitPrice(prod, price, basis) {
-  if (price == null) return null;
-  if (isWeight(prod)) return { v: prod.basis === 'lb' ? price / LB_G * 1000 : price, label: '/kg', base: 'g' };
-  if (basis === 'uses') return prod.uses > 0 ? { v: price / prod.uses, label: t('perUse'), base: 'uses' } : null;
-  const u = UNITS[prod.unit]; if (!u || !(prod.size > 0)) return null;
-  const amt = prod.size * u.f;
-  if (u.base === 'g') return { v: price / amt * 1000, label: '/kg', base: 'g' };
-  if (u.base === 'mL') return { v: price / amt * 100, label: '/100mL', base: 'mL' };
-  return { v: price / amt, label: t('perPc'), base: 'count' };
-}
-const fmtUnit = up => up ? `$${up.v < 0.1 ? up.v.toFixed(3) : up.v.toFixed(2)}${up.label}` : '';
-function sizeText(p) {
-  if (isWeight(p)) return t('byWeight');
-  return [p.size ? `${+p.size}${p.unit === 'count' ? ' ' + t('pcs') : ' ' + p.unit}` : '', p.uses ? `${p.uses} ${t('uses')}` : ''].filter(Boolean).join(' · ');
-}
-// weight items show the other unit ($/lb ↔ $/kg); packs show unit prices
-function extraUnit(p, v) {
-  if (p.basis === 'lb') return fmtUnit(unitPrice(p, v));
-  if (p.basis === 'kg') return `$${(v * LB_G / 1000).toFixed(2)}/lb`;
-  return [fmtUnit(unitPrice(p, v)), p.uses ? fmtUnit(unitPrice(p, v, 'uses')) : ''].filter(Boolean).join(' · ');
-}
-
-function parseQty(s) {
-  if (!s) return null;
-  s = s.toLowerCase().replace(/(\d),(\d)/g, '$1.$2');
-  const nu = u => ({ ml:'mL', cl:'mL', l:'L', g:'g', kg:'kg' }[u]);
-  let m = s.match(/(\d+)\s*[x×]\s*(\d+(?:\.\d+)?)\s*(ml|cl|l|g|kg)\b/);
-  if (m) { let v = +m[1] * +m[2]; if (m[3] === 'cl') v *= 10; return { size: +v.toFixed(3), unit: nu(m[3]) }; }
-  m = s.match(/(\d+(?:\.\d+)?)\s*(ml|cl|l|g|kg)\b/);
-  if (m) { let v = +m[1]; if (m[2] === 'cl') v *= 10; return { size: v, unit: nu(m[2]) }; }
-  return null;
-}
-
-/* ---------- Barcode + product lookup ---------- */
-function normCode(raw) {
-  const d = String(raw || '').replace(/\D/g, '');
-  if (!d) return '';
-  return d.length === 12 ? '0' + d : d;
-}
-async function lookupProduct(code) {
-  const hosts = ['world.openfoodfacts.org', 'world.openproductsfacts.org', 'world.openbeautyfacts.org'];
-  for (const h of hosts) {
-    try {
-      const r = await fetch(`https://${h}/api/v2/product/${code}.json?fields=product_name,product_name_en,product_name_fr,brands,quantity,image_front_small_url`,
-        { signal: AbortSignal.timeout ? AbortSignal.timeout(7000) : undefined });
-      if (!r.ok) continue;
-      const j = await r.json();
-      if (j.status === 1 && j.product) {
-        const p = j.product;
-        return { name: p.product_name || p.product_name_en || p.product_name_fr || '', brand: (p.brands || '').split(',')[0].trim(),
-                 quantity: p.quantity || '', image: p.image_front_small_url || '' };
-      }
-    } catch (e) { /* try next */ }
-  }
-  return null;
-}
-
-/* ---------- Stats ---------- */
-function stats(prices) {
-  if (!prices.length) return null;
-  const sorted = [...prices].sort((a, b) => a.date < b.date ? 1 : a.date > b.date ? -1 : (b.ts || 0) - (a.ts || 0));
-  let min = sorted[0];
-  for (const p of sorted) if (eff(p) < eff(min) - 1e-9) min = p;
-  const stores = {};
-  for (const p of sorted) {
-    const k = p.store || t('noStore');
-    const s = stores[k] || (stores[k] = { store: k, min: p, last: p, n: 0 });
-    s.n++; if (eff(p) < eff(s.min) - 1e-9) s.min = p;
-  }
-  return { latest: sorted[0], min, sorted, stores: Object.values(stores).sort((a, b) => eff(a.min) - eff(b.min)) };
-}
-function verdict(prod, price, prior) {
-  if (!(price > 0)) return { cls: 'none', mood: 'sniff', acc: 'glass', text: t('vType') };
-  if (!prior) return { cls: 'none', mood: 'normal', acc: 'tag', text: t('vFirst') };
-  const m = eff(prior.min), d = price - m, st = esc(prior.min.store || ''), dt = fmtDate(prior.min.date);
-  if (d < -0.004) return { cls: 'good', mood: 'happy', acc: 'party', text: tf('vLow', pMoney(prod, -d), pMoney(prod, m), st) };
-  if (Math.abs(d) <= 0.004) return { cls: 'eq', mood: 'happy', acc: '', text: tf('vEq', st, dt) };
-  return { cls: 'bad', mood: 'sad', acc: d / m > 0.15 ? 'tear' : '', text: tf('vHigh', pMoney(prod, d), Math.round(d / m * 100), pMoney(prod, m), st, dt) };
-}
-const verdictHtml = (v, pre = '', sub = '') => `<div class="verdict ${v.cls}">${dog(v.mood, v.acc)}<div>${pre}${v.text}${sub ? `<div class="muted" style="font-weight:500;margin-top:3px">${sub}</div>` : ''}</div></div>`;
+async function signOutSync() { lsSet('sync', '0'); stopListeners(); if (fb) await fb.A.signOut(fb.auth); fbUser = null; setSync('off'); viewSettings(); }
 
 /* ---------- Image helpers ---------- */
 async function loadBitmap(file) {
   try { return await createImageBitmap(file, { imageOrientation: 'from-image' }); }
   catch (e) { return await createImageBitmap(file); }
 }
-async function thumbFrom(file, max = 320) {
+async function thumbFrom(file, max = 240) {
   const img = await loadBitmap(file);
   const s = Math.min(1, max / Math.max(img.width, img.height));
   const c = document.createElement('canvas'); c.width = Math.round(img.width * s); c.height = Math.round(img.height * s);
   c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-  return c.toDataURL('image/jpeg', 0.72);
+  return c.toDataURL('image/jpeg', 0.7);
 }
-function pickFile(input) {
-  return new Promise(res => { input.value = ''; input.onchange = () => res(input.files[0] || null); input.click(); });
+function pickFile(input) { return new Promise(res => { input.value = ''; input.onchange = () => res(input.files[0] || null); input.click(); }); }
+const thumb = (src, emoji = '🛒') => src ? `<img class="thumb" src="${esc(src)}" alt="" loading="lazy">` : `<div class="thumb">${emoji}</div>`;
+const itemPhoto = it => it.photo || Object.values(it.variants || {}).map(v => v.photo).find(Boolean) || '';
+const itemEmoji = it => ({ '水果蔬菜':'🥬','肉類':'🥩','海鮮':'🐟','奶類蛋':'🥛','麵包':'🍞','米麵乾貨':'🍚','調味醬料':'🧂','早餐穀物':'🥣','零食':'🍪','飲品':'🧃','急凍':'🧊','清潔用品':'🧴','個人護理':'🧼' }[it.cat] || '🛒');
+
+/* ---------- Barcode lookup ---------- */
+function normCode(raw) { const d = String(raw || '').replace(/\D/g, ''); return !d ? '' : d.length === 12 ? '0' + d : d; }
+async function lookupProduct(code) {
+  for (const h of ['world.openfoodfacts.org', 'world.openproductsfacts.org', 'world.openbeautyfacts.org']) {
+    try {
+      const r = await fetch(`https://${h}/api/v2/product/${code}.json?fields=product_name,product_name_en,brands,quantity,image_front_small_url`, { signal: AbortSignal.timeout ? AbortSignal.timeout(7000) : undefined });
+      if (!r.ok) continue;
+      const j = await r.json();
+      if (j.status === 1 && j.product) { const p = j.product; return { name: p.product_name || p.product_name_en || '', brand: (p.brands || '').split(',')[0].trim(), quantity: p.quantity || '', image: p.image_front_small_url || '' }; }
+    } catch (e) {}
+  }
+  return null;
+}
+function parseQty(s) {
+  if (!s) return null;
+  s = s.toLowerCase().replace(/(\d),(\d)/g, '$1.$2');
+  const nu = u => ({ ml:'mL', cl:'mL', l:'L', g:'g', kg:'kg', lb:'lb', oz:'oz' }[u]);
+  let m = s.match(/(\d+)\s*[x×]\s*(\d+(?:\.\d+)?)\s*(ml|cl|l|g|kg)\b/);
+  if (m) { let v = +m[1] * +m[2]; if (m[3] === 'cl') v *= 10; return { size: +v.toFixed(3), unit: nu(m[3]) }; }
+  m = s.match(/(\d+(?:\.\d+)?)\s*(ml|cl|l|g|kg|lb|oz)\b/);
+  if (m) { let v = +m[1]; if (m[2] === 'cl') v *= 10; return { size: v, unit: nu(m[2]) }; }
+  return null;
+}
+async function findBarcode(code) {
+  for (const it of await getAll('items')) for (const [vid, va] of Object.entries(it.variants || {})) if (va.barcode === code) return { it, vid };
+  return null;
 }
 
-/* ---------- Scanner (Android Chrome BarcodeDetector) ---------- */
-let scanStream = null, scanTimer = null, detector = null, torchOn = false, zx = null, zxActive = false;
-// iPhone Safari has no built-in BarcodeDetector, so use the free ZXing library there instead.
+/* ---------- Scanner (BarcodeDetector on Android, ZXing on iPhone) ---------- */
+let scanStream = null, scanTimer = null, detector = null, torchOn = false, zxCore = null, zxCanvas = null, scanCb = null;
 const ZX_URL = 'https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js';
-function zxReader() {
-  const Z = window.ZXing, hints = new Map();
-  hints.set(Z.DecodeHintType.POSSIBLE_FORMATS, [Z.BarcodeFormat.EAN_13, Z.BarcodeFormat.EAN_8, Z.BarcodeFormat.UPC_A, Z.BarcodeFormat.UPC_E, Z.BarcodeFormat.CODE_128]);
-  hints.set(Z.DecodeHintType.TRY_HARDER, true);
-  return new Z.BrowserMultiFormatReader(hints, 250);
-}
+function loadScript(src) { return new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = () => rej(new Error('load ' + src)); document.head.appendChild(s); }); }
 async function loadZx() { if (!window.ZXing) await loadScript(ZX_URL); }
-// Decode one full-resolution camera frame (ZXing's own video helper scales frames down too far).
-let zxCore = null, zxCanvas = null;
+function zxHints() { const Z = window.ZXing, h = new Map(); h.set(Z.DecodeHintType.POSSIBLE_FORMATS, [Z.BarcodeFormat.EAN_13, Z.BarcodeFormat.EAN_8, Z.BarcodeFormat.UPC_A, Z.BarcodeFormat.UPC_E, Z.BarcodeFormat.CODE_128]); h.set(Z.DecodeHintType.TRY_HARDER, true); return h; }
 function zxDecodeFrame(src, w, h) {
   const Z = window.ZXing;
-  if (!zxCore) {
-    zxCore = new Z.MultiFormatReader();
-    const hints = new Map();
-    hints.set(Z.DecodeHintType.POSSIBLE_FORMATS, [Z.BarcodeFormat.EAN_13, Z.BarcodeFormat.EAN_8, Z.BarcodeFormat.UPC_A, Z.BarcodeFormat.UPC_E, Z.BarcodeFormat.CODE_128]);
-    hints.set(Z.DecodeHintType.TRY_HARDER, true);
-    zxCore.setHints(hints);
-  }
+  if (!zxCore) { zxCore = new Z.MultiFormatReader(); zxCore.setHints(zxHints()); }
   zxCanvas = zxCanvas || document.createElement('canvas');
   const s = Math.min(1, 1280 / Math.max(w, h));
   zxCanvas.width = Math.round(w * s); zxCanvas.height = Math.round(h * s);
@@ -570,7 +503,9 @@ async function getDetector() {
   detector = new BarcodeDetector({ formats: fmts.length ? fmts : want });
   return detector;
 }
-async function openScanner() {
+// cb(code) is called once with the scanned barcode; default opens that product.
+async function openScanner(cb) {
+  scanCb = cb || handleBarcode;
   $('#scanner').classList.remove('hidden');
   $('#manualCode').value = '';
   $('#scanDog').innerHTML = dog('sniff', 'glass', 'bounce');
@@ -578,19 +513,17 @@ async function openScanner() {
   const det = await getDetector();
   msg.textContent = t('scanAim');
   if (!det) { try { await loadZx(); } catch (e) { msg.textContent = t('scanNo'); return; } }
-  try {
-    scanStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
-  } catch (e) { msg.textContent = t('scanCam'); return; }
+  try { scanStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false }); }
+  catch (e) { msg.textContent = t('scanCam'); return; }
   const v = $('#scanVideo'); v.srcObject = scanStream; await v.play().catch(() => {});
-  const track = scanStream.getVideoTracks()[0];
-  const caps = track.getCapabilities ? track.getCapabilities() : {};
+  const caps = scanStream.getVideoTracks()[0].getCapabilities ? scanStream.getVideoTracks()[0].getCapabilities() : {};
   $('#torchBtn').style.display = caps.torch ? '' : 'none';
   const tick = async () => {
     if (!scanStream) return;
     try {
       if (v.readyState >= 2) {
         const val = det ? ((await det.detect(v))[0] || {}).rawValue : zxDecodeFrame(v, v.videoWidth, v.videoHeight);
-        if (val) { closeScanner(); navigator.vibrate && navigator.vibrate(60); handleBarcode(val); return; }
+        if (val) { const cb2 = scanCb; closeScanner(); navigator.vibrate && navigator.vibrate(60); cb2(val); return; }
       }
     } catch (e) {}
     scanTimer = setTimeout(tick, det ? 150 : 200);
@@ -599,52 +532,42 @@ async function openScanner() {
 }
 function closeScanner() {
   clearTimeout(scanTimer);
-  if (zxActive && zx) { try { zx.reset(); } catch (e) {} zxActive = false; }
   if (scanStream) { scanStream.getTracks().forEach(tr => tr.stop()); scanStream = null; }
   $('#scanVideo').srcObject = null;
   $('#scanner').classList.add('hidden');
   torchOn = false;
 }
-$('#torchBtn').onclick = async () => {
-  if (!scanStream) return;
-  torchOn = !torchOn;
-  try { await scanStream.getVideoTracks()[0].applyConstraints({ advanced: [{ torch: torchOn }] }); } catch (e) {}
-};
+$('#torchBtn').onclick = async () => { if (!scanStream) return; torchOn = !torchOn; try { await scanStream.getVideoTracks()[0].applyConstraints({ advanced: [{ torch: torchOn }] }); } catch (e) {} };
 $('#closeScanBtn').onclick = () => { closeScanner(); if (location.hash === '#scan') location.hash = '#home'; };
-$('#manualGo').onclick = () => { const c = $('#manualCode').value; if (!normCode(c)) return toast(t('needCode')); closeScanner(); handleBarcode(c); };
+$('#manualGo').onclick = () => { const c = $('#manualCode').value; if (!normCode(c)) return toast(t('needCode')); const cb2 = scanCb || handleBarcode; closeScanner(); cb2(c); };
 $('#photoScanBtn').onclick = async () => {
   const det = await getDetector();
   const f = await pickFile($('#fileBarcode')); if (!f) return;
+  const cb2 = scanCb || handleBarcode;
   if (!det) {
     const url = URL.createObjectURL(f);
-    try { await loadZx(); const res = await zxReader().decodeFromImageUrl(url); closeScanner(); handleBarcode(res.getText()); }
+    try { await loadZx(); const r = new window.ZXing.BrowserMultiFormatReader(zxHints()); const res = await r.decodeFromImageUrl(url); closeScanner(); cb2(res.getText()); }
     catch (e) { toast(window.ZXing ? t('photoNoCode') : t('noDetect')); }
     finally { URL.revokeObjectURL(url); }
     return;
   }
-  try {
-    const codes = await det.detect(await loadBitmap(f));
-    if (codes.length) { closeScanner(); handleBarcode(codes[0].rawValue); }
-    else toast(t('photoNoCode'));
-  } catch (e) { toast(t('photoFail')); }
+  try { const codes = await det.detect(await loadBitmap(f)); if (codes.length) { closeScanner(); cb2(codes[0].rawValue); } else toast(t('photoNoCode')); }
+  catch (e) { toast(t('photoFail')); }
 };
 async function handleBarcode(raw) {
   const code = normCode(raw);
   if (!code) return toast(t('badCode'));
-  const p = await getOne('products', code);
-  location.hash = p ? `#product/${encodeURIComponent(code)}` : `#new/${encodeURIComponent(code)}`;
+  const hit = await findBarcode(code);
+  location.hash = hit ? `#add/${encodeURIComponent(hit.it.id)}/${encodeURIComponent(hit.vid)}` : `#pick/${code}`;
 }
 
-/* ---------- OCR (Tesseract.js, runs on the phone, free) ---------- */
+/* ---------- OCR (Tesseract.js, on the phone, free) ---------- */
 let ocrWorker = null;
-function loadScript(src) {
-  return new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = () => rej(new Error('load ' + src)); document.head.appendChild(s); });
-}
 async function getOcr() {
   if (ocrWorker) return ocrWorker;
   if (!window.Tesseract) await loadScript('https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js');
   ocrWorker = await Tesseract.createWorker('eng');
-  await ocrWorker.setParameters({ tessedit_pageseg_mode: '11' }); // sparse text: suits shelf tags
+  await ocrWorker.setParameters({ tessedit_pageseg_mode: '11' });
   return ocrWorker;
 }
 async function prepForOcr(file, max) {
@@ -654,22 +577,14 @@ async function prepForOcr(file, max) {
   const ctx = c.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height); ctx.drawImage(img, 0, 0, c.width, c.height);
   return c;
 }
-// Read the tag at three sizes (big shelf digits read better when shrunk), merge candidates.
 async function readPriceTag(file, weightMode) {
-  const w = await getOcr();
-  const all = [];
-  for (const max of [1600, 960, 560]) {
-    const c = await prepForOcr(file, max);
-    const { data } = await w.recognize(c);
-    all.push(...extractPrices(data, c.height, weightMode));
-  }
+  const w = await getOcr(); const all = [];
+  for (const max of [1600, 960, 560]) { const c = await prepForOcr(file, max); const { data } = await w.recognize(c); all.push(...extractPrices(data, c.height, weightMode)); }
   const best = {};
   for (const c of all) { const k = c.price + 'x' + c.multi + (c.partial ? 'p' : '') + c.per; if (!best[k] || best[k].score < c.score) best[k] = c; }
   return Object.values(best).sort((a, b) => b.score - a.score).slice(0, 6);
 }
-// Pick likely shelf prices: the biggest-printed money values win. Scores are relative to image height.
-// weightMode: item sold by weight, so "$6.99/lb" prices are wanted rather than skipped as unit prices.
-function extractPrices(data, H = 1, weightMode = '') {
+function extractPrices(data, H = 1, weightMode = false) {
   const words = (data.words || []).map(w => ({ raw: w.text.trim(), h: (w.bbox.y1 - w.bbox.y0) / H, x0: w.bbox.x0 / H, x1: w.bbox.x1 / H, y0: w.bbox.y0 / H })).filter(w => w.raw);
   const out = [];
   const add = (price, multi, score, partial, per) => { if (price > 0 && price < 1000) out.push({ price: Math.round(price * 100) / 100, multi, score, partial: !!partial, per: per || '' }); };
@@ -688,395 +603,336 @@ function extractPrices(data, H = 1, weightMode = '') {
     if (unitLike.test(w.raw) || (nx && /^\/|^(ml|g|kg|l|lb|ea)$/i.test(nx.raw))) continue;
     let m = tt.match(/\$?(\d{1,3})[.,](\d{2})(?!\d)/);
     if (m) { add(+(m[1] + '.' + m[2]), 1, w.h * (tt.includes('$') ? 1.1 : 1)); continue; }
-    // superscript cents often read as ° " % * — keep the dollars, user types cents
     m = tt.match(/^\$?(\d{1,3})[°º"'%*^]+$/);
     if (m) { add(+m[1], 1, w.h * 1.05, true); continue; }
     m = tt.match(/^\$?(\d{1,3})$/);
     if (m) {
-      if (nx) {
-        const nt = nx.raw.replace(/[Oo]/g, '0').replace(/\D/g, '');
-        if (/^\d{2}$/.test(nt) && nx.h < w.h * 0.85 && nx.x0 - w.x1 < w.h && nx.y0 < w.y0 + w.h * 0.5) { add(+(m[1] + '.' + nt), 1, w.h * 1.05); i++; continue; }
-      }
+      if (nx) { const nt = nx.raw.replace(/[Oo]/g, '0').replace(/\D/g, ''); if (/^\d{2}$/.test(nt) && nx.h < w.h * 0.85 && nx.x0 - w.x1 < w.h && nx.y0 < w.y0 + w.h * 0.5) { add(+(m[1] + '.' + nt), 1, w.h * 1.05); i++; continue; } }
       if (m[1].length >= 3 && !tt.includes('$')) add(+m[1] / 100, 1, w.h * 0.6);
       else if (tt.includes('$')) add(+m[1], 1, w.h * 0.7);
     }
   }
-  // multi-buy: "2/$9", "2 for $9", "2 | $9.00" (slash often misread as | or ])
   const txt = data.text || '';
   const lineAt = i => txt.slice(txt.lastIndexOf('\n', i) + 1, (txt.indexOf('\n', i + 1) + 1 || txt.length + 1) - 1);
-  const rxs = [/(?:^|\n|[ \t])(\d{1,2})[ \t]*(?:\/|\||\]|for|pour)?[ \t]*\$[ \t]*(\d{1,3}(?:[.,]\d{2})?)/gi, /(\d{1,2})[ \t]*(?:\/|for|pour)[ \t]*\$?[ \t]*(\d{1,3}(?:[.,]\d{2})?)/gi];
-  for (const rx of rxs) {
-    let mm;
-    while ((mm = rx.exec(txt))) { const n = +mm[1]; if (n >= 2 && n <= 24 && !unitLike.test(lineAt(mm.index + 1))) add(+mm[2].replace(',', '.'), n, maxH * 1.2); }
+  for (const rx of [/(?:^|\n|[ \t])(\d{1,2})[ \t]*(?:\/|\||\]|for|pour)?[ \t]*\$[ \t]*(\d{1,3}(?:[.,]\d{2})?)/gi, /(\d{1,2})[ \t]*(?:\/|for|pour)[ \t]*\$?[ \t]*(\d{1,3}(?:[.,]\d{2})?)/gi]) {
+    let mm; while ((mm = rx.exec(txt))) { const n = +mm[1]; if (n >= 2 && n <= 24 && !unitLike.test(lineAt(mm.index + 1))) add(+mm[2].replace(',', '.'), n, maxH * 1.2); }
   }
   return out;
 }
 
 /* ---------- Views ---------- */
-function setHeader(title, back) {
-  $('#title').textContent = title;
-  $('#backBtn').classList.toggle('hidden', !back);
-  $('#headDog').innerHTML = back ? '' : dog('happy');
-}
+function setHeader(title, back) { $('#title').textContent = title; $('#backBtn').classList.toggle('hidden', !back); $('#headDog').innerHTML = back ? '' : dog('happy'); }
 $('#backBtn').onclick = () => history.length > 1 ? history.back() : (location.hash = '#home');
 function setTab(tb) { document.querySelectorAll('nav.tabs a').forEach(a => a.classList.toggle('on', a.dataset.tab === tb)); }
-const thumbHtml = p => (p.photo || p.image) ? `<img class="thumb" src="${esc(p.photo || p.image)}" alt="">` : `<div class="thumb">${isWeight(p) ? '🥩' : '🛒'}</div>`;
 
-async function allWithStats() {
-  const [prods, prices] = await Promise.all([getAll('products'), getAll('prices')]);
-  const by = {};
-  for (const p of prices) (by[p.productId] || (by[p.productId] = [])).push(p);
-  return prods.map(p => ({ p, s: stats(by[p.id] || []) }));
+async function loadAll() {
+  const [items, obs] = await Promise.all([getAll('items'), getAll('obs')]);
+  const by = {}; for (const o of obs) (by[o.itemId] || (by[o.itemId] = [])).push(o);
+  return { items, obs, by };
 }
 
 let homeQ = '';
 async function viewHome() {
   setHeader(t('appName')); setTab('home');
-  const list = await allWithStats();
-  list.sort((a, b) => ((b.s && b.s.latest.date) || b.p.created || '').localeCompare((a.s && a.s.latest.date) || a.p.created || ''));
+  const { items, by } = await loadAll();
+  const list = items.map(it => ({ it, s: summarize(it, by[it.id] || []), n: (by[it.id] || []).length }));
+  list.sort((a, b) => ((b.s && b.s.rows[0].o.date) || '').localeCompare((a.s && a.s.rows[0].o.date) || '') || itemName(a.it).localeCompare(itemName(b.it)));
   app.innerHTML = `
     <div class="hero">${dog('happy', 'tag', 'bounce')}<div class="bubble">${t('hello')}<small>${t('tagline')}</small></div></div>
     <button class="btn" id="goScan">${dog('sniff', 'glass')}<span>${t('scanBtn')}</span></button>
-    <button class="btn sec" id="goManual">${t('noBarcode')}</button>
+    <button class="btn sec" id="goLog">${t('logNoBarcode')}</button>
     <input id="q" type="search" placeholder="${esc(t('search'))}" value="${esc(homeQ)}" style="margin:4px 0 12px">
     <div class="card" id="list"></div>`;
-  $('#goScan').onclick = openScanner;
-  $('#goManual').onclick = () => location.hash = '#new/';
+  $('#goScan').onclick = () => openScanner();
+  $('#goLog').onclick = () => location.hash = '#pick/';
+  const hay = ({ it, s }) => [it.name, it.en, ...(it.aliases || []), catLabel(it.cat), ...Object.values(it.variants || {}).map(v => v.brand + ' ' + (v.desc || '')), s ? s.rows.map(r => r.o.store).join(' ') : ''].join(' ').toLowerCase();
   const render = () => {
-    homeQ = $('#q').value;
-    const q = homeQ.trim().toLowerCase();
-    const rows = list.filter(({ p, s }) => !q || [p.name, p.brand, p.category, p.id, s ? s.stores.map(x => x.store).join(' ') : ''].join(' ').toLowerCase().includes(q));
-    $('#list').innerHTML = rows.length ? rows.map(({ p, s }) => {
-      const ex = s ? extraUnit(p, eff(s.min)) : '';
-      return `<a class="item" href="#product/${encodeURIComponent(p.id)}">${thumbHtml(p)}
-        <div class="main"><div class="name">${esc(p.name || t('unnamed'))}</div><div class="muted">${esc([p.brand, sizeText(p), p.category].filter(Boolean).join(' · '))}</div></div>
-        <div class="price">${s ? pMoney(p, eff(s.min)) : '—'}<div class="muted">${s ? t('histLow') : t('noPrice')}${ex ? '<br>' + ex : ''}</div></div></a>`;
+    homeQ = $('#q').value; const q = homeQ.trim().toLowerCase();
+    const rows = list.filter(x => !q || hay(x).includes(q));
+    $('#list').innerHTML = rows.length ? rows.slice(0, 300).map(({ it, s }) => {
+      const b = s && (s.best || s.low);
+      return `<a class="item" href="#item/${encodeURIComponent(it.id)}">${thumb(itemPhoto(it), itemEmoji(it))}
+        <div class="main"><div class="name">${esc(itemName(it))}</div><div class="muted">${esc([itemSub(it), catLabel(it.cat)].filter(Boolean).join(' · '))}</div>
+        ${b ? `<div class="muted">${esc(b.o.store)}${b.o.sale ? ` · <span class="tag">${t('sale')}</span>` : ''}</div>` : ''}</div>
+        <div class="price">${b ? fmtU(b.u) : '—'}<div class="muted">${s ? (s.best ? t('bestNow') : t('histLow')) : t('noPrice')}</div></div></a>`;
     }).join('') : `<div class="empty">${dog(list.length ? 'sad' : 'sleep', list.length ? '' : 'z')}<div class="muted">${list.length ? t('noMatch') : t('emptyList')}</div></div>`;
   };
   $('#q').oninput = render; render();
 }
 
-async function viewProduct(id) {
-  const p = await getOne('products', id);
-  if (!p) { location.hash = '#home'; return; }
-  setHeader(p.name || t('unnamed'), true); setTab('home');
-  const prices = await pricesFor(id);
-  const s = stats(prices);
-  const latestV = s && s.sorted.length > 1 ? verdict(p, eff(s.latest), stats(s.sorted.filter(x => x !== s.latest))) : null;
-  const pm = v => pMoney(p, v);
-  const multiTxt = x => x.multi > 1 ? `<div class="muted">${tf('itemsAt', x.multi, money(x.price))}</div>` : '';
+async function viewItem(id) {
+  const it = await getOne('items', id);
+  if (!it) { location.hash = '#home'; return; }
+  setHeader(itemName(it), true); setTab('home');
+  const obs = await obsFor(id);
+  const s = summarize(it, obs);
+  const vars = Object.entries(it.variants || {});
   app.innerHTML = `
-    <div class="card"><div class="item" style="padding:0;border:0">${thumbHtml(p)}<div class="main">
-      <div class="name" style="white-space:normal">${esc(p.name || t('unnamed'))}</div>
-      <div class="muted">${esc([p.brand, sizeText(p), p.category].filter(Boolean).join(' · '))}</div>
-      <div class="muted">${p.id.startsWith('M') ? t('noBarcodeLbl') : 'Barcode ' + esc(p.id)}</div></div></div></div>
+    <div class="card"><div class="item" style="padding:0;border:0">${thumb(itemPhoto(it), itemEmoji(it))}<div class="main">
+      <div class="name" style="white-space:normal">${esc(itemName(it))}</div>
+      <div class="muted">${esc([itemSub(it), catLabel(it.cat)].filter(Boolean).join(' · '))}</div></div></div></div>
     <button class="btn" id="addPrice">${dog('normal', 'tag')}<span>${t('addPrice')}</span></button>
     ${s ? `
-    <div class="card">
-      <div class="row" style="align-items:flex-start"><div><div class="muted">${t('histLow')}</div><div class="big-num">${pm(eff(s.min))}</div>
-        <div class="muted">${esc(s.min.store || '')} · ${fmtDate(s.min.date)}</div>
-        <div class="muted">${extraUnit(p, eff(s.min))}</div></div>
-      <div><div class="muted">${t('latest')}</div><div class="big-num">${pm(eff(s.latest))}</div>
-        <div class="muted">${esc(s.latest.store || '')} · ${fmtDate(s.latest.date)}</div></div></div>
-      ${latestV ? verdictHtml(latestV, t('latestPrefix')) : ''}
+    <div class="card"><div class="row" style="align-items:flex-start">
+      <div><div class="muted">${t('histLow')}</div><div class="big-num">${fmtU(s.low.u)}</div>
+        <div class="muted">${esc(s.low.o.store)} · ${fmtDate(s.low.o.date)}</div><div class="muted">${esc(variantText(it, s.low.o.vid))} · ${priceText(it, s.low.o)}</div></div>
+      ${s.best ? `<div><div class="muted">${t('bestNow')}</div><div class="big-num">${fmtU(s.best.u)}</div>
+        <div class="muted">${esc(s.best.o.store)} · ${tf('ago', daysAgo(s.best.o.date))}</div><div class="muted">${esc(variantText(it, s.best.o.vid))}</div></div>` : ''}
+    </div></div>
+    <div class="card"><h2>🐾 ${t('byStore')}</h2>
+      ${s.board.length ? `<table><tr><th>${t('store')}</th><th class="r">${t('price')}</th><th class="r">${t('unitP')}</th></tr>
+      ${s.board.map((r, i) => `<tr><td>${esc(r.o.store)}${i === 0 && s.board.length > 1 ? `<span class="tag">🏆 ${t('cheapest')}</span>` : ''}${r.o.sale ? `<span class="tag">${t('sale')}</span>` : ''}
+        <div class="muted">${esc(variantText(it, r.o.vid))} · ${fmtDate(r.o.date)}</div></td>
+        <td class="r">${priceText(it, r.o)}${r.o.reg ? `<div class="muted">${t('reg')} ${money(r.o.reg)}</div>` : ''}</td>
+        <td class="r"><b>${fmtU(r.u)}</b>${r.u.alt ? `<div class="muted">${r.u.alt}</div>` : ''}</td></tr>`).join('')}</table>` : `<div class="muted">${t('noRecent')}</div>`}
     </div>
-    ${chartSvg(s.sorted, eff(s.min))}
-    <div class="card"><h2>🐾 ${t('storeLow')}</h2><table><tr><th>${t('store')}</th><th class="r">${t('lowest')}</th><th class="r">${t('latest')}</th></tr>
-      ${s.stores.map((x, i) => `<tr><td>${esc(x.store)}${i === 0 && s.stores.length > 1 ? `<span class="tag">${t('cheapest')}</span>` : ''}</td>
-        <td class="r">${pm(eff(x.min))}<div class="muted">${fmtDate(x.min.date)}</div></td>
-        <td class="r">${pm(eff(x.last))}<div class="muted">${fmtDate(x.last.date)}</div></td></tr>`).join('')}</table></div>
-    <div class="card"><h2>${tf('recCount', s.sorted.length)}</h2><table>
-      ${s.sorted.map(x => `<tr><td>${fmtDate(x.date)}<div class="muted">${esc(x.store || '')}${x.sale ? ' · ' + t('sale') : ''}${x.note ? ' · ' + esc(x.note) : ''}</div></td>
-        <td class="r">${pm(eff(x))}${multiTxt(x)}</td>
-        <td class="r" style="width:40px"><button class="btn sec small" data-del="${x.id}" style="margin:0;padding:4px 9px">✕</button></td></tr>`).join('')}
-    </table></div>` : `<div class="card empty">${dog('sniff', 'glass')}<div class="muted">${t('noRecords')}</div></div>`}
-    <div class="row"><button class="btn sec" id="editP">${t('edit')}</button><button class="btn danger" id="delP">${t('del')}</button></div>`;
+    ${chartSvg(s.rows, s.low.u.v, s.low.u.label)}
+    <div class="card"><h2>${t('history')}（${s.rows.length}）</h2><table>
+      ${s.rows.slice(0, 60).map(r => `<tr><td>${fmtDate(r.o.date)}<div class="muted">${esc(r.o.store)}${r.o.sale ? ' · ' + t('sale') : ''} · ${esc(variantText(it, r.o.vid))}</div></td>
+        <td class="r">${priceText(it, r.o)}<div class="muted">${fmtU(r.u)}</div></td></tr>`).join('')}</table></div>` : `<div class="card empty">${dog('sniff', 'glass')}<div class="muted">${t('noPrice')}</div></div>`}
+    ${vars.length ? `<div class="card"><h2>${t('variants')}</h2>${vars.map(([vid, va]) => `<div class="item">${thumb(va.photo, itemEmoji(it))}<div class="main"><div>${esc(variantText(it, vid))}</div>${va.barcode ? `<div class="muted">${esc(va.barcode)}</div>` : ''}</div></div>`).join('')}</div>` : ''}`;
   $('#addPrice').onclick = () => location.hash = `#add/${encodeURIComponent(id)}`;
-  $('#editP').onclick = () => location.hash = `#edit/${encodeURIComponent(id)}`;
-  $('#delP').onclick = async () => {
-    if (!confirm(t('confirmDelProd'))) return;
-    for (const x of prices) await remove('prices', x.id);
-    await remove('products', id); toast(t('deleted')); location.hash = '#home';
-  };
-  app.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => {
-    if (!confirm(t('confirmDelPrice'))) return;
-    const raw = b.dataset.del; await remove('prices', /^\d+$/.test(raw) ? +raw : raw); viewProduct(id);
-  });
 }
 
-function chartSvg(sortedDesc, minV) {
-  const pts = [...sortedDesc].reverse();
+function chartSvg(rowsDesc, minV, label) {
+  const byDay = {}; for (const r of rowsDesc) { const d = r.o.date; if (!(d in byDay) || r.u.v < byDay[d]) byDay[d] = r.u.v; }
+  const pts = Object.entries(byDay).sort((a, b) => a[0].localeCompare(b[0]));
   if (pts.length < 2) return '';
-  const W = 320, H = 140, L = 40, R = 10, T = 12, B = 22;
-  const ts = pts.map(p => new Date(p.date + 'T00:00').getTime());
-  const vs = pts.map(eff);
+  const W = 320, H = 140, L = 44, R = 10, T = 12, B = 22;
+  const ts = pts.map(p => Date.parse(p[0])), vs = pts.map(p => p[1]);
   let t0 = Math.min(...ts), t1 = Math.max(...ts); if (t1 === t0) t1 = t0 + 864e5;
   let v0 = Math.min(...vs), v1 = Math.max(...vs); if (v1 - v0 < 0.01) { v0 -= 0.5; v1 += 0.5; }
   const pv = (v1 - v0) * 0.12; v0 -= pv; v1 += pv;
   const X = x => L + (x - t0) / (t1 - t0) * (W - L - R), Y = v => T + (1 - (v - v0) / (v1 - v0)) * (H - T - B);
   const path = pts.map((p, i) => `${i ? 'L' : 'M'}${X(ts[i]).toFixed(1)},${Y(vs[i]).toFixed(1)}`).join('');
-  const dots = pts.map((p, i) => `<circle cx="${X(ts[i]).toFixed(1)}" cy="${Y(vs[i]).toFixed(1)}" r="4.5" fill="${Math.abs(vs[i] - minV) < 0.005 ? 'var(--good)' : 'var(--accent)'}" stroke="var(--card)" stroke-width="2"/>`).join('');
-  return `<div class="card"><h2>📈 ${t('trend')}</h2><svg class="chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+  const dots = pts.map((p, i) => `<circle cx="${X(ts[i]).toFixed(1)}" cy="${Y(vs[i]).toFixed(1)}" r="4" fill="${Math.abs(vs[i] - minV) < 0.0005 ? 'var(--good)' : 'var(--accent)'}" stroke="var(--card)" stroke-width="2"/>`).join('');
+  return `<div class="card"><h2>📈 ${t('trend')} (${label})</h2><svg class="chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
     <line x1="${L}" x2="${W - R}" y1="${Y(minV)}" y2="${Y(minV)}" stroke="var(--good)" stroke-dasharray="4 4"/>
     <text x="${L - 4}" y="${Y(minV) + 4}" font-size="10" text-anchor="end" fill="var(--good)">${minV.toFixed(2)}</text>
     <text x="${L - 4}" y="${T + 8}" font-size="10" text-anchor="end" fill="var(--muted)">${Math.max(...vs).toFixed(2)}</text>
     <path d="${path}" fill="none" stroke="var(--accent)" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>${dots}
-    <text x="${L}" y="${H - 6}" font-size="10" fill="var(--muted)">${fmtDate(pts[0].date)}</text>
-    <text x="${W - R}" y="${H - 6}" font-size="10" text-anchor="end" fill="var(--muted)">${fmtDate(pts[pts.length - 1].date)}</text>
-  </svg></div>`;
+    <text x="${L}" y="${H - 6}" font-size="10" fill="var(--muted)">${fmtDate(pts[0][0])}</text>
+    <text x="${W - R}" y="${H - 6}" font-size="10" text-anchor="end" fill="var(--muted)">${fmtDate(pts[pts.length - 1][0])}</text></svg></div>`;
 }
 
-async function viewProductForm(code, editId) {
-  const editing = editId ? await getOne('products', editId) : null;
-  setHeader(editing ? t('edit') : t('newProduct'), true); setTab('home');
-  const cats = [...new Set((await getAll('products')).map(p => p.category).filter(Boolean))];
-  const p = editing || { id: code || '', name: '', brand: '', basis: 'item', size: '', unit: 'mL', uses: '', category: '', image: '', photo: '' };
-  let basis = p.basis || 'item';
-  app.innerHTML = `
-    <div class="card">
-      <div id="lookupMsg" class="muted"></div>
-      <label>${t('fCode')}</label><input id="fCode" inputmode="numeric" value="${esc(p.id.startsWith('M') ? '' : p.id)}" ${editing ? 'disabled' : ''} placeholder="${esc(t('fCodePh'))}">
-      <label>${t('fName')}</label><input id="fName" value="${esc(p.name)}" placeholder="${esc(t('fNamePh'))}">
-      <label>${t('fBrand')}</label><input id="fBrand" value="${esc(p.brand)}">
-      <label>${t('fBasis')}</label>
-      <div class="seg" id="fBasis">${['item', 'lb', 'kg'].map(b => `<button type="button" data-b="${b}">${t(b === 'item' ? 'basisItem' : b === 'lb' ? 'basisLb' : 'basisKg')}</button>`).join('')}</div>
-      <div id="packFields">
-        <div class="row">
-          <div><label>${t('fSize')}</label><input id="fSize" inputmode="decimal" value="${esc(p.size)}" placeholder="2.04"></div>
-          <div><label>${t('fUnit')}</label><select id="fUnit">${['mL', 'L', 'g', 'kg', 'count'].map(u => `<option value="${u}" ${p.unit === u ? 'selected' : ''}>${u === 'count' ? t('unitCount') : u}</option>`).join('')}</select></div>
-        </div>
-        <label>${t('fUses')}</label><input id="fUses" inputmode="numeric" value="${esc(p.uses)}">
-      </div>
-      <label>${t('fCat')}</label><input id="fCat" list="catList" value="${esc(p.category)}">
-      <datalist id="catList">${cats.map(c => `<option value="${esc(c)}">`).join('')}</datalist>
-      <label>${t('fPhoto')}</label>
-      <div class="row" style="align-items:center"><div id="fThumb" style="flex:0 0 54px">${thumbHtml(p)}</div>
-        <button class="btn sec small" id="fPhoto" style="flex:0 0 auto">📷 ${t('takePhoto')}</button></div>
-    </div>
-    <button class="btn" id="fSave">${editing ? t('save') : t('saveThenPrice')}</button>`;
-  const syncBasis = () => {
-    $('#fBasis').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.b === basis));
-    $('#packFields').classList.toggle('hidden', basis !== 'item');
-  };
-  $('#fBasis').querySelectorAll('button').forEach(b => b.onclick = () => { basis = b.dataset.b; syncBasis(); });
-  syncBasis();
-  let photo = p.photo || '', image = p.image || '';
-  $('#fPhoto').onclick = async () => {
-    const f = await pickFile($('#filePhoto')); if (!f) return;
-    photo = await thumbFrom(f); $('#fThumb').innerHTML = `<img class="thumb" src="${photo}" alt="">`;
-  };
-  if (!editing && code) {
-    $('#lookupMsg').textContent = t('lookingUp');
-    const info = await lookupProduct(code);
-    if (info) {
-      if (!$('#fName').value) $('#fName').value = info.name;
-      if (!$('#fBrand').value) $('#fBrand').value = info.brand;
-      const q = parseQty(info.quantity);
-      if (q && !$('#fSize').value) { $('#fSize').value = q.size; $('#fUnit').value = q.unit; }
-      image = info.image;
-      if (image && !photo) $('#fThumb').innerHTML = `<img class="thumb" src="${esc(image)}" alt="">`;
-      $('#lookupMsg').textContent = t('found') + (info.quantity ? `（${info.quantity}）` : '');
-    } else {
-      $('#lookupMsg').textContent = t('notFound');
-    }
+// Choose (or create) the main item. If a barcode was scanned, its product info is attached as a new variant.
+async function viewPick(code) {
+  setHeader(t('chooseItem'), true); setTab('home');
+  const items = await getAll('items');
+  app.innerHTML = `<div class="card"><div id="pickMsg" class="muted"></div><div class="muted">${t('chooseItemHint')}</div>
+    <input id="pq" type="search" placeholder="${esc(t('search'))}" style="margin-top:8px"></div>
+    <div class="card" id="plist"></div>
+    <button class="btn sec" id="pNew">${t('newItem')}</button>`;
+  let info = null;
+  if (code) {
+    $('#pickMsg').textContent = t('lookingUp');
+    info = await lookupProduct(code);
+    $('#pickMsg').textContent = info ? t('found') + [info.brand, info.name, info.quantity].filter(Boolean).join(' ') : t('notFound');
   }
-  $('#fSave').onclick = async () => {
-    const id = editing ? editing.id : (normCode($('#fCode').value) || ('M' + Date.now()));
-    if (!editing) {
-      const exist = await getOne('products', id);
-      if (exist) { toast(t('codeExists')); location.hash = `#product/${encodeURIComponent(id)}`; return; }
-    }
-    const name = $('#fName').value.trim();
-    if (!name) return toast(t('needName'));
-    if (!editing && id.startsWith('M')) {
-      const dup = (await getAll('products')).find(x => x.id.startsWith('M') && x.name.trim().toLowerCase() === name.toLowerCase() && (x.basis || 'item') === basis);
-      if (dup) { toast(t('dupName') + dup.name); location.replace(`#add/${encodeURIComponent(dup.id)}`); return; }
-    }
-    const w = basis !== 'item';
-    const prod = {
-      id, name, brand: $('#fBrand').value.trim(), basis,
-      size: w ? '' : (parseFloat($('#fSize').value) || ''), unit: $('#fUnit').value, uses: w ? '' : (parseInt($('#fUses').value) || ''),
-      category: $('#fCat').value.trim(), image, photo, created: editing ? editing.created : today()
-    };
-    await save('products', prod);
-    toast(t('saved'));
-    location.replace(editing ? `#product/${encodeURIComponent(id)}` : `#add/${encodeURIComponent(id)}`);
+  const go = id => {
+    sessionStorage.setItem('pp_pending', JSON.stringify({ code: code || '', info }));
+    location.hash = `#add/${encodeURIComponent(id)}/new`;
+  };
+  const render = () => {
+    const q = $('#pq').value.trim().toLowerCase();
+    const rows = items.filter(it => !q || [it.name, it.en, ...(it.aliases || [])].join(' ').toLowerCase().includes(q)).sort((a, b) => itemName(a).localeCompare(itemName(b))).slice(0, 80);
+    $('#plist').innerHTML = rows.map(it => `<a class="item" href="javascript:void 0" data-id="${esc(it.id)}">${thumb(itemPhoto(it), itemEmoji(it))}<div class="main"><div class="name">${esc(itemName(it))}</div><div class="muted">${esc([itemSub(it), catLabel(it.cat)].filter(Boolean).join(' · '))}</div></div></a>`).join('') || `<div class="muted">${t('noMatch')}</div>`;
+    $('#plist').querySelectorAll('[data-id]').forEach(a => a.onclick = () => code ? go(a.dataset.id) : (location.hash = `#add/${encodeURIComponent(a.dataset.id)}`));
+  };
+  $('#pq').oninput = render; render();
+  $('#pNew').onclick = () => { sessionStorage.setItem('pp_pending', JSON.stringify({ code: code || '', info, newItemName: $('#pq').value.trim() })); location.hash = '#newitem'; };
+}
+
+async function viewNewItem() {
+  setHeader(t('newItem').replace('＋ ', ''), true); setTab('home');
+  const pend = JSON.parse(sessionStorage.getItem('pp_pending') || '{}');
+  let mode = 'pack';
+  app.innerHTML = `<div class="card">
+    <label>${t('itemName')}</label><input id="nName" value="${esc(pend.newItemName || '')}" placeholder="例如 洗衣液">
+    <label>${t('itemEn')}</label><input id="nEn" placeholder="e.g. Laundry detergent">
+    <label>${t('cat')}</label><select id="nCat">${CATS.map(c => `<option value="${c[0]}">${c[LI()]}</option>`).join('')}</select>
+    <label>${t('mode')}</label><div class="seg" id="nMode"><button type="button" data-m="pack">${t('modePack')}</button><button type="button" data-m="weight">${t('modeWeight')}</button></div>
+    <label style="display:flex;gap:8px;align-items:center;color:var(--text);font-size:15px;margin-top:12px" id="nUsesRow"><input id="nUses" type="checkbox" style="width:auto"> ${t('useLoads')}</label>
+    <label>${t('photo')}</label><div class="row" style="align-items:center"><div id="nThumb" style="flex:0 0 54px">${thumb(pend.info && pend.info.image, '📷')}</div><button class="btn sec small" id="nPhoto" style="flex:0 0 auto">📷 ${t('takePhoto')}</button></div>
+    <div class="muted">${t('photoHint')}</div>
+  </div><button class="btn" id="nSave">${t('save')}</button>`;
+  const sync = () => { $('#nMode').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.m === mode)); $('#nUsesRow').classList.toggle('hidden', mode !== 'pack'); };
+  $('#nMode').querySelectorAll('button').forEach(b => b.onclick = () => { mode = b.dataset.m; sync(); }); sync();
+  let nPhoto = '';
+  $('#nPhoto').onclick = async () => { const f = await pickFile($('#filePhoto')); if (!f) return; nPhoto = await thumbFrom(f); $('#nThumb').innerHTML = thumb(nPhoto); };
+  $('#nSave').onclick = async () => {
+    const name = $('#nName').value.trim(); if (!name) return toast(t('needName'));
+    const id = 'I' + Date.now().toString(36);
+    await save('items', { id, name, en: $('#nEn').value.trim(), cat: $('#nCat').value, mode, cmpUses: mode === 'pack' && $('#nUses').checked, aliases: [], variants: {}, photo: nPhoto || (pend.info && pend.info.image) || '', created: today(), by: fbUser ? fbUser.email : '' });
+    location.replace(`#add/${encodeURIComponent(id)}/${pend.code || pend.info ? 'new' : ''}`);
   };
 }
 
-async function viewAddPrice(id) {
-  const p = await getOne('products', id);
-  if (!p) { location.hash = '#home'; return; }
-  setHeader(t('logPrice'), true); setTab('home');
-  const prior = stats(await pricesFor(id));
-  const stores = [...new Set((await getAll('prices')).map(x => x.store).filter(Boolean))];
-  const w = isWeight(p);
+async function viewAdd(id, preVid) {
+  const it = await getOne('items', id);
+  if (!it) { location.hash = '#home'; return; }
+  setHeader(t('addPrice'), true); setTab('home');
+  const sum = summarize(it, await obsFor(id));
+  const stores = [...new Set((await getAll('obs')).map(x => x.store).filter(Boolean))];
+  const pend = preVid === 'new' ? JSON.parse(sessionStorage.getItem('pp_pending') || '{}') : {};
+  const weight = it.mode === 'weight';
+  const vars = Object.entries(it.variants || {});
+  let vid = preVid && preVid !== 'new' ? preVid : (vars.length === 1 && preVid !== 'new' ? vars[0][0] : '');
+  let per = 'lb', newPhoto = '';
+  const q = pend.info ? parseQty(pend.info.quantity) : null;
   app.innerHTML = `
-    <div class="card"><div class="item" style="padding:0;border:0">${thumbHtml(p)}<div class="main"><div class="name">${esc(p.name)}</div>
-      <div class="muted">${esc([p.brand, sizeText(p)].filter(Boolean).join(' · '))}</div></div></div></div>
+    <div class="card"><div class="item" style="padding:0;border:0"><span id="iThumb">${thumb(itemPhoto(it), itemEmoji(it))}</span><div class="main"><div class="name">${esc(itemName(it))}</div><div class="muted">${esc(catLabel(it.cat))}</div></div>
+      ${!itemPhoto(it) && weight ? `<button class="btn sec small" id="iPhoto" style="flex:0 0 auto;margin:0">📷 ${t('takePhoto')}</button>` : ''}</div></div>
+    ${weight ? '' : `<div class="card"><h2>${t('variant')}</h2>
+      <div class="chips" id="vChips">${vars.map(([k]) => `<button class="chip" data-v="${esc(k)}">${esc(variantText(it, k))}</button>`).join('')}<button class="chip" data-v="__new">${t('newVariant')}</button></div>
+      <div id="vNew" class="hidden">
+        <div class="row"><div><label>${t('brand')}</label><input id="vBrand" value="${esc(pend.info ? pend.info.brand : '')}"></div><div><label>${t('desc')}</label><input id="vDesc" value="${esc(pend.info ? pend.info.name : '')}"></div></div>
+        <div class="row"><div><label>${t('size')}</label><input id="vSize" inputmode="decimal" value="${esc(q ? q.size : '')}"></div>
+          <div><label>${t('unit')}</label><select id="vUnit">${['mL', 'L', 'g', 'kg', 'lb', 'oz', 'count'].map(u => `<option value="${u}" ${q && q.unit === u ? 'selected' : ''}>${u === 'count' ? t('unitCount') : u}</option>`).join('')}</select></div></div>
+        ${it.cmpUses ? `<label>${t('uses')}</label><input id="vUses" inputmode="numeric">` : ''}
+        <label>${t('barcode')}</label><input id="vCode" inputmode="numeric" value="${esc(pend.code || '')}">
+        <div class="row" style="align-items:center;margin-top:8px"><div id="vThumb" style="flex:0 0 54px">${thumb(pend.info && pend.info.image, '📷')}</div><button class="btn sec small" id="vPhoto" style="flex:0 0 auto">📷 ${t('takePhoto')}</button></div>
+      </div></div>`}
     <div class="card">
       <button class="btn sec" id="ocrBtn">${t('ocrBtn')}</button>
       <div id="ocrMsg" class="muted"></div><div class="chips" id="chips"></div>
-      <label>${t(p.basis === 'lb' ? 'priceLb' : p.basis === 'kg' ? 'priceKg' : 'price')}</label><input id="aPrice" class="big" inputmode="decimal" placeholder="0.00">
-      <div class="${w ? 'hidden' : ''}"><label>${t('multi')}</label><input id="aMulti" inputmode="numeric" value="1"></div>
+      ${weight ? `<label>${t('perWhat')}</label><div class="seg" id="perSeg"><button type="button" data-p="lb">$/lb</button><button type="button" data-p="kg">$/kg</button></div>` : ''}
+      <label id="priceLbl">${weight ? t('priceLb') : t('pricePack')}</label><input id="aPrice" class="big" inputmode="decimal" placeholder="0.00">
+      <div class="${weight ? 'hidden' : ''}"><label>${t('multi')}</label><input id="aMulti" inputmode="numeric" value="1"></div>
       <div id="verdict"></div>
       <label>${t('store')}</label><input id="aStore" list="storeList" value="${esc(lsGet('lastStore') || '')}" placeholder="${esc(t('storePh'))}">
       <datalist id="storeList">${stores.map(s => `<option value="${esc(s)}">`).join('')}</datalist>
       <div class="row"><div><label>${t('date')}</label><input id="aDate" type="date" value="${today()}"></div>
         <div><label>&nbsp;</label><label style="display:flex;gap:8px;align-items:center;color:var(--text);font-size:16px;margin:0;padding:11px 0"><input id="aSale" type="checkbox" style="width:auto"> ${t('sale')}</label></div></div>
-      <label>${t('note')}</label><input id="aNote" placeholder="${esc(t('notePh'))}">
+      <label>${t('note')}</label><input id="aNote">
     </div>
     <button class="btn" id="aSave">${t('save')}</button>`;
+  const draftVariant = () => {
+    if (weight) return null;
+    if (vid && vid !== '__new') return null;
+    return { brand: $('#vBrand').value.trim(), desc: $('#vDesc').value.trim(), size: parseFloat($('#vSize').value) || 0, unit: $('#vUnit').value, uses: $('#vUses') ? parseInt($('#vUses').value) || 0 : 0, barcode: normCode($('#vCode').value), photo: newPhoto || (pend.info && pend.info.image) || '' };
+  };
   const upd = () => {
     const price = parseFloat($('#aPrice').value), multi = parseInt($('#aMulti').value) || 1;
-    const per = price / multi;
-    const v = verdict(p, per, prior);
-    $('#verdict').innerHTML = verdictHtml(v, multi > 1 && price > 0 ? `${t('each')} ${money(per)}. ` : '', price > 0 ? extraUnit(p, per) : '');
+    let it2 = it, v2 = vid;
+    const dv = draftVariant(); if (dv) { it2 = { ...it, variants: { ...(it.variants || {}), __draft: dv } }; v2 = '__draft'; }
+    const o = { price, multi, per, vid: v2 };
+    const v = verdict(it2, o, sum);
+    $('#verdict').innerHTML = verdictHtml(v, v.u ? [fmtU(v.u), v.u.alt].filter(Boolean).join(' · ') : '');
   };
+  if (!weight) {
+    const selV = k => { vid = k; $('#vChips').querySelectorAll('.chip').forEach(c => c.classList.toggle('on', c.dataset.v === k)); $('#vNew').classList.toggle('hidden', k !== '__new'); upd(); };
+    $('#vChips').querySelectorAll('.chip').forEach(c => c.onclick = () => selV(c.dataset.v));
+    if (preVid === 'new' || !vars.length) selV('__new'); else if (vid) selV(vid);
+    ['vSize', 'vUnit', 'vUses'].forEach(k => { const e = $('#' + k); if (e) e.oninput = upd; });
+    $('#vPhoto').onclick = async () => { const f = await pickFile($('#filePhoto')); if (!f) return; newPhoto = await thumbFrom(f); $('#vThumb').innerHTML = thumb(newPhoto); };
+  } else {
+    const selP = p => { per = p; $('#perSeg').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.p === p)); $('#priceLbl').textContent = p === 'kg' ? t('priceKg') : t('priceLb'); upd(); };
+    $('#perSeg').querySelectorAll('button').forEach(b => b.onclick = () => selP(b.dataset.p)); selP('lb');
+  }
+  if ($('#iPhoto')) $('#iPhoto').onclick = async () => { const f = await pickFile($('#filePhoto')); if (!f) return; const ph = await thumbFrom(f); const fresh = await getOne('items', id); fresh.photo = ph; await save('items', fresh); $('#iThumb').innerHTML = thumb(ph); $('#iPhoto').remove(); };
   $('#aPrice').oninput = upd; $('#aMulti').oninput = upd; upd();
   $('#ocrBtn').onclick = async () => {
     const f = await pickFile($('#fileTag')); if (!f) return;
     const msg = $('#ocrMsg'); $('#chips').innerHTML = '';
     msg.textContent = ocrWorker ? t('ocrReading') : t('ocrFirst');
     try {
-      await getOcr();
-      msg.textContent = t('ocrReading');
-      const c = await readPriceTag(f, w ? p.basis : '');
+      await getOcr(); msg.textContent = t('ocrReading');
+      const c = await readPriceTag(f, weight);
       if (!c.length) { msg.textContent = t('ocrNone'); return; }
       msg.textContent = t('ocrPick');
       const label = x => (x.multi > 1 ? tf('itemsAt', x.multi, '') : '') + (x.partial ? '$' + x.price + '.??' : money(x.price)) + (x.per ? '/' + x.per : '');
       $('#chips').innerHTML = c.map((x, i) => `<button class="chip" data-i="${i}">${label(x)}</button>`).join('');
       const use = x => {
         $('#aMulti').value = x.multi;
-        let v = x.price;
-        if (w && x.per && x.per !== p.basis) v = x.per === 'kg' ? v * LB_G / 1000 : v / LB_G * 1000; // convert to the item's unit
-        if (x.partial) { const el = $('#aPrice'); el.value = Math.floor(v) + '.'; el.focus(); el.setSelectionRange(el.value.length, el.value.length); toast(t('ocrCents')); }
-        else $('#aPrice').value = v.toFixed(2);
+        if (weight && x.per) { per = x.per; $('#perSeg').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.p === per)); }
+        if (x.partial) { const el = $('#aPrice'); el.value = Math.floor(x.price) + '.'; el.focus(); toast(t('ocrCents')); } else $('#aPrice').value = x.price.toFixed(2);
         upd();
       };
-      $('#chips').querySelectorAll('.chip').forEach(b => b.onclick = () => use(c[+b.dataset.i]));
-      use(c[0]);
+      $('#chips').querySelectorAll('.chip').forEach(b => b.onclick = () => use(c[+b.dataset.i])); use(c[0]);
     } catch (e) { msg.textContent = t('ocrFail'); }
   };
   $('#aSave').onclick = async () => {
-    const price = parseFloat($('#aPrice').value);
-    if (!(price > 0)) return toast(t('needPrice'));
-    const multi = w ? 1 : (parseInt($('#aMulti').value) || 1);
-    const rec = { id: newId(), ts: Date.now(), by: fbUser ? fbUser.email : '', productId: id, price: Math.round(price * 100) / 100, multi, store: $('#aStore').value.trim(),
-                  date: $('#aDate').value || today(), sale: $('#aSale').checked, note: $('#aNote').value.trim() };
-    await save('prices', rec);
-    if (rec.store) lsSet('lastStore', rec.store);
-    const v = verdict(p, price / multi, prior);
+    const price = parseFloat($('#aPrice').value); if (!(price > 0)) return toast(t('needPrice'));
+    let useVid = '';
+    if (!weight) {
+      if (!vid) return toast(t('needVariant'));
+      if (vid === '__new') {
+        const dv = draftVariant(); if (!(dv.size > 0)) return toast(t('needSize'));
+        useVid = 'V' + Date.now().toString(36);
+        const fresh = await getOne('items', id);
+        fresh.variants = { ...(fresh.variants || {}), [useVid]: dv };
+        await save('items', fresh);
+      } else useVid = vid;
+    }
+    const multi = weight ? 1 : (parseInt($('#aMulti').value) || 1);
+    const o = { id: newId(), itemId: id, vid: useVid, price: Math.round(price * 100) / 100, multi, per: weight ? per : 'pack', store: $('#aStore').value.trim(), date: $('#aDate').value || today(),
+                sale: $('#aSale').checked, note: $('#aNote').value.trim(), src: 'app', by: fbUser ? fbUser.email : '', ts: Date.now() };
+    const v = verdict(await getOne('items', id), o, sum);
+    await save('obs', o);
+    if (o.store) lsSet('lastStore', o.store);
+    sessionStorage.removeItem('pp_pending');
     toast(v.cls === 'good' ? t('savedLow') : v.cls === 'eq' ? t('savedEq') : t('saved'), 3200);
-    location.replace(`#product/${encodeURIComponent(id)}`);
+    location.replace(`#item/${encodeURIComponent(id)}`);
   };
 }
 
-async function viewCompare() {
-  setHeader(t('cmpTitle')); setTab('compare');
-  const list = await allWithStats();
-  const cats = [...new Set(list.map(x => x.p.category).filter(Boolean))].sort();
-  const sel = lsGet('cmpCat'), basisSel = lsGet('cmpBasis') || 'size';
-  app.innerHTML = `
-    <div class="card">
-      <label>${t('cmpCat')}</label><select id="cCat">${cats.length ? cats.map(c => `<option ${c === sel ? 'selected' : ''}>${esc(c)}</option>`).join('') : `<option value="">${t('cmpNoCat')}</option>`}</select>
-      <label>${t('cmpBasis')}</label><select id="cBasis">
-        <option value="size" ${basisSel === 'size' ? 'selected' : ''}>${t('cmpSize')}</option>
-        <option value="uses" ${basisSel === 'uses' ? 'selected' : ''}>${t('cmpUses')}</option></select>
-      <div class="muted" style="margin-top:8px">${t('cmpHint')}</div>
-    </div>
-    <div id="cOut"></div>`;
-  const render = () => {
-    const cat = $('#cCat').value, basis = $('#cBasis').value;
-    lsSet('cmpCat', cat); lsSet('cmpBasis', basis);
-    const rows = list.filter(x => x.p.category === cat && x.s).map(x => ({ ...x, up: unitPrice(x.p, eff(x.s.min), basis) }));
-    const ok = rows.filter(r => r.up), missing = rows.filter(r => !r.up);
-    const groups = {};
-    for (const r of ok) (groups[r.up.base] || (groups[r.up.base] = [])).push(r);
-    let html = '';
-    for (const g of Object.values(groups)) {
-      g.sort((a, b) => a.up.v - b.up.v);
-      html += `<div class="card"><table><tr><th>${t('cmpItem')}</th><th class="r">${t('cmpLow')}</th><th class="r">${t('cmpUnit')}</th></tr>
-        ${g.map((r, i) => `<tr><td><a href="#product/${encodeURIComponent(r.p.id)}" style="color:inherit">${esc(r.p.name)}</a>${i === 0 && g.length > 1 ? `<span class="tag">🏆 ${t('best')}</span>` : ''}
-          <div class="muted">${esc(sizeText(r.p))} · ${esc(r.s.min.store || '')}</div></td>
-          <td class="r">${pMoney(r.p, eff(r.s.min))}</td><td class="r"><b>${fmtUnit(r.up)}</b>${i > 0 ? `<div class="muted">+${Math.round((r.up.v / g[0].up.v - 1) * 100)}%</div>` : ''}</td></tr>`).join('')}
-      </table></div>`;
-    }
-    if (missing.length) html += `<div class="card muted">${tf('cmpMissing', basis === 'uses' ? t('whatUses') : t('whatSize'))}${missing.map(r => esc(r.p.name)).join(LANG === 'zh' ? '、' : ', ')}</div>`;
-    if (!rows.length) html = `<div class="card empty">${dog('sniff', 'glass')}<div class="muted">${cats.length ? t('cmpNoData') : t('cmpEmpty')}</div></div>`;
-    $('#cOut').innerHTML = html;
-  };
-  $('#cCat').onchange = render; $('#cBasis').onchange = render; render();
+async function viewDeals() {
+  setHeader(t('dealsTitle')); setTab('deals');
+  const { items, obs } = await loadAll();
+  const map = Object.fromEntries(items.map(i => [i.id, i]));
+  const deals = obs.filter(o => o.sale && daysAgo(o.date) <= 14 && map[o.itemId]).map(o => {
+    const it = map[o.itemId]; const each = eachPrice(o); const off = o.reg > 0 ? 1 - each / o.reg : 0;
+    return { o, it, off, u: unitPrice(it, o) };
+  }).sort((a, b) => b.off - a.off);
+  app.innerHTML = `<div class="card muted">${t('dealsHint')}</div><div class="card">${deals.length ? deals.slice(0, 200).map(d => `
+    <a class="item" href="#item/${encodeURIComponent(d.it.id)}">${thumb((d.it.variants || {})[d.o.vid] && d.it.variants[d.o.vid].photo || itemPhoto(d.it), itemEmoji(d.it))}
+      <div class="main"><div class="name">${esc(itemName(d.it))}</div><div class="muted">${esc(variantText(d.it, d.o.vid))}</div><div class="muted">${esc(d.o.store)} · ${fmtDate(d.o.date)}</div></div>
+      <div class="price">${priceText(d.it, d.o)}<div class="muted">${d.off > 0 ? `<span class="tag">-${Math.round(d.off * 100)}%</span><br>${t('reg')} ${money(d.o.reg)}` : ''}${d.u ? '<br>' + fmtU(d.u) : ''}</div></div></a>`).join('')
+    : `<div class="empty">${dog('sleep', 'z')}<div class="muted">${t('noDeals')}</div></div>`}</div>`;
 }
 
 async function viewSettings() {
   setHeader(t('setTitle')); setTab('settings');
-  const [prods, prices] = await Promise.all([getAll('products'), getAll('prices')]);
-  let persisted = false; try { persisted = navigator.storage && await navigator.storage.persisted(); } catch (e) {}
+  const [items, obs] = await Promise.all([getAll('items'), getAll('obs')]);
   app.innerHTML = `
-    <div class="card"><h2>🌐 ${t('lang')}</h2>
-      <div class="seg" id="sLang"><button data-l="zh" class="${LANG === 'zh' ? 'on' : ''}">繁體中文</button><button data-l="en" class="${LANG === 'en' ? 'on' : ''}">English</button></div></div>
-    <div class="card"><h2>☁️ ${t('syncTitle')}</h2>
-      <div class="muted">${t('syncDesc')}</div>
+    <div class="card"><h2>🌐 ${t('lang')}</h2><div class="seg" id="sLang"><button data-l="zh" class="${LANG === 'zh' ? 'on' : ''}">繁體中文</button><button data-l="en" class="${LANG === 'en' ? 'on' : ''}">English</button></div></div>
+    <div class="card"><h2>☁️ ${t('syncTitle')}</h2><div class="muted">${t('syncDesc')}</div>
       <div style="margin:10px 0;font-weight:700">${fbUser ? t('signedInAs') + esc(fbUser.email) + ' · ' : ''}<span id="syncStatus">${syncLabel()}</span></div>
-      ${fbUser ? `<button class="btn sec" id="sSignOut">${t('signOut')}</button>` : `<button class="btn" id="sSignIn">${t('signIn')}</button>`}
-    </div>
-    <div class="card"><h2>🦴 ${t('data')}</h2><div class="muted">${tf('dataCount', prods.length, prices.length)}<br>
-      ${syncOn() ? t('dataCloud') : t('dataLocal') + ' ' + (persisted ? t('persistOn') : t('persistOff'))}</div></div>
-    <div class="card"><h2>⚠️ ${t('danger')}</h2><button class="btn danger" id="sWipe">${t('wipe')}</button></div>
+      ${fbUser ? `<button class="btn sec" id="sSignOut">${t('signOut')}</button>` : `<button class="btn" id="sSignIn">${t('signIn')}</button>`}</div>
+    <div class="card"><h2>🦴 ${t('data')}</h2><div class="muted">${tf('count', items.length, obs.length)}</div></div>
     <div class="empty">${dog('sleep', 'z')}<div class="muted"><span class="brand" style="font-weight:800;font-size:16px">PricePup 格價狗</span> v${APP_VERSION}<br>${t('credit')}</div></div>`;
   $('#sLang').querySelectorAll('button').forEach(b => b.onclick = () => { LANG = b.dataset.l; lsSet('lang', LANG); applyStatic(); setSync(syncState); viewSettings(); });
   if ($('#sSignIn')) $('#sSignIn').onclick = signIn;
   if ($('#sSignOut')) $('#sSignOut').onclick = signOutSync;
-  $('#sWipe').onclick = async () => {
-    if (syncOn()) return toast(t('wipeSynced'), 4000);
-    if (!confirm(t('wipeConfirm'))) return;
-    await p2(store('prices', 'readwrite').clear()); await p2(store('products', 'readwrite').clear());
-    toast(t('wiped')); viewSettings();
-  };
-}
-async function importData(d) {
-  if (!d || d.app !== 'gaakgaa' || !Array.isArray(d.products) || !Array.isArray(d.prices)) throw new Error('bad');
-  for (const p of d.products) { if (p && p.id) await save('products', p); }
-  const key = x => [x.productId, x.date, x.price, x.multi || 1, x.store || ''].join('|');
-  const existing = new Set((await getAll('prices')).map(key));
-  let r = 0;
-  for (const x of d.prices) {
-    if (!x || !x.productId || existing.has(key(x))) continue;
-    await save('prices', { ...x, id: typeof x.id === 'string' ? x.id : newId() }); existing.add(key(x)); r++;
-  }
-  return { p: d.products.length, r };
 }
 
 /* ---------- Router ---------- */
 async function route(bg) {
-  const h = location.hash.slice(1);
-  const i = h.indexOf('/');
-  const r = i < 0 ? h : h.slice(0, i), arg = i < 0 ? '' : decodeURIComponent(h.slice(i + 1));
+  const parts = location.hash.slice(1).split('/').map(decodeURIComponent);
+  const r = parts[0];
   if (!bg) window.scrollTo(0, 0);
   if (r !== 'scan' && scanStream && !bg) closeScanner();
   switch (r) {
-    case 'product': return viewProduct(arg);
-    case 'new': return viewProductForm(normCode(arg));
-    case 'edit': return viewProductForm('', arg);
-    case 'add': return viewAddPrice(arg);
-    case 'compare': return viewCompare();
+    case 'item': return viewItem(parts[1]);
+    case 'pick': return viewPick(normCode(parts[1] || ''));
+    case 'newitem': return viewNewItem();
+    case 'add': return viewAdd(parts[1], parts[2] || '');
+    case 'deals': return viewDeals();
     case 'settings': return viewSettings();
     case 'scan': await viewHome(); setTab('scan'); return openScanner();
     default: return viewHome();
   }
 }
-window.addEventListener('hashchange', route);
+window.addEventListener('hashchange', () => route());
 
 (async () => {
   applyStatic();
   await openDB();
   try { if (navigator.storage && navigator.storage.persist) await navigator.storage.persist(); } catch (e) {}
-  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
-    navigator.serviceWorker.register('sw.js').catch(() => {});
-  }
+  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('sw.js').catch(() => {});
   route();
-  if (lsGet('sync') === '1') { setSync('connecting'); loadFb().catch(e => setSync('error', e.message)); }
+  if (lsGet('sync') !== '0') { setSync('connecting'); loadFb().catch(e => setSync('error', e.message)); }
 })();
 </script>
 </body>
