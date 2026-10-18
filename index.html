@@ -132,7 +132,7 @@ h2{font-size:17px;margin:0 0 8px}
 
 <script>
 'use strict';
-const APP_VERSION = '4.0.1';
+const APP_VERSION = '4.0.2';
 const $ = s => document.querySelector(s);
 const app = $('#app');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -173,7 +173,7 @@ const I18N = {
   vType:['輸入價錢，狗狗即刻同歷史比較','Type a price and the pup compares it with history'], vFirst:['第一次記錄呢件貨','First record for this item'],
   savedLow:['汪！已儲存：歷史新低！🎉','Woof! Saved — new all-time low! 🎉'], savedEq:['已儲存：同歷史最低一樣','Saved — matches the all-time low'],
   lookingUp:['🔎 狗狗查緊產品資料…','🔎 The pup is sniffing out product info…'], found:['✅ 搵到：','✅ Found: '], notFound:['資料庫搵唔到呢個 barcode，請揀返主產品','Barcode not in the database — choose the main item'],
-  dealsTitle:['今期特價','Current deals'], dealsHint:['近 14 日嘅特價，按折扣排序','Sales from the last 14 days, biggest discount first'], noDeals:['近 14 日未有特價紀錄','No sales recorded in the last 14 days'],
+  dealsTitle:['今期特價','Current deals'], allStores:['全部','All'], dealsHint:['近 14 日嘅特價，按折扣排序','Sales from the last 14 days, biggest discount first'], noDeals:['近 14 日未有特價紀錄','No sales recorded in the last 14 days'],
   setTitle:['設定','Settings'], lang:['語言 Language','Language 語言'], syncTitle:['數據同步','Data sync'],
   syncDesc:['用 Google 登入之後，兩部電話共用同一份數據，冇網絡時都照用。','Sign in with Google to share one database across both phones. Works offline.'],
   signIn:['用 Google 登入並開始同步','Sign in with Google to sync'], signOut:['登出','Sign out'], signedInAs:['已登入：','Signed in: '],
@@ -299,7 +299,9 @@ function unitPrice(it, o) {
     let perLb = o.per === 'kg' ? p * LB_G / 1000 : p;
     if (o.per === 'pack') { // a bagged/packed variant of a loose item, e.g. a 3 lb bag of lemons
       const va = (it.variants || {})[o.vid], u = va && UNITS[va.unit];
-      if (!u || u.b !== 'g' || !(va.size > 0)) return null;
+      if (!u || !(va.size > 0)) return null;
+      if (u.b === 'count') return { v: p / va.size, label: t('perPc'), key: 'pc' };
+      if (u.b !== 'g') return null;
       perLb = p / (va.size * u.f) * LB_G;
     }
     return { v: perLb, label: '/lb', key: 'lb', alt: `$${(perLb / LB_G * 1000).toFixed(2)}/kg` };
@@ -333,10 +335,10 @@ function summarize(it, obs) {
   const key = Object.keys(keyCount).sort((a, b) => keyCount[b] - keyCount[a])[0];
   const R = rows.filter(r => r.u.key === key);
   let low = R[0]; for (const r of R) if (r.u.v < low.u.v - 1e-9) low = r;
-  const recent = R.filter(r => daysAgo(r.o.date) <= 30);
-  const latestPer = {}; // latest per store+variant within 30 days
+  const recent = rows.filter(r => daysAgo(r.o.date) <= 30);
+  const latestPer = {}; // latest per store+variant within 30 days (all units; main unit first)
   for (const r of recent) { const k = r.o.store + '|' + (r.o.vid || r.o.listing || ''); if (!latestPer[k]) latestPer[k] = r; }
-  const board = Object.values(latestPer).sort((a, b) => a.u.v - b.u.v);
+  const board = Object.values(latestPer).sort((a, b) => ((a.u.key !== key) - (b.u.key !== key)) || (a.u.key < b.u.key ? -1 : a.u.key > b.u.key ? 1 : 0) || a.u.v - b.u.v);
   return { rows: R, low, best: board[0] || null, board, key };
 }
 function verdict(it, o, sum) {
@@ -682,8 +684,8 @@ async function viewItem(id) {
     </div></div>
     <div class="card"><h2>🐾 ${t('byStore')}</h2>
       ${s.board.length ? `<table><tr><th>${t('store')}</th><th class="r">${t('price')}</th><th class="r">${t('unitP')}</th></tr>
-      ${s.board.map((r, i) => `<tr><td>${esc(r.o.store)}${i === 0 && s.board.length > 1 ? `<span class="tag">🏆 ${t('cheapest')}</span>` : ''}${r.o.sale ? `<span class="tag">${t('sale')}</span>` : ''}
-        <div class="muted">${esc(obsText(it, r.o))} · ${fmtDate(r.o.date)}</div></td>
+      ${s.board.map((r, i) => `<tr><td>${esc(r.o.store)}${i === 0 && s.board.length > 1 && r.u.key === s.key ? `<span class="tag">🏆 ${t('cheapest')}</span>` : ''}${r.o.sale ? `<span class="tag">${t('sale')}</span>` : ''}
+        <div class="muted">${esc(obsText(it, r.o))} · ${fmtDate(r.o.date)}${r.o.until ? '–' + fmtDate(r.o.until).slice(5) : ''}</div></td>
         <td class="r">${priceText(it, r.o)}${r.o.reg ? `<div class="muted">${t('reg')} ${money(r.o.reg)}</div>` : ''}</td>
         <td class="r"><b>${fmtU(r.u)}</b>${r.u.alt ? `<div class="muted">${r.u.alt}</div>` : ''}</td></tr>`).join('')}</table>` : `<div class="muted">${t('noRecent')}</div>`}
     </div>
@@ -882,16 +884,22 @@ async function viewDeals() {
   setHeader(t('dealsTitle')); setTab('deals');
   const { items, obs } = await loadAll();
   const map = Object.fromEntries(items.map(i => [i.id, i]));
-  const deals = obs.filter(o => o.sale && daysAgo(o.date) <= 14 && map[o.itemId]).map(o => {
+  const td = today();
+  const all = obs.filter(o => o.sale && daysAgo(o.date) <= 14 && (!o.until || o.until >= td) && map[o.itemId]);
+  const stores = [...new Set(all.map(o => o.store))].sort();
+  if (dealStore && !stores.includes(dealStore)) dealStore = '';
+  const deals = all.filter(o => !dealStore || o.store === dealStore).map(o => {
     const it = map[o.itemId]; const each = eachPrice(o); const off = o.reg > 0 ? 1 - each / o.reg : 0;
     return { o, it, off, u: unitPrice(it, o) };
   }).sort((a, b) => b.off - a.off);
-  app.innerHTML = `<div class="card muted">${t('dealsHint')}</div><div class="card">${deals.length ? deals.slice(0, 200).map(d => `
+  app.innerHTML = `<div class="card muted">${t('dealsHint')}<div class="chips" id="dStores" style="margin-top:8px">${['', ...stores].map(s => `<button class="chip ${s === dealStore ? 'on' : ''}" data-s="${esc(s)}">${s ? esc(s) : t('allStores')}</button>`).join('')}</div></div><div class="card">${deals.length ? deals.slice(0, 200).map(d => `
     <a class="item" href="#item/${encodeURIComponent(d.it.id)}">${thumb((d.it.variants || {})[d.o.vid] && d.it.variants[d.o.vid].photo || itemPhoto(d.it), itemEmoji(d.it))}
-      <div class="main"><div class="name">${esc(itemName(d.it))}</div><div class="muted">${esc(obsText(d.it, d.o))}</div><div class="muted">${esc(d.o.store)} · ${fmtDate(d.o.date)}</div></div>
+      <div class="main"><div class="name">${esc(itemName(d.it))}</div><div class="muted">${esc(obsText(d.it, d.o))}</div><div class="muted">${esc(d.o.store)} · ${fmtDate(d.o.date)}${d.o.until ? '–' + fmtDate(d.o.until).slice(5) : ''}</div></div>
       <div class="price">${priceText(d.it, d.o)}<div class="muted">${d.off > 0 ? `<span class="tag">-${Math.round(d.off * 100)}%</span><br>${t('reg')} ${money(d.o.reg)}` : ''}${d.u ? '<br>' + fmtU(d.u) : ''}</div></div></a>`).join('')
     : `<div class="empty">${dog('sleep', 'z')}<div class="muted">${t('noDeals')}</div></div>`}</div>`;
+  $('#dStores').querySelectorAll('.chip').forEach(b => b.onclick = () => { dealStore = b.dataset.s; viewDeals(); });
 }
+let dealStore = '';
 
 async function viewSettings() {
   setHeader(t('setTitle')); setTab('settings');
