@@ -130,7 +130,7 @@ h2{font-size:17px;margin:0 0 8px}
 
 <script>
 'use strict';
-const APP_VERSION = '3.1.1';
+const APP_VERSION = '3.2.0';
 const $ = s => document.querySelector(s);
 const app = $('#app');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -228,38 +228,52 @@ function applyStatic() {
   document.title = LANG === 'zh' ? '格價狗 PricePup' : 'PricePup 格價狗';
 }
 
-/* ---------- Puppy (original SVG character) ---------- */
+/* ---------- Puppy (original SVG character, based on our dog) ---------- */
+// Original cartoon of Silver's black puppy, v6: v1 round face + v5 folded ears, blue collar, green tag.
 function dog(mood = 'happy', acc = '', cls = '') {
-  const light = '#f6cf9c', patch = '#d98f4e', ear = '#8a5532', cream = '#fff4e2', ink = '#3b2a20', pink = '#ff8fa3';
-  const line = (d, w = 3) => `<path d="${d}" stroke="${ink}" stroke-width="${w}" fill="none" stroke-linecap="round"/>`;
+  const fur = '#2a2a2e', furHi = '#3d3d43', earC = '#1f1f23', muzzle = '#3c3c43', rim = '#5d5d66', ink = '#141416',
+        eye = '#8a5426', light = '#f1dcc0', pink = '#ff8fa3', collar = '#2f6fdc', tag = '#2fa36b';
+  const ln = (d, c = light, w = 3) => `<path d="${d}" stroke="${c}" stroke-width="${w}" fill="none" stroke-linecap="round"/>`;
+  const openEyes = (y = 57, r = 6.2) => `
+    <circle cx="48" cy="${y}" r="${r}" fill="${eye}"/><circle cx="72" cy="${y}" r="${r}" fill="${eye}"/>
+    <circle cx="48" cy="${y + .6}" r="${r * .55}" fill="${ink}"/><circle cx="72" cy="${y + .6}" r="${r * .55}" fill="${ink}"/>
+    <circle cx="50" cy="${y - 2.2}" r="2" fill="#fff"/><circle cx="74" cy="${y - 2.2}" r="2" fill="#fff"/>`;
   const eyes = {
-    happy: line('M43 58q6-7 12 0M65 58q6-7 12 0', 4),
-    normal: `<circle cx="49" cy="58" r="5.5" fill="${ink}"/><circle cx="71" cy="58" r="5.5" fill="${ink}"/><circle cx="51" cy="56" r="1.8" fill="#fff"/><circle cx="73" cy="56" r="1.8" fill="#fff"/>`,
-    sniff: `<circle cx="49" cy="60" r="5" fill="${ink}"/><circle cx="71" cy="60" r="5" fill="${ink}"/><circle cx="50.5" cy="58.5" r="1.6" fill="#fff"/><circle cx="72.5" cy="58.5" r="1.6" fill="#fff"/>`,
-    sad: `<circle cx="49" cy="60" r="4.5" fill="${ink}"/><circle cx="71" cy="60" r="4.5" fill="${ink}"/>` + line('M41 52l11-4M79 52l-11-4'),
-    sleep: line('M43 59q6 5 12 0M65 59q6 5 12 0', 3.5)
+    happy: ln('M42 58q6-7 12 0M66 58q6-7 12 0', light, 3.6),
+    normal: openEyes(),
+    sniff: openEyes(59, 5.6),
+    sad: openEyes(59, 5.4) + ln('M40 50l11 -4M80 50l-11 -4', '#77777f', 2.6),
+    sleep: ln('M42 59q6 5 12 0M66 59q6 5 12 0', light, 3)
   }[mood] || '';
   const mouth = {
-    happy: line('M52 80q8 9 16 0') + `<path d="M56 83q4 12 8 0z" fill="${pink}"/>`,
-    normal: line('M53 80q7 6 14 0'), sniff: line('M55 81q5 3 10 0'), sad: line('M53 85q7-6 14 0'), sleep: line('M56 81q4 2 8 0')
+    happy: ln('M52 80q8 8 16 0', '#9a9aa3') + `<path d="M56 82q4 13 8 0z" fill="${pink}"/>`,
+    normal: ln('M53 80q7 5 14 0', '#9a9aa3'), sniff: ln('M55 81q5 3 10 0', '#9a9aa3'),
+    sad: ln('M53 84q7-6 14 0', '#9a9aa3'), sleep: ln('M56 81q4 2 8 0', '#9a9aa3')
   }[mood] || '';
   const extra = {
-    glass: `<circle cx="93" cy="92" r="14" fill="rgba(190,225,255,.55)" stroke="${ink}" stroke-width="5"/><path d="M103 102l11 11" stroke="${patch}" stroke-width="8" stroke-linecap="round"/><path d="M86 86q4-5 9-4" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round"/>`,
-    tag: `<g transform="rotate(-18 24 96)"><path d="M10 86h22l9 10-9 10H10z" fill="#ffd166" stroke="${ink}" stroke-width="3" stroke-linejoin="round"/><circle cx="33" cy="96" r="2.5" fill="${ink}"/><text x="20" y="102" font-size="15" font-weight="800" text-anchor="middle" fill="${ink}" font-family="Arial">$</text></g>`,
-    z: `<text x="88" y="30" font-size="16" font-weight="800" fill="${patch}" font-family="Arial">z</text><text x="100" y="18" font-size="12" font-weight="800" fill="${patch}" font-family="Arial">z</text>`,
-    party: `<path d="M18 30l6 6M14 44h8M100 30l-6 6M106 44h-8" stroke="#ffb703" stroke-width="3.5" stroke-linecap="round"/><circle cx="24" cy="22" r="3" fill="#ff8fa3"/><circle cx="98" cy="20" r="3" fill="#8ecae6"/>`,
-    tear: `<path d="M77 66q3 6 0 9q-3-3 0-9z" fill="#8ecae6"/>`
+    glass: `<circle cx="94" cy="93" r="14" fill="rgba(190,225,255,.55)" stroke="#3b2a20" stroke-width="5"/><path d="M104 103l11 11" stroke="#d98f4e" stroke-width="8" stroke-linecap="round"/><path d="M87 87q4-5 9-4" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round"/>`,
+    tag: `<g transform="rotate(-18 22 98)"><path d="M8 88h22l9 10-9 10H8z" fill="#ffd166" stroke="#3b2a20" stroke-width="3" stroke-linejoin="round"/><circle cx="31" cy="98" r="2.5" fill="#3b2a20"/><text x="18" y="104" font-size="15" font-weight="800" text-anchor="middle" fill="#3b2a20" font-family="Arial">$</text></g>`,
+    z: `<text x="92" y="22" font-size="16" font-weight="800" fill="#d98f4e" font-family="Arial">z</text><text x="104" y="12" font-size="12" font-weight="800" fill="#d98f4e" font-family="Arial">z</text>`,
+    party: `<path d="M14 30l6 4M10 42h8M106 30l-6 4M110 42h-8" stroke="#ffb703" stroke-width="3.5" stroke-linecap="round"/><circle cx="18" cy="22" r="3" fill="#ff8fa3"/><circle cx="102" cy="21" r="3" fill="#8ecae6"/>`,
+    tear: `<path d="M78 66q3 6 0 9q-3-3 0-9z" fill="#8ecae6"/>`
   }[acc] || '';
   return `<svg class="dog ${cls}" viewBox="0 0 120 120" aria-hidden="true">
-    <g class="ear l"><ellipse cx="27" cy="54" rx="13" ry="25" transform="rotate(18 27 54)" fill="${ear}"/></g>
-    <g class="ear r"><ellipse cx="93" cy="54" rx="13" ry="25" transform="rotate(-18 93 54)" fill="${ear}"/></g>
-    <circle cx="60" cy="62" r="38" fill="${light}"/>
-    <ellipse cx="73" cy="54" rx="13" ry="11" fill="${patch}" opacity=".85"/>
-    <ellipse cx="60" cy="77" rx="21" ry="15" fill="${cream}"/>
+    <path d="M40 90 Q60 104 80 90 L80 98 Q60 112 40 98 Z" fill="${fur}"/>
+    <ellipse cx="60" cy="60" rx="31" ry="33" fill="${fur}" stroke="${rim}" stroke-width="2"/>
+    <ellipse cx="52" cy="40" rx="10" ry="5" fill="${furHi}" opacity=".7"/>
+    <g class="ear l"><path d="M48 30 C42 19 30 17 22 22 C14 27 10 39 11 51 C12 59 19 61 23 55 C27 49 31 43 37 39 C42 36 46 34 48 30 Z" fill="${earC}" stroke="${rim}" stroke-width="2" stroke-linejoin="round"/>
+      <path d="M45 27 C39 21 30 20 23 25" stroke="${furHi}" stroke-width="3" fill="none" stroke-linecap="round"/></g>
+    <g class="ear r"><path d="M72 30 C78 19 90 17 98 22 C106 27 110 39 109 51 C108 59 101 61 97 55 C93 49 89 43 83 39 C78 36 74 34 72 30 Z" fill="${earC}" stroke="${rim}" stroke-width="2" stroke-linejoin="round"/>
+      <path d="M75 27 C81 21 90 20 97 25" stroke="${furHi}" stroke-width="3" fill="none" stroke-linecap="round"/></g>
+    <ellipse cx="60" cy="76" rx="16" ry="12" fill="${muzzle}"/>
     ${eyes}
-    <ellipse cx="60" cy="70" rx="7.5" ry="5.5" fill="${ink}"/><ellipse cx="58" cy="68.5" rx="2.5" ry="1.4" fill="#fff" opacity=".8"/>
-    <ellipse cx="39" cy="74" rx="6" ry="3.5" fill="${pink}" opacity=".45"/><ellipse cx="81" cy="74" rx="6" ry="3.5" fill="${pink}" opacity=".45"/>
-    ${mouth}${extra}</svg>`;
+    <path d="M53 68 Q60 64 67 68 Q66 74 60 75 Q54 74 53 68 Z" fill="${ink}"/><ellipse cx="57.5" cy="67.6" rx="2.6" ry="1.3" fill="#fff" opacity=".55"/>
+    <ellipse cx="38" cy="73" rx="5.5" ry="3.2" fill="${pink}" opacity=".35"/><ellipse cx="82" cy="73" rx="5.5" ry="3.2" fill="${pink}" opacity=".35"/>
+    ${mouth}
+    <path d="M38 89 Q60 101 82 89" stroke="${collar}" stroke-width="6" fill="none" stroke-linecap="round"/>
+    <circle cx="60" cy="96" r="2" fill="#c9ccd3"/><circle cx="60" cy="104" r="7" fill="${tag}" stroke="#1f7a4f" stroke-width="1.5"/>
+    <g fill="#e9fff3"><ellipse cx="60" cy="106" rx="2.6" ry="2.1"/><circle cx="56.6" cy="102.6" r="1.1"/><circle cx="59" cy="101.4" r="1.1"/><circle cx="61.4" cy="101.4" r="1.1"/><circle cx="63.6" cy="102.6" r="1.1"/></g>
+    ${extra}</svg>`;
 }
 
 function toast(msg, ms = 2600) {
