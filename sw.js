@@ -1,5 +1,5 @@
 // 格價簿 service worker: offline app shell + cache OCR library files.
-const VERSION = 'pricepup-v3.1.0';
+const VERSION = 'pricepup-v3.1.1';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
@@ -16,7 +16,7 @@ self.addEventListener('fetch', e => {
     // stale-while-revalidate: works offline, picks up updates next launch
     e.respondWith(caches.open(VERSION).then(async c => {
       const hit = await c.match(req, { ignoreSearch: true });
-      const net = fetch(req).then(r => { if (r.ok) c.put(req, r.clone()); return r; }).catch(() => hit);
+      const net = fetch(req, { cache: 'no-cache' }).then(r => { if (r.ok) c.put(req, r.clone()); return r; }).catch(() => hit);
       return hit || net;
     }));
   } else if (url.hostname === 'cdn.jsdelivr.net' || url.hostname === 'www.gstatic.com' || url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com') {
