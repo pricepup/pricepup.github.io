@@ -130,7 +130,7 @@ h2{font-size:17px;margin:0 0 8px}
 
 <script>
 'use strict';
-const APP_VERSION = '3.0.0';
+const APP_VERSION = '3.1.0';
 const $ = s => document.querySelector(s);
 const app = $('#app');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -190,7 +190,7 @@ const I18N = {
   backup:['備份','Backup'], export:['⬆️ 匯出備份','⬆️ Export backup'], import:['⬇️ 匯入備份（合併）','⬇️ Import backup (merge)'],
   backupHint:['建議每個月匯出一次，存去 Google Drive。換電話或者同屋企人共用數據都係用呢個方法。','Export monthly to Google Drive. Use the same to move phones or share with family.'],
   importFail:['匯入失敗：檔案格式唔啱','Import failed: wrong file format'], danger:['危險區','Danger zone'], wipe:['刪除所有數據','Delete all data'],
-  wipeConfirm:['真係刪除所有產品同價錢？（冇得復原，建議先匯出備份）','Really delete everything? (Cannot undo — export a backup first)'], wiped:['已刪除所有數據','All data deleted'],
+  wipeConfirm:['真係刪除呢部電話入面所有產品同價錢？（冇得復原）','Really delete all items and prices on this phone? (Cannot undo)'], dataCloud:['數據同步緊雲端，兩部電話共用同一份數據。','Data is synced to the cloud and shared by both phones.'], wiped:['已刪除所有數據','All data deleted'],
   credit:['產品資料來自 Open Food Facts','Product info from Open Food Facts'],
   scanAim:['將 barcode 對準方框','Point at the barcode'], scanNo:['呢個瀏覽器唔支援即時掃描，請手動輸入 barcode','Live scanning not supported — type the barcode'],
   scanCam:['開唔到相機（請允許相機權限），可以用相片或者手動輸入','Camera unavailable (allow permission) — use a photo or type it'],
@@ -199,7 +199,7 @@ const I18N = {
   photoNoCode:['相入面搵唔到 barcode，試吓影近啲、清楚啲','No barcode found — try closer and sharper'], photoFail:['讀唔到相片',"Couldn't read the photo"],
   unnamed:['（未命名）','(unnamed)'], noStore:['（未填舖頭）','(no store)'], uses:['次','uses'], pcs:['件','pcs'], perUse:['/次','/use'], perPc:['/件','/pc'],
   byWeight:['按重量計價','priced by weight'], hello:['今日去邊度格價？','Where are we shopping today?'],
-  syncTitle:['家庭同步','Family sync'], syncDesc:['用 Google 登入之後，你哋兩部電話嘅數據會即時同步，冇網絡時都照用，返到有網絡自動上傳。','Sign in with Google and both phones stay in sync instantly. Works offline and uploads when back online.'],
+  syncTitle:['數據同步','Data sync'], syncDesc:['用 Google 登入之後，你哋兩部電話嘅數據會即時同步，冇網絡時都照用，返到有網絡自動上傳。','Sign in with Google and both phones stay in sync instantly. Works offline and uploads when back online.'],
   signIn:['用 Google 登入並開始同步','Sign in with Google to sync'], signOut:['登出（停止同步）','Sign out (stop syncing)'],
   sOff:['未開啟','Off'], sConnecting:['連接中…','Connecting…'], sSynced:['已同步','Synced'], sSyncing:['同步中…','Syncing…'], sOffline:['離線（稍後自動上傳）','Offline (will upload later)'], sError:['同步出錯','Sync error'],
   notAllowed:['呢個 Google 帳戶未獲准使用同步','This Google account is not allowed to sync'], signInFail:['登入失敗，請再試','Sign-in failed, please try again'],
@@ -519,7 +519,34 @@ function pickFile(input) {
 }
 
 /* ---------- Scanner (Android Chrome BarcodeDetector) ---------- */
-let scanStream = null, scanTimer = null, detector = null, torchOn = false;
+let scanStream = null, scanTimer = null, detector = null, torchOn = false, zx = null, zxActive = false;
+// iPhone Safari has no built-in BarcodeDetector, so use the free ZXing library there instead.
+const ZX_URL = 'https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js';
+function zxReader() {
+  const Z = window.ZXing, hints = new Map();
+  hints.set(Z.DecodeHintType.POSSIBLE_FORMATS, [Z.BarcodeFormat.EAN_13, Z.BarcodeFormat.EAN_8, Z.BarcodeFormat.UPC_A, Z.BarcodeFormat.UPC_E, Z.BarcodeFormat.CODE_128]);
+  hints.set(Z.DecodeHintType.TRY_HARDER, true);
+  return new Z.BrowserMultiFormatReader(hints, 250);
+}
+async function loadZx() { if (!window.ZXing) await loadScript(ZX_URL); }
+// Decode one full-resolution camera frame (ZXing's own video helper scales frames down too far).
+let zxCore = null, zxCanvas = null;
+function zxDecodeFrame(src, w, h) {
+  const Z = window.ZXing;
+  if (!zxCore) {
+    zxCore = new Z.MultiFormatReader();
+    const hints = new Map();
+    hints.set(Z.DecodeHintType.POSSIBLE_FORMATS, [Z.BarcodeFormat.EAN_13, Z.BarcodeFormat.EAN_8, Z.BarcodeFormat.UPC_A, Z.BarcodeFormat.UPC_E, Z.BarcodeFormat.CODE_128]);
+    hints.set(Z.DecodeHintType.TRY_HARDER, true);
+    zxCore.setHints(hints);
+  }
+  zxCanvas = zxCanvas || document.createElement('canvas');
+  const s = Math.min(1, 1280 / Math.max(w, h));
+  zxCanvas.width = Math.round(w * s); zxCanvas.height = Math.round(h * s);
+  zxCanvas.getContext('2d', { willReadFrequently: true }).drawImage(src, 0, 0, zxCanvas.width, zxCanvas.height);
+  try { return zxCore.decodeWithState(new Z.BinaryBitmap(new Z.HybridBinarizer(new Z.HTMLCanvasElementLuminanceSource(zxCanvas)))).getText(); }
+  catch (e) { return null; }
+}
 async function getDetector() {
   if (detector) return detector;
   if (!('BarcodeDetector' in window)) return null;
@@ -535,8 +562,8 @@ async function openScanner() {
   $('#scanDog').innerHTML = dog('sniff', 'glass', 'bounce');
   const msg = $('#scanMsg');
   const det = await getDetector();
-  if (!det) { msg.textContent = t('scanNo'); return; }
   msg.textContent = t('scanAim');
+  if (!det) { try { await loadZx(); } catch (e) { msg.textContent = t('scanNo'); return; } }
   try {
     scanStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
   } catch (e) { msg.textContent = t('scanCam'); return; }
@@ -548,16 +575,17 @@ async function openScanner() {
     if (!scanStream) return;
     try {
       if (v.readyState >= 2) {
-        const codes = await det.detect(v);
-        if (codes.length) { const val = codes[0].rawValue; closeScanner(); navigator.vibrate && navigator.vibrate(60); handleBarcode(val); return; }
+        const val = det ? ((await det.detect(v))[0] || {}).rawValue : zxDecodeFrame(v, v.videoWidth, v.videoHeight);
+        if (val) { closeScanner(); navigator.vibrate && navigator.vibrate(60); handleBarcode(val); return; }
       }
     } catch (e) {}
-    scanTimer = setTimeout(tick, 150);
+    scanTimer = setTimeout(tick, det ? 150 : 200);
   };
   tick();
 }
 function closeScanner() {
   clearTimeout(scanTimer);
+  if (zxActive && zx) { try { zx.reset(); } catch (e) {} zxActive = false; }
   if (scanStream) { scanStream.getTracks().forEach(tr => tr.stop()); scanStream = null; }
   $('#scanVideo').srcObject = null;
   $('#scanner').classList.add('hidden');
@@ -572,8 +600,14 @@ $('#closeScanBtn').onclick = () => { closeScanner(); if (location.hash === '#sca
 $('#manualGo').onclick = () => { const c = $('#manualCode').value; if (!normCode(c)) return toast(t('needCode')); closeScanner(); handleBarcode(c); };
 $('#photoScanBtn').onclick = async () => {
   const det = await getDetector();
-  if (!det) return toast(t('noDetect'));
   const f = await pickFile($('#fileBarcode')); if (!f) return;
+  if (!det) {
+    const url = URL.createObjectURL(f);
+    try { await loadZx(); const res = await zxReader().decodeFromImageUrl(url); closeScanner(); handleBarcode(res.getText()); }
+    catch (e) { toast(window.ZXing ? t('photoNoCode') : t('noDetect')); }
+    finally { URL.revokeObjectURL(url); }
+    return;
+  }
   try {
     const codes = await det.detect(await loadBitmap(f));
     if (codes.length) { closeScanner(); handleBarcode(codes[0].rawValue); }
@@ -974,32 +1008,12 @@ async function viewSettings() {
       ${fbUser ? `<button class="btn sec" id="sSignOut">${t('signOut')}</button>` : `<button class="btn" id="sSignIn">${t('signIn')}</button>`}
     </div>
     <div class="card"><h2>🦴 ${t('data')}</h2><div class="muted">${tf('dataCount', prods.length, prices.length)}<br>
-      ${t('dataLocal')} ${persisted ? t('persistOn') : t('persistOff')}</div></div>
-    <div class="card"><h2>📦 ${t('backup')}</h2>
-      <button class="btn" id="sExport">${t('export')}</button>
-      <button class="btn sec" id="sImport">${t('import')}</button>
-      <div class="muted">${t('backupHint')}</div></div>
+      ${syncOn() ? t('dataCloud') : t('dataLocal') + ' ' + (persisted ? t('persistOn') : t('persistOff'))}</div></div>
     <div class="card"><h2>⚠️ ${t('danger')}</h2><button class="btn danger" id="sWipe">${t('wipe')}</button></div>
     <div class="empty">${dog('sleep', 'z')}<div class="muted"><span class="brand" style="font-weight:800;font-size:16px">PricePup 格價狗</span> v${APP_VERSION}<br>${t('credit')}</div></div>`;
   $('#sLang').querySelectorAll('button').forEach(b => b.onclick = () => { LANG = b.dataset.l; lsSet('lang', LANG); applyStatic(); setSync(syncState); viewSettings(); });
   if ($('#sSignIn')) $('#sSignIn').onclick = signIn;
   if ($('#sSignOut')) $('#sSignOut').onclick = signOutSync;
-  $('#sExport').onclick = async () => {
-    const data = { app: 'gaakgaa', version: 1, exported: new Date().toISOString(), products: await getAll('products'), prices: await getAll('prices') };
-    const name = `pricepup-backup-${today()}.json`;
-    const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
-    const file = new File([blob], name, { type: 'application/json' });
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      try { await navigator.share({ files: [file], title: name }); return; } catch (e) { if (e.name === 'AbortError') return; }
-    }
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
-  };
-  $('#sImport').onclick = async () => {
-    const f = await pickFile($('#fileImport')); if (!f) return;
-    try { const n = await importData(JSON.parse(await f.text())); toast(tf('imported', n.p, n.r)); viewSettings(); }
-    catch (e) { toast(t('importFail')); }
-  };
   $('#sWipe').onclick = async () => {
     if (syncOn()) return toast(t('wipeSynced'), 4000);
     if (!confirm(t('wipeConfirm'))) return;
