@@ -86,6 +86,8 @@ h2{font-size:17px;margin:0 0 8px}
 .seg{display:flex;gap:8px}
 .seg button{flex:1;padding:10px;border-radius:14px;border:2px solid var(--line);background:var(--bg);color:var(--text);font:inherit;font-weight:700}
 .seg button.on{border-color:var(--accent);background:var(--soft);color:var(--accent-dk)}
+#syncBadge{font-size:13px;font-weight:700;text-decoration:none;padding:5px 9px;border-radius:999px;background:var(--card);border:2px solid var(--line);color:var(--muted);white-space:nowrap}
+#syncBadge.ok{color:var(--good);border-color:var(--good-bg)}#syncBadge.warn{color:var(--bad)}
 .dog .ear{transform-box:fill-box;transform-origin:50% 8%;animation:wag 1.4s ease-in-out infinite alternate}
 .dog .ear.r{animation-delay:-.7s}
 @keyframes wag{from{transform:rotate(-6deg)}to{transform:rotate(6deg)}}
@@ -95,7 +97,7 @@ h2{font-size:17px;margin:0 0 8px}
 </style>
 </head>
 <body>
-<header class="top"><button id="backBtn" class="hidden" aria-label="Back">‹</button><span id="headDog"></span><h1 id="title" class="brand">PricePup</h1></header>
+<header class="top"><button id="backBtn" class="hidden" aria-label="Back">‹</button><span id="headDog"></span><h1 id="title" class="brand">PricePup</h1><a id="syncBadge" class="hidden" href="#settings"></a></header>
 <main id="app"></main>
 <nav class="tabs">
   <a href="#home" data-tab="home"><span>🦴</span><b data-t="tabProducts"></b></a>
@@ -128,7 +130,7 @@ h2{font-size:17px;margin:0 0 8px}
 
 <script>
 'use strict';
-const APP_VERSION = '2.0.0';
+const APP_VERSION = '3.0.0';
 const $ = s => document.querySelector(s);
 const app = $('#app');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -196,7 +198,14 @@ const I18N = {
   needCode:['請輸入 barcode 數字','Enter the barcode digits'], badCode:['barcode 唔啱','Invalid barcode'], noDetect:['呢個瀏覽器唔支援讀 barcode','Barcode reading not supported'],
   photoNoCode:['相入面搵唔到 barcode，試吓影近啲、清楚啲','No barcode found — try closer and sharper'], photoFail:['讀唔到相片',"Couldn't read the photo"],
   unnamed:['（未命名）','(unnamed)'], noStore:['（未填舖頭）','(no store)'], uses:['次','uses'], pcs:['件','pcs'], perUse:['/次','/use'], perPc:['/件','/pc'],
-  byWeight:['按重量計價','priced by weight'], hello:['今日去邊度格價？','Where are we shopping today?']
+  byWeight:['按重量計價','priced by weight'], hello:['今日去邊度格價？','Where are we shopping today?'],
+  syncTitle:['家庭同步','Family sync'], syncDesc:['用 Google 登入之後，你哋兩部電話嘅數據會即時同步，冇網絡時都照用，返到有網絡自動上傳。','Sign in with Google and both phones stay in sync instantly. Works offline and uploads when back online.'],
+  signIn:['用 Google 登入並開始同步','Sign in with Google to sync'], signOut:['登出（停止同步）','Sign out (stop syncing)'],
+  sOff:['未開啟','Off'], sConnecting:['連接中…','Connecting…'], sSynced:['已同步','Synced'], sSyncing:['同步中…','Syncing…'], sOffline:['離線（稍後自動上傳）','Offline (will upload later)'], sError:['同步出錯','Sync error'],
+  notAllowed:['呢個 Google 帳戶未獲准使用同步','This Google account is not allowed to sync'], signInFail:['登入失敗，請再試','Sign-in failed, please try again'],
+  signedInAs:['已登入：','Signed in: '], wipeSynced:['同步開咗時唔可以喺度刪除全部數據（會刪埋對方嘅）。請先登出。','Cannot delete all data while syncing (it would delete the other phone too). Sign out first.'],
+  dupName:['已經有同名產品，直接用返：','Item already exists, using: '],
+  merged:['已將呢部電話嘅數據合併到共用數據庫','Merged this phone\'s data into the shared database']
 };
 const I18NF = {
   vLow:[(d,m,s)=>`汪！歷史新低！比之前最低（${m}，${s}）平 ${d}`,(d,m,s)=>`Woof! New all-time low — ${d} cheaper than the previous low (${m}, ${s})`],
@@ -280,6 +289,132 @@ const getOne = (s, k) => p2(store(s).get(k));
 const putOne = (s, v) => p2(store(s, 'readwrite').put(v));
 const delOne = (s, k) => p2(store(s, 'readwrite').delete(k));
 const pricesFor = id => p2(store('prices').index('productId').getAll(id));
+const newId = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2));
+// Every change goes to the phone first, then (if signed in) to the shared Firestore database.
+async function save(name, obj) { await putOne(name, obj); remotePut(name, obj); }
+async function remove(name, id) { await delOne(name, id); remoteDel(name, id); }
+
+/* ---------- Family sync (Firebase Firestore, realtime) ---------- */
+const FB_CONFIG = { apiKey: 'AIzaSyCBHCl3Wd-hCblhagOwfcdUuRRFG3uxZqo', authDomain: 'pricepup-b02ce.firebaseapp.com', projectId: 'pricepup-b02ce',
+  storageBucket: 'pricepup-b02ce.firebasestorage.app', messagingSenderId: '809962807683', appId: '1:809962807683:web:4679d6222913b15a4dd6b6' };
+const HOUSEHOLD = 'silver-sumina';
+const ALLOWED = ['silveratca@gmail.com', 'foeverkira@gmail.com'];
+const FB_V = '10.12.2';
+let fb = null, fbUser = null, syncState = 'off', unsubs = [];
+const syncOn = () => !!(fb && fbUser);
+async function loadFb() {
+  if (fb) return fb;
+  const base = `https://www.gstatic.com/firebasejs/${FB_V}/`;
+  const [A0, A, F] = await Promise.all([import(base + 'firebase-app.js'), import(base + 'firebase-auth.js'), import(base + 'firebase-firestore.js')]);
+  const fapp = A0.initializeApp(FB_CONFIG);
+  let fdb;
+  try { fdb = F.initializeFirestore(fapp, { localCache: F.persistentLocalCache({ tabManager: F.persistentMultipleTabManager() }) }); }
+  catch (e) { fdb = F.getFirestore(fapp); }
+  fb = { A, F, db: fdb, auth: A.getAuth(fapp) };
+  A.onAuthStateChanged(fb.auth, onAuth);
+  A.getRedirectResult(fb.auth).catch(() => {});
+  return fb;
+}
+const col = name => fb.F.collection(fb.db, 'households', HOUSEHOLD, name);
+const docRef = (name, id) => fb.F.doc(fb.db, 'households', HOUSEHOLD, name, String(id));
+const clean = o => JSON.parse(JSON.stringify(o));
+function remotePut(name, obj) {
+  if (!syncOn()) return;
+  const { id, ...data } = obj;
+  fb.F.setDoc(docRef(name, id), clean(data)).catch(e => setSync('error', e.code));
+}
+function remoteDel(name, id) {
+  if (!syncOn()) return;
+  fb.F.deleteDoc(docRef(name, id)).catch(e => setSync('error', e.code));
+}
+function setSync(st, detail) {
+  syncState = st;
+  const b = $('#syncBadge');
+  if (st === 'off') { b.classList.add('hidden'); }
+  else {
+    b.classList.remove('hidden');
+    b.className = st === 'synced' ? 'ok' : (st === 'error' || st === 'offline') ? 'warn' : '';
+    b.textContent = { connecting: '☁️ …', synced: '☁️ ✓', syncing: '☁️ ↻', offline: '☁️ ✕', error: '☁️ !' }[st] || '☁️';
+    b.title = syncLabel();
+  }
+  if (detail) console.warn('sync', detail);
+  const el = $('#syncStatus'); if (el) el.textContent = syncLabel();
+}
+const syncLabel = () => t({ off: 'sOff', connecting: 'sConnecting', synced: 'sSynced', syncing: 'sSyncing', offline: 'sOffline', error: 'sError' }[syncState]);
+async function onAuth(user) {
+  stopListeners();
+  if (!user) { fbUser = null; setSync('off'); if (location.hash === '#settings') viewSettings(); return; }
+  if (!ALLOWED.includes((user.email || '').toLowerCase())) { toast(t('notAllowed')); await fb.A.signOut(fb.auth); return; }
+  fbUser = user; lsSet('sync', '1'); setSync('connecting');
+  try { await mergeLocalIntoRemote(); } catch (e) { setSync('error', e.code || e.message); }
+  startListeners();
+  if (location.hash === '#settings') viewSettings();
+}
+// First sign-in on a phone: push anything only this phone has; give old records global IDs;
+// reuse the shared copy of a no-barcode item with the same name instead of duplicating it.
+async function mergeLocalIntoRemote() {
+  const [rp, rr] = await Promise.all([fb.F.getDocs(col('products')), fb.F.getDocs(col('prices'))]);
+  const remoteProds = new Map(rp.docs.map(d => [d.id, d.data()]));
+  const remotePrices = new Set(rr.docs.map(d => d.id));
+  const byName = new Map([...remoteProds].map(([id, p]) => [String(p.name || '').trim().toLowerCase() + '|' + (p.basis || 'item'), id]));
+  const remap = {};
+  let n = 0;
+  for (const p of await getAll('products')) {
+    if (remoteProds.has(p.id)) continue;
+    const k = String(p.name || '').trim().toLowerCase() + '|' + (p.basis || 'item');
+    if (p.id.startsWith('M') && byName.has(k)) { remap[p.id] = byName.get(k); await delOne('products', p.id); continue; }
+    remotePut('products', p); n++;
+  }
+  for (const x of await getAll('prices')) {
+    let rec = x;
+    if (typeof x.id !== 'string' || remap[x.productId]) {
+      await delOne('prices', x.id);
+      rec = { ...x, id: typeof x.id === 'string' ? x.id : newId(), productId: remap[x.productId] || x.productId };
+      await putOne('prices', rec);
+    }
+    if (!remotePrices.has(rec.id)) { remotePut('prices', rec); n++; }
+  }
+  if (n) toast(t('merged'));
+}
+let rerenderT = null;
+function scheduleRerender() {
+  clearTimeout(rerenderT);
+  rerenderT = setTimeout(() => {
+    const r = location.hash.slice(1).split('/')[0];
+    if (['', 'home', 'product', 'compare'].includes(r)) route(true);
+  }, 300);
+}
+function startListeners() {
+  for (const name of ['products', 'prices']) {
+    unsubs.push(fb.F.onSnapshot(col(name), { includeMetadataChanges: true }, async snap => {
+      let changed = false;
+      for (const ch of snap.docChanges()) {
+        if (ch.type === 'removed') await delOne(name, ch.doc.id);
+        else await putOne(name, { ...ch.doc.data(), id: ch.doc.id });
+        changed = true;
+      }
+      setSync(snap.metadata.fromCache ? 'offline' : snap.metadata.hasPendingWrites ? 'syncing' : 'synced');
+      if (changed) scheduleRerender();
+    }, e => setSync('error', e.code)));
+  }
+}
+function stopListeners() { unsubs.forEach(u => u()); unsubs = []; }
+async function signIn() {
+  try {
+    await loadFb();
+    const p = new fb.A.GoogleAuthProvider(); p.setCustomParameters({ prompt: 'select_account' });
+    try { await fb.A.signInWithPopup(fb.auth, p); }
+    catch (e) {
+      if (['auth/popup-blocked', 'auth/operation-not-supported-in-this-environment', 'auth/cancelled-popup-request'].includes(e.code)) await fb.A.signInWithRedirect(fb.auth, p);
+      else if (e.code !== 'auth/popup-closed-by-user') throw e;
+    }
+  } catch (e) { console.warn(e); toast(t('signInFail')); }
+}
+async function signOutSync() {
+  lsSet('sync', '0'); stopListeners();
+  if (fb) await fb.A.signOut(fb.auth);
+  fbUser = null; setSync('off'); viewSettings();
+}
 
 /* ---------- Units & money ---------- */
 const UNITS = { mL:{base:'mL',f:1}, L:{base:'mL',f:1000}, g:{base:'g',f:1}, kg:{base:'g',f:1000}, count:{base:'count',f:1} };
@@ -346,7 +481,7 @@ async function lookupProduct(code) {
 /* ---------- Stats ---------- */
 function stats(prices) {
   if (!prices.length) return null;
-  const sorted = [...prices].sort((a, b) => a.date < b.date ? 1 : a.date > b.date ? -1 : b.id - a.id);
+  const sorted = [...prices].sort((a, b) => a.date < b.date ? 1 : a.date > b.date ? -1 : (b.ts || 0) - (a.ts || 0));
   let min = sorted[0];
   for (const p of sorted) if (eff(p) < eff(min) - 1e-9) min = p;
   const stores = {};
@@ -546,6 +681,7 @@ async function allWithStats() {
   return prods.map(p => ({ p, s: stats(by[p.id] || []) }));
 }
 
+let homeQ = '';
 async function viewHome() {
   setHeader(t('appName')); setTab('home');
   const list = await allWithStats();
@@ -554,12 +690,13 @@ async function viewHome() {
     <div class="hero">${dog('happy', 'tag', 'bounce')}<div class="bubble">${t('hello')}<small>${t('tagline')}</small></div></div>
     <button class="btn" id="goScan">${dog('sniff', 'glass')}<span>${t('scanBtn')}</span></button>
     <button class="btn sec" id="goManual">${t('noBarcode')}</button>
-    <input id="q" type="search" placeholder="${esc(t('search'))}" style="margin:4px 0 12px">
+    <input id="q" type="search" placeholder="${esc(t('search'))}" value="${esc(homeQ)}" style="margin:4px 0 12px">
     <div class="card" id="list"></div>`;
   $('#goScan').onclick = openScanner;
   $('#goManual').onclick = () => location.hash = '#new/';
   const render = () => {
-    const q = $('#q').value.trim().toLowerCase();
+    homeQ = $('#q').value;
+    const q = homeQ.trim().toLowerCase();
     const rows = list.filter(({ p, s }) => !q || [p.name, p.brand, p.category, p.id, s ? s.stores.map(x => x.store).join(' ') : ''].join(' ').toLowerCase().includes(q));
     $('#list').innerHTML = rows.length ? rows.map(({ p, s }) => {
       const ex = s ? extraUnit(p, eff(s.min)) : '';
@@ -610,12 +747,12 @@ async function viewProduct(id) {
   $('#editP').onclick = () => location.hash = `#edit/${encodeURIComponent(id)}`;
   $('#delP').onclick = async () => {
     if (!confirm(t('confirmDelProd'))) return;
-    for (const x of prices) await delOne('prices', x.id);
-    await delOne('products', id); toast(t('deleted')); location.hash = '#home';
+    for (const x of prices) await remove('prices', x.id);
+    await remove('products', id); toast(t('deleted')); location.hash = '#home';
   };
   app.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => {
     if (!confirm(t('confirmDelPrice'))) return;
-    await delOne('prices', +b.dataset.del); viewProduct(id);
+    const raw = b.dataset.del; await remove('prices', /^\d+$/.test(raw) ? +raw : raw); viewProduct(id);
   });
 }
 
@@ -703,13 +840,17 @@ async function viewProductForm(code, editId) {
     }
     const name = $('#fName').value.trim();
     if (!name) return toast(t('needName'));
+    if (!editing && id.startsWith('M')) {
+      const dup = (await getAll('products')).find(x => x.id.startsWith('M') && x.name.trim().toLowerCase() === name.toLowerCase() && (x.basis || 'item') === basis);
+      if (dup) { toast(t('dupName') + dup.name); location.replace(`#add/${encodeURIComponent(dup.id)}`); return; }
+    }
     const w = basis !== 'item';
     const prod = {
       id, name, brand: $('#fBrand').value.trim(), basis,
       size: w ? '' : (parseFloat($('#fSize').value) || ''), unit: $('#fUnit').value, uses: w ? '' : (parseInt($('#fUses').value) || ''),
       category: $('#fCat').value.trim(), image, photo, created: editing ? editing.created : today()
     };
-    await putOne('products', prod);
+    await save('products', prod);
     toast(t('saved'));
     location.replace(editing ? `#product/${encodeURIComponent(id)}` : `#add/${encodeURIComponent(id)}`);
   };
@@ -773,9 +914,9 @@ async function viewAddPrice(id) {
     const price = parseFloat($('#aPrice').value);
     if (!(price > 0)) return toast(t('needPrice'));
     const multi = w ? 1 : (parseInt($('#aMulti').value) || 1);
-    const rec = { productId: id, price: Math.round(price * 100) / 100, multi, store: $('#aStore').value.trim(), date: $('#aDate').value || today(),
-                  sale: $('#aSale').checked, note: $('#aNote').value.trim() };
-    await putOne('prices', rec);
+    const rec = { id: newId(), ts: Date.now(), by: fbUser ? fbUser.email : '', productId: id, price: Math.round(price * 100) / 100, multi, store: $('#aStore').value.trim(),
+                  date: $('#aDate').value || today(), sale: $('#aSale').checked, note: $('#aNote').value.trim() };
+    await save('prices', rec);
     if (rec.store) lsSet('lastStore', rec.store);
     const v = verdict(p, price / multi, prior);
     toast(v.cls === 'good' ? t('savedLow') : v.cls === 'eq' ? t('savedEq') : t('saved'), 3200);
@@ -827,6 +968,11 @@ async function viewSettings() {
   app.innerHTML = `
     <div class="card"><h2>🌐 ${t('lang')}</h2>
       <div class="seg" id="sLang"><button data-l="zh" class="${LANG === 'zh' ? 'on' : ''}">繁體中文</button><button data-l="en" class="${LANG === 'en' ? 'on' : ''}">English</button></div></div>
+    <div class="card"><h2>☁️ ${t('syncTitle')}</h2>
+      <div class="muted">${t('syncDesc')}</div>
+      <div style="margin:10px 0;font-weight:700">${fbUser ? t('signedInAs') + esc(fbUser.email) + ' · ' : ''}<span id="syncStatus">${syncLabel()}</span></div>
+      ${fbUser ? `<button class="btn sec" id="sSignOut">${t('signOut')}</button>` : `<button class="btn" id="sSignIn">${t('signIn')}</button>`}
+    </div>
     <div class="card"><h2>🦴 ${t('data')}</h2><div class="muted">${tf('dataCount', prods.length, prices.length)}<br>
       ${t('dataLocal')} ${persisted ? t('persistOn') : t('persistOff')}</div></div>
     <div class="card"><h2>📦 ${t('backup')}</h2>
@@ -835,7 +981,9 @@ async function viewSettings() {
       <div class="muted">${t('backupHint')}</div></div>
     <div class="card"><h2>⚠️ ${t('danger')}</h2><button class="btn danger" id="sWipe">${t('wipe')}</button></div>
     <div class="empty">${dog('sleep', 'z')}<div class="muted"><span class="brand" style="font-weight:800;font-size:16px">PricePup 格價狗</span> v${APP_VERSION}<br>${t('credit')}</div></div>`;
-  $('#sLang').querySelectorAll('button').forEach(b => b.onclick = () => { LANG = b.dataset.l; lsSet('lang', LANG); applyStatic(); viewSettings(); });
+  $('#sLang').querySelectorAll('button').forEach(b => b.onclick = () => { LANG = b.dataset.l; lsSet('lang', LANG); applyStatic(); setSync(syncState); viewSettings(); });
+  if ($('#sSignIn')) $('#sSignIn').onclick = signIn;
+  if ($('#sSignOut')) $('#sSignOut').onclick = signOutSync;
   $('#sExport').onclick = async () => {
     const data = { app: 'gaakgaa', version: 1, exported: new Date().toISOString(), products: await getAll('products'), prices: await getAll('prices') };
     const name = `pricepup-backup-${today()}.json`;
@@ -853,6 +1001,7 @@ async function viewSettings() {
     catch (e) { toast(t('importFail')); }
   };
   $('#sWipe').onclick = async () => {
+    if (syncOn()) return toast(t('wipeSynced'), 4000);
     if (!confirm(t('wipeConfirm'))) return;
     await p2(store('prices', 'readwrite').clear()); await p2(store('products', 'readwrite').clear());
     toast(t('wiped')); viewSettings();
@@ -860,24 +1009,24 @@ async function viewSettings() {
 }
 async function importData(d) {
   if (!d || d.app !== 'gaakgaa' || !Array.isArray(d.products) || !Array.isArray(d.prices)) throw new Error('bad');
-  for (const p of d.products) { if (p && p.id) await putOne('products', p); }
+  for (const p of d.products) { if (p && p.id) await save('products', p); }
   const key = x => [x.productId, x.date, x.price, x.multi || 1, x.store || ''].join('|');
   const existing = new Set((await getAll('prices')).map(key));
   let r = 0;
   for (const x of d.prices) {
     if (!x || !x.productId || existing.has(key(x))) continue;
-    const { id, ...rest } = x; await putOne('prices', rest); existing.add(key(x)); r++;
+    await save('prices', { ...x, id: typeof x.id === 'string' ? x.id : newId() }); existing.add(key(x)); r++;
   }
   return { p: d.products.length, r };
 }
 
 /* ---------- Router ---------- */
-async function route() {
+async function route(bg) {
   const h = location.hash.slice(1);
   const i = h.indexOf('/');
   const r = i < 0 ? h : h.slice(0, i), arg = i < 0 ? '' : decodeURIComponent(h.slice(i + 1));
-  window.scrollTo(0, 0);
-  if (r !== 'scan' && scanStream) closeScanner();
+  if (!bg) window.scrollTo(0, 0);
+  if (r !== 'scan' && scanStream && !bg) closeScanner();
   switch (r) {
     case 'product': return viewProduct(arg);
     case 'new': return viewProductForm(normCode(arg));
@@ -899,6 +1048,7 @@ window.addEventListener('hashchange', route);
     navigator.serviceWorker.register('sw.js').catch(() => {});
   }
   route();
+  if (lsGet('sync') === '1') { setSync('connecting'); loadFb().catch(e => setSync('error', e.message)); }
 })();
 </script>
 </body>
