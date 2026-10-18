@@ -132,7 +132,7 @@ h2{font-size:17px;margin:0 0 8px}
 
 <script>
 'use strict';
-const APP_VERSION = '4.0.0';
+const APP_VERSION = '4.0.1';
 const $ = s => document.querySelector(s);
 const app = $('#app');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -319,6 +319,7 @@ const variantText = (it, vid) => {
   const sz = va.size ? `${+va.size}${va.unit === 'count' ? ' ' + t('unitCount') : ' ' + va.unit}` : '';
   return [va.brand, va.desc, sz, va.uses ? `${va.uses}${LANG === 'zh' ? ' 次' : ' uses'}` : ''].filter(Boolean).join(' · ');
 };
+const obsText = (it, o) => o.vid ? variantText(it, o.vid) : (o.listing && o.listing !== it.name ? `${o.listing} · ${t('loose')}` : t('loose'));
 const priceText = (it, o) => (o.multi > 1 ? tf('itemsAt', o.multi, money(o.price)) : money(o.price)) + (it.mode === 'weight' && o.per !== 'pack' ? (o.per === 'kg' ? '/kg' : '/lb') : '');
 
 // Summary of an item's observations, compared by unit price.
@@ -334,7 +335,7 @@ function summarize(it, obs) {
   let low = R[0]; for (const r of R) if (r.u.v < low.u.v - 1e-9) low = r;
   const recent = R.filter(r => daysAgo(r.o.date) <= 30);
   const latestPer = {}; // latest per store+variant within 30 days
-  for (const r of recent) { const k = r.o.store + '|' + (r.o.vid || ''); if (!latestPer[k]) latestPer[k] = r; }
+  for (const r of recent) { const k = r.o.store + '|' + (r.o.vid || r.o.listing || ''); if (!latestPer[k]) latestPer[k] = r; }
   const board = Object.values(latestPer).sort((a, b) => a.u.v - b.u.v);
   return { rows: R, low, best: board[0] || null, board, key };
 }
@@ -675,20 +676,20 @@ async function viewItem(id) {
     ${s ? `
     <div class="card"><div class="row" style="align-items:flex-start">
       <div><div class="muted">${t('histLow')}</div><div class="big-num">${fmtU(s.low.u)}</div>
-        <div class="muted">${esc(s.low.o.store)} · ${fmtDate(s.low.o.date)}</div><div class="muted">${esc(variantText(it, s.low.o.vid))} · ${priceText(it, s.low.o)}</div></div>
+        <div class="muted">${esc(s.low.o.store)} · ${fmtDate(s.low.o.date)}</div><div class="muted">${esc(obsText(it, s.low.o))} · ${priceText(it, s.low.o)}</div></div>
       ${s.best ? `<div><div class="muted">${t('bestNow')}</div><div class="big-num">${fmtU(s.best.u)}</div>
-        <div class="muted">${esc(s.best.o.store)} · ${tf('ago', daysAgo(s.best.o.date))}</div><div class="muted">${esc(variantText(it, s.best.o.vid))}</div></div>` : ''}
+        <div class="muted">${esc(s.best.o.store)} · ${tf('ago', daysAgo(s.best.o.date))}</div><div class="muted">${esc(obsText(it, s.best.o))}</div></div>` : ''}
     </div></div>
     <div class="card"><h2>🐾 ${t('byStore')}</h2>
       ${s.board.length ? `<table><tr><th>${t('store')}</th><th class="r">${t('price')}</th><th class="r">${t('unitP')}</th></tr>
       ${s.board.map((r, i) => `<tr><td>${esc(r.o.store)}${i === 0 && s.board.length > 1 ? `<span class="tag">🏆 ${t('cheapest')}</span>` : ''}${r.o.sale ? `<span class="tag">${t('sale')}</span>` : ''}
-        <div class="muted">${esc(variantText(it, r.o.vid))} · ${fmtDate(r.o.date)}</div></td>
+        <div class="muted">${esc(obsText(it, r.o))} · ${fmtDate(r.o.date)}</div></td>
         <td class="r">${priceText(it, r.o)}${r.o.reg ? `<div class="muted">${t('reg')} ${money(r.o.reg)}</div>` : ''}</td>
         <td class="r"><b>${fmtU(r.u)}</b>${r.u.alt ? `<div class="muted">${r.u.alt}</div>` : ''}</td></tr>`).join('')}</table>` : `<div class="muted">${t('noRecent')}</div>`}
     </div>
     ${chartSvg(s.rows, s.low.u.v, s.low.u.label)}
     <div class="card"><h2>${t('history')}（${s.rows.length}）</h2><table>
-      ${s.rows.slice(0, 60).map(r => `<tr><td>${fmtDate(r.o.date)}<div class="muted">${esc(r.o.store)}${r.o.sale ? ' · ' + t('sale') : ''} · ${esc(variantText(it, r.o.vid))}</div></td>
+      ${s.rows.slice(0, 60).map(r => `<tr><td>${fmtDate(r.o.date)}<div class="muted">${esc(r.o.store)}${r.o.sale ? ' · ' + t('sale') : ''} · ${esc(obsText(it, r.o))}</div></td>
         <td class="r">${priceText(it, r.o)}<div class="muted">${fmtU(r.u)}</div></td></tr>`).join('')}</table></div>` : `<div class="card empty">${dog('sniff', 'glass')}<div class="muted">${t('noPrice')}</div></div>`}
     ${vars.length ? `<div class="card"><h2>${t('variants')}</h2>${vars.map(([vid, va]) => `<div class="item">${thumb(va.photo, itemEmoji(it))}<div class="main"><div>${esc(variantText(it, vid))}</div>${va.barcode ? `<div class="muted">${esc(va.barcode)}</div>` : ''}</div></div>`).join('')}</div>` : ''}`;
   $('#addPrice').onclick = () => location.hash = `#add/${encodeURIComponent(id)}`;
@@ -887,7 +888,7 @@ async function viewDeals() {
   }).sort((a, b) => b.off - a.off);
   app.innerHTML = `<div class="card muted">${t('dealsHint')}</div><div class="card">${deals.length ? deals.slice(0, 200).map(d => `
     <a class="item" href="#item/${encodeURIComponent(d.it.id)}">${thumb((d.it.variants || {})[d.o.vid] && d.it.variants[d.o.vid].photo || itemPhoto(d.it), itemEmoji(d.it))}
-      <div class="main"><div class="name">${esc(itemName(d.it))}</div><div class="muted">${esc(variantText(d.it, d.o.vid))}</div><div class="muted">${esc(d.o.store)} · ${fmtDate(d.o.date)}</div></div>
+      <div class="main"><div class="name">${esc(itemName(d.it))}</div><div class="muted">${esc(obsText(d.it, d.o))}</div><div class="muted">${esc(d.o.store)} · ${fmtDate(d.o.date)}</div></div>
       <div class="price">${priceText(d.it, d.o)}<div class="muted">${d.off > 0 ? `<span class="tag">-${Math.round(d.off * 100)}%</span><br>${t('reg')} ${money(d.o.reg)}` : ''}${d.u ? '<br>' + fmtU(d.u) : ''}</div></div></a>`).join('')
     : `<div class="empty">${dog('sleep', 'z')}<div class="muted">${t('noDeals')}</div></div>`}</div>`;
 }
