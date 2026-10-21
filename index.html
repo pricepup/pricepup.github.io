@@ -139,7 +139,7 @@ tr.ended td{color:var(--muted)}tr.ended b{font-weight:600}
 
 <script>
 'use strict';
-const APP_VERSION = '4.2.0';
+const APP_VERSION = '4.2.1';
 const $ = s => document.querySelector(s);
 const app = $('#app');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -412,7 +412,9 @@ function setSync(st, detail) {
   }
   if (detail) console.warn('sync', detail);
   const el = $('#syncStatus'); if (el) el.textContent = syncLabel();
+  const ls = $('#lastSyncTxt'); if (ls) ls.textContent = lastSyncText();
 }
+const lastSyncText = () => t('lastSync') + fmtWhen(syncState === 'synced' ? Date.now() : lsGet('lastSync'));
 const syncLabel = () => t({ off: 'sOff', connecting: 'sConnecting', synced: 'sSynced', syncing: 'sSyncing', offline: 'sOffline', error: 'sError' }[syncState]);
 async function onAuth(user) {
   stopListeners();
@@ -951,7 +953,7 @@ async function viewSettings() {
     <div class="card"><h2>🌐 ${t('lang')}</h2><div class="seg" id="sLang"><button data-l="zh" class="${LANG === 'zh' ? 'on' : ''}">繁體中文</button><button data-l="en" class="${LANG === 'en' ? 'on' : ''}">English</button></div></div>
     <div class="card"><h2>☁️ ${t('syncTitle')}</h2><div class="muted">${t('syncDesc')}</div>
       <div style="margin:10px 0 4px;font-weight:700">${fbUser ? t('signedInAs') + esc(fbUser.email) + ' · ' : ''}<span id="syncStatus">${syncLabel()}</span></div>
-      <div class="muted">${t('lastSync')}${fmtWhen(syncState === 'synced' ? Date.now() : lsGet('lastSync'))}</div>
+      <div class="muted" id="lastSyncTxt">${lastSyncText()}</div>
       ${flyer ? `<div class="muted" style="margin-bottom:10px">${t('latestFlyer')}${fmtDate(flyer.from)}–${fmtDate(flyer.to).slice(5)} · ${fmtWhen(flyer.ts)} ${t('loadedOn')}</div>` : '<div style="margin-bottom:10px"></div>'}
       ${fbUser ? `<button class="btn sec" id="sSignOut">${t('signOut')}</button>` : `<button class="btn" id="sSignIn">${t('signIn')}</button>`}</div>
     <div class="card"><h2>🦴 ${t('data')}</h2><div class="muted">${tf('count', items.length, obs.length)}</div></div>
