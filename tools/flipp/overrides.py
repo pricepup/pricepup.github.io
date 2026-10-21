@@ -1,5 +1,5 @@
 # key: (replace_include or None, extra_exclude or None)
-SKIP_EXTRA = r"(?i)\b(wand|flat iron or curling|styling|nicotine|raclette|pail|countertop|spice box|sofa|sectional|leather|chaise|thomasville|prospera|henredon|nexium|acid reducer|carving|inflatables?|mask|string lights|candy bucket|lamp|kurta|dupatta|machine)\b"
+SKIP_EXTRA = r"(?i)\b(wand|flat iron or curling|styling|nicotine|raclette|pail|countertop|spice box|sofa|sectional|leather|chaise|thomasville|prospera|henredon|nexium|acid reducer|carving|inflatables?|mask|string lights|candy bucket|lamp|kurta|dupatta|machine|massagers?|dolls?|sleep set|trick or treat bags|halloween pillows|toothbrush(es)?)\b"
 OVR = {
  'air-freshener': (r'air ?wick|febreze|glade|air freshener|\bair care|scented oil|plug[- ]in|essential mist|freshmatic|renuzit', None),
  'asian-drinks': (r'milkis|mogu|aloe vera drink|\bvita\b|yakult|calpis|grass jelly drink|chrysanthemum|sakura|soya bean drink|coconut juice|ramune|citron drink', None),
@@ -7,7 +7,7 @@ OVR = {
  'burgers': (None, r'sausage|hash|chicken|salmon|fish'),
  'fries': (r'fries|wedges|hash ?browns?|tater tots|onion rings|fried potatoes|breakfast potatoes|potato tots|hashbrown', None),
  'cake': (r'cakes?(?! mix)|cupcakes?|\btarts?\b|strudel|danish|cream puff|brownies?|egg tarts?|swiss roll|tiramisu|mochi|lava', r'starter|styling'),
- 'cheese-block': (None, r'roll'),
+ 'cheese-block': (None, r'roll|pot pies?'),
  'cheese-slices': (None, r'sesame'),
  'chips': (None, r'clif|chip energy|gerber'),
  'chocolate': (None, r'probiotic|align'),
@@ -49,14 +49,14 @@ OVR = {
  'tissue': (None, r'bath'),
  'toilet-paper': (r'bathroom tissue|bath tissue|toilet paper|toilet tissue|charmin|cashmere|cottonelle|royale|majesta', None),
  'tropical-fruit': (None, r'longanisa'),
- 'turkey': (None, r'oven roasted|pepperettes'),
+ 'turkey': (None, r'oven roasted|pepperettes|pot pie'),
  'water': (None, r'laundry|purex'),
  'white-fish': (None, r'flavou?red'),
  'yogurt': (r'yogh?urt|yogourt|yoplait|activia|oikos|danone|danino|iogo|liberte|liberté|\bastro\b|greek|skyr|kefir|\bdahi\b|\blassi\b', r'pretzel|coated|raisin|bites|bars|melts|frozen yogurt|chalo! lassi|drink mix|pasta|breyers'),
  'cereal': (None, r'marshmallow|baby|cerelac'),
  'apple': (None, r'unsweetened'),
  'jam': (None, r'bars?\b|pretzel|reese|candy|halloween'),
- 'cheese-block': (None, r'roll'),
+ 'cheese-block': (None, r'roll|pot pies?'),
 }
 OVR.update({
  'chocolate': (None, r'probiotic|align|crest|core power|supplement|restora'),
