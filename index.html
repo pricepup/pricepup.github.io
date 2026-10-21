@@ -139,7 +139,7 @@ tr.ended td{color:var(--muted)}tr.ended b{font-weight:600}
 
 <script>
 'use strict';
-const APP_VERSION = '4.2.1';
+const APP_VERSION = '4.2.2';
 const $ = s => document.querySelector(s);
 const app = $('#app');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -175,7 +175,7 @@ const I18N = {
   newVariant:['＋ 新款式','＋ New variant'], brand:['牌子','Brand'], desc:['款式描述（選填）','Description (optional)'], size:['容量／重量','Size'], unit:['單位','Unit'],
   uses:['可用次數（選填）','Number of uses (optional)'], barcode:['Barcode','Barcode'], unitCount:['件／個','pcs'],
   pricePack:['價錢 ($)','Price ($)'], priceLb:['價錢 ($/lb)','Price ($/lb)'], priceKg:['價錢 ($/kg)','Price ($/kg)'], perWhat:['價錢單位','Priced per'],
-  multi:['幾多件呢個價（例如「2 件 $5」就填 2）','Items for this price (e.g. "2 for $5" → 2)'], storePh:['例如 Superstore Seton','e.g. Superstore Seton'],
+  multi:['幾多件呢個價（例如「2 件 $5」就填 2）','Items for this price (e.g. "2 for $5" → 2)'], storePh:['例如 Superstore','e.g. Superstore'],
   date:['日期','Date'], note:['備註（選填）','Note (optional)'], save:['儲存','Save'], saved:['已儲存','Saved'], needPrice:['請輸入價錢','Please enter a price'],
   needName:['請填名稱','Please enter a name'], needVariant:['請揀或者新增款式','Choose or add a variant'], needSize:['請填容量／重量','Please enter the size'],
   ocrBtn:['📷 影價錢牌（自動讀價）','📷 Snap price tag (auto-read)'], ocrFirst:['🔎 第一次用要下載文字辨識（約 10MB），請等等…','🔎 First use downloads the text reader (~10MB)…'],
