@@ -61,7 +61,7 @@ def classify(name, desc):
         if inc.search(t) and not (exc and exc.search(t)): return (k, zh, en, cat, mode), 'ok'
     return None, 'nomatch'
 
-ST = {'Superstore': 'Superstore Seton'}
+ST = {}  # chain stores share one price across Calgary, so no branch names
 out_items, out_obs, stats, unmatched = {}, [], collections.Counter(), []
 for i in items:
     st = i['_store']
