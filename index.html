@@ -139,7 +139,7 @@ tr.ended td{color:var(--muted)}tr.ended b{font-weight:600}
 
 <script>
 'use strict';
-const APP_VERSION = '4.2.2';
+const APP_VERSION = '4.3.0';
 const $ = s => document.querySelector(s);
 const app = $('#app');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -190,6 +190,7 @@ const I18N = {
   syncDesc:['用 Google 登入之後，大家共用同一個價錢資料庫，冇網絡時都照用。','Sign in with Google to share one price database with everyone. Works offline.'],
   tabFav:['⭐ 我的最愛','⭐ Favourites'], tabAll:['全部產品','All items'], noFav:['未有最愛。撳產品右邊嘅 ☆ 就可以加入，方便追蹤價錢。','No favourites yet. Tap ☆ on an item to track it here.'],
   lastSync:['最後同步：','Last sync: '], never:['未同步過','never'], latestFlyer:['最新傳單：','Latest flyers: '], loadedOn:['入庫','loaded'],
+  usersTitle:['用戶（管理員）','Users (admin)'], usersTotal:[n=>`共 ${n} 個用戶`,n=>`${n} users in total`], usersActive:[n=>`${n} 個 10 分鐘內喺度用緊`,n=>`${n} active in the last 10 min`], usersNote:['用戶開過 4.3 或之後嘅版本先會出現','Users appear after opening v4.3 or later'],
   ended:['已完','Ended'], starts:['開始','starts'], usageTitle:['Firebase 用量（管理員）','Firebase usage (admin)'],
   usageHint:['免費額度每日太平洋時間午夜重設','Free daily quota resets at midnight Pacific'], usageLoad:['載入用量','Load usage'], usageLoading:['載入中…','Loading…'],
   usageReads:['讀取','Reads'], usageWrites:['寫入','Writes'], usageDeletes:['刪除','Deletes'], usageToday:['今日','Today'], usagePeak:['近 7 日最高讀取','7-day peak reads'],
@@ -216,6 +217,7 @@ const I18NF = {
 let LANG = lsGet('lang') || ((navigator.language || '').toLowerCase().startsWith('zh') ? 'zh' : 'en');
 const LI = () => LANG === 'zh' ? 0 : 1;
 const t = k => (I18N[k] || [k, k])[LI()];
+const tn = (k, n) => I18N[k][LI()](n);
 const tf = (k, ...a) => I18NF[k][LI()](...a);
 const CATS = [['水果蔬菜','Produce'],['肉類','Meat'],['海鮮','Seafood'],['奶類蛋','Dairy & eggs'],['麵包','Bakery'],['米麵乾貨','Rice, noodles & pantry'],['調味醬料','Sauces & seasoning'],['早餐穀物','Breakfast'],['零食','Snacks'],['飲品','Drinks'],['急凍','Frozen'],['清潔用品','Household cleaning'],['個人護理','Personal care'],['其他','Other']];
 const catLabel = c => { const f = CATS.find(x => x[0] === c); return f ? f[LI()] : (c || ''); };
@@ -420,7 +422,7 @@ async function onAuth(user) {
   stopListeners();
   if (!user) { fbUser = null; setSync('off'); if (location.hash === '#settings') viewSettings(); return; }
   fbUser = user; lsSet('sync', '1'); setSync('connecting');
-  startListeners(); listenFavs();
+  startListeners(); listenFavs(); touchProfile(true);
   if (location.hash === '#settings') viewSettings();
 }
 let rerenderT = null;
@@ -450,11 +452,22 @@ function stopListeners() { unsubs.forEach(u => u()); unsubs = []; }
 let FAVS = new Set((() => { try { return JSON.parse(lsGet('favs') || '[]'); } catch (e) { return []; } })());
 const isFav = id => FAVS.has(id);
 const favRef = () => fb.F.doc(fb.db, 'households', HOUSEHOLD, 'users', fbUser.uid);
-function pushFavs() { lsSet('favs', JSON.stringify([...FAVS])); if (syncOn()) fb.F.setDoc(favRef(), { favs: [...FAVS], updated: Date.now() }).catch(e => setSync('error', e.code)); }
+function pushFavs() { lsSet('favs', JSON.stringify([...FAVS])); if (syncOn()) fb.F.setDoc(favRef(), { favs: [...FAVS], updated: Date.now() }, { merge: true }).catch(e => setSync('error', e.code)); }
 function toggleFav(id) { if (FAVS.has(id)) FAVS.delete(id); else FAVS.add(id); pushFavs(); toast(t(FAVS.has(id) ? 'favOn' : 'favOff'), 1500); return FAVS.has(id); }
+// profile: lets the admin see who uses the app (users/{uid}: email, name, firstSeen, lastSeen, app)
+let lastTouch = 0;
+async function touchProfile(first) {
+  if (!syncOn() || Date.now() - lastTouch < 5 * 60e3) return; lastTouch = Date.now();
+  const data = { email: fbUser.email || '', name: fbUser.displayName || '', lastSeen: Date.now(), app: APP_VERSION };
+  try {
+    if (first) { const s = await fb.F.getDoc(favRef()); if (!s.exists() || !s.data().firstSeen) data.firstSeen = Date.now(); }
+    await fb.F.setDoc(favRef(), data, { merge: true });
+  } catch (e) { console.warn('profile', e.code); }
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') touchProfile(false); });
 function listenFavs() {
   unsubs.push(fb.F.onSnapshot(favRef(), snap => {
-    if (!snap.exists()) { if (FAVS.size) pushFavs(); return; }
+    if (!snap.exists() || !snap.data().favs) { if (FAVS.size) pushFavs(); return; }
     const remote = snap.data().favs || [];
     if (remote.join('|') !== [...FAVS].join('|')) { FAVS = new Set(remote); lsSet('favs', JSON.stringify(remote)); scheduleRerender(); }
   }, e => console.warn('favs', e.code)));
@@ -957,6 +970,7 @@ async function viewSettings() {
       ${flyer ? `<div class="muted" style="margin-bottom:10px">${t('latestFlyer')}${fmtDate(flyer.from)}–${fmtDate(flyer.to).slice(5)} · ${fmtWhen(flyer.ts)} ${t('loadedOn')}</div>` : '<div style="margin-bottom:10px"></div>'}
       ${fbUser ? `<button class="btn sec" id="sSignOut">${t('signOut')}</button>` : `<button class="btn" id="sSignIn">${t('signIn')}</button>`}</div>
     <div class="card"><h2>🦴 ${t('data')}</h2><div class="muted">${tf('count', items.length, obs.length)}</div></div>
+    ${isAdmin() ? `<div class="card"><h2>👥 ${t('usersTitle')}</h2><div id="usersBody" class="muted">…</div></div>` : ''}
     ${isAdmin() ? `<div class="card"><h2>📊 ${t('usageTitle')}</h2><div class="muted">${t('usageHint')}</div><div id="usageBody"></div>
       <div class="row" style="margin-top:8px"><button class="btn sec small" id="usageBtn">${t('usageLoad')}</button><a class="btn sec small" style="text-align:center;text-decoration:none" target="_blank" rel="noopener" href="https://console.firebase.google.com/project/${FB_CONFIG.projectId}/firestore/databases/-default-/usage">${t('usageConsole')}</a></div></div>` : ''}
     <div class="empty">${dog('sleep', 'z')}<div class="muted"><span class="brand" style="font-weight:800;font-size:16px">${LANG === 'zh' ? '格價狗 PricePup' : 'PricePup'}</span> v${APP_VERSION}<br>${t('credit')}</div></div>`;
@@ -964,9 +978,22 @@ async function viewSettings() {
   if ($('#sSignIn')) $('#sSignIn').onclick = signIn;
   if ($('#sSignOut')) $('#sSignOut').onclick = signOutSync;
   if ($('#usageBtn')) { $('#usageBtn').onclick = () => loadUsage(true); if (usageTok()) loadUsage(false); }
+  if ($('#usersBody')) loadUsers();
 }
 
 /* ---------- Latest flyer week + admin usage ---------- */
+async function loadUsers() {
+  const box = $('#usersBody'); if (!box) return;
+  try {
+    const snap = await fb.F.getDocsFromServer(col('users'));
+    const us = snap.docs.map(d => d.data()).filter(u => u.email).sort((a, b) => (b.lastSeen || 0) - (a.lastSeen || 0));
+    const live = us.filter(u => Date.now() - (u.lastSeen || 0) < 10 * 60e3).length;
+    box.innerHTML = `<div style="font-weight:700;color:var(--text)">${tn('usersTotal', us.length)} · ${tn('usersActive', live)}</div>
+      <table style="margin-top:6px">${us.map(u => `<tr><td>${Date.now() - (u.lastSeen || 0) < 10 * 60e3 ? '🟢 ' : ''}${esc(u.email)}${u.name ? `<div class="muted">${esc(u.name)}</div>` : ''}</td>
+        <td class="r">${fmtWhen(u.lastSeen)}<div class="muted">v${esc(u.app || '?')}</div></td></tr>`).join('')}</table>
+      <div class="muted" style="margin-top:6px">${t('usersNote')}</div>`;
+  } catch (e) { box.innerHTML = `<span style="color:var(--bad)">${esc(e.code || e.message)}</span>`; }
+}
 function latestFlyer(obs) {
   const fl = obs.filter(o => o.src === 'flyer' && o.date); if (!fl.length) return null;
   const from = fl.reduce((m, o) => o.date > m ? o.date : m, '');
