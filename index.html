@@ -99,6 +99,10 @@ h2{font-size:17px;margin:0 0 8px}
 .star{flex:0 0 auto;background:none;border:0;font-size:24px;line-height:1;color:var(--muted);padding:6px 2px 6px 6px;cursor:pointer;font-family:system-ui,sans-serif}
 .star.big{font-size:32px}
 .star.on{color:#e8a020}
+.tag.off{background:var(--line);color:var(--muted)}
+.tag.up{background:var(--soft);color:var(--accent-dk)}
+tr.ended td{color:var(--muted)}tr.ended b{font-weight:600}
+.meter{height:10px;border-radius:999px;background:var(--line);overflow:hidden;margin-top:4px}.meter i{display:block;height:100%;border-radius:999px}
 </style>
 </head>
 <body>
@@ -135,7 +139,7 @@ h2{font-size:17px;margin:0 0 8px}
 
 <script>
 'use strict';
-const APP_VERSION = '4.1.1';
+const APP_VERSION = '4.2.0';
 const $ = s => document.querySelector(s);
 const app = $('#app');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -143,6 +147,11 @@ const pad = n => String(n).padStart(2, '0');
 const today = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; };
 const fmtDate = s => { if (!s) return ''; const [y,m,d] = s.split('-'); return `${y}/${+m}/${+d}`; };
 const daysAgo = s => Math.round((Date.parse(today()) - Date.parse(s)) / 864e5);
+// sale/flyer validity: ended = promotion is over; upcoming = flyer preview not started yet
+const isEnded = o => !!(o.until && o.until < today());
+const isUpcoming = o => !!(o.date && o.date > today());
+const isCurrent = o => !isEnded(o) && !isUpcoming(o);
+const fmtWhen = ms => { if (!ms) return t('never'); const d = new Date(+ms), dd = daysAgo(`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`); return `${dd <= 1 ? tf('ago', dd) : `${d.getMonth()+1}/${d.getDate()}`} ${pad(d.getHours())}:${pad(d.getMinutes())}`; };
 const lsGet = k => { try { return localStorage.getItem(k); } catch(e) { return null; } };
 const lsSet = (k,v) => { try { localStorage.setItem(k, v); } catch(e) {} };
 const LB_G = 453.592;
@@ -180,6 +189,11 @@ const I18N = {
   setTitle:['設定','Settings'], lang:['語言 Language','Language 語言'], syncTitle:['數據同步','Data sync'],
   syncDesc:['用 Google 登入之後，大家共用同一個價錢資料庫，冇網絡時都照用。','Sign in with Google to share one price database with everyone. Works offline.'],
   tabFav:['⭐ 我的最愛','⭐ Favourites'], tabAll:['全部產品','All items'], noFav:['未有最愛。撳產品右邊嘅 ☆ 就可以加入，方便追蹤價錢。','No favourites yet. Tap ☆ on an item to track it here.'],
+  lastSync:['最後同步：','Last sync: '], never:['未同步過','never'], latestFlyer:['最新傳單：','Latest flyers: '], loadedOn:['入庫','loaded'],
+  ended:['已完','Ended'], starts:['開始','starts'], usageTitle:['Firebase 用量（管理員）','Firebase usage (admin)'],
+  usageHint:['免費額度每日太平洋時間午夜重設','Free daily quota resets at midnight Pacific'], usageLoad:['載入用量','Load usage'], usageLoading:['載入中…','Loading…'],
+  usageReads:['讀取','Reads'], usageWrites:['寫入','Writes'], usageDeletes:['刪除','Deletes'], usageToday:['今日','Today'], usagePeak:['近 7 日最高讀取','7-day peak reads'],
+  usageNoApi:['要先喺 Google Cloud 開啟 Cloud Monitoring API','Enable the Cloud Monitoring API in Google Cloud first'], usageFail:['讀唔到用量：','Could not load usage: '], usageConsole:['喺 Firebase 控制台睇','Open in Firebase console'],
   favOn:['已加入最愛','Added to favourites'], favOff:['已從最愛移除','Removed from favourites'], favBtn:['最愛','Favourite'],
   signIn:['用 Google 登入並開始同步','Sign in with Google to sync'], signOut:['登出','Sign out'], signedInAs:['已登入：','Signed in: '],
   sOff:['未開啟','Off'], sConnecting:['連接中…','Connecting…'], sSynced:['已同步','Synced'], sSyncing:['同步中…','Syncing…'], sOffline:['離線（稍後自動上傳）','Offline (uploads later)'], sError:['同步出錯','Sync error'],
@@ -343,8 +357,9 @@ function summarize(it, obs) {
   const recent = rows.filter(r => daysAgo(r.o.date) <= 30);
   const latestPer = {}; // latest per store+variant within 30 days (all units; main unit first)
   for (const r of recent) { const k = r.o.store + '|' + (r.o.vid || r.o.listing || ''); if (!latestPer[k]) latestPer[k] = r; }
-  const board = Object.values(latestPer).sort((a, b) => ((a.u.key !== key) - (b.u.key !== key)) || (a.u.key < b.u.key ? -1 : a.u.key > b.u.key ? 1 : 0) || a.u.v - b.u.v);
-  return { rows: R, low, best: board[0] || null, board, key };
+  const rank = r => isCurrent(r.o) ? 0 : isUpcoming(r.o) ? 1 : 2; // current, then upcoming, then ended
+  const board = Object.values(latestPer).sort((a, b) => (rank(a) - rank(b)) || ((a.u.key !== key) - (b.u.key !== key)) || (a.u.key < b.u.key ? -1 : a.u.key > b.u.key ? 1 : 0) || a.u.v - b.u.v);
+  return { rows: R, low, best: board.find(r => isCurrent(r.o)) || null, board, key };
 }
 function verdict(it, o, sum) {
   const u = unitPrice(it, o);
@@ -416,6 +431,7 @@ function startListeners() {
     unsubs.push(fb.F.onSnapshot(col(name), { includeMetadataChanges: true }, async snap => {
       // set the badge in arrival order (the async loop below can finish after a newer snapshot)
       setSync(snap.metadata.fromCache ? 'offline' : snap.metadata.hasPendingWrites ? 'syncing' : 'synced');
+      if (!snap.metadata.fromCache) lsSet('lastSync', String(Date.now()));
       let changed = false;
       for (const ch of snap.docChanges()) {
         if (ch.type === 'removed') await delOne(name, ch.doc.id);
@@ -678,7 +694,7 @@ async function viewHome() {
       const b = s && (s.best || s.low);
       return `<a class="item" href="#item/${encodeURIComponent(it.id)}">${thumb(itemPhoto(it), itemEmoji(it))}
         <div class="main"><div class="name">${esc(itemName(it))}</div><div class="muted">${esc([itemSub(it), catLabel(it.cat)].filter(Boolean).join(' · '))}</div>
-        ${b ? `<div class="muted">${esc(b.o.store)}${b.o.sale ? ` · <span class="tag">${t('sale')}</span>` : ''}</div>` : ''}</div>
+        ${b ? `<div class="muted">${esc(b.o.store)}${b.o.sale && isCurrent(b.o) ? ` · <span class="tag">${t('sale')}</span>` : ''}</div>` : ''}</div>
         <div class="price">${b ? fmtU(b.u) : '—'}<div class="muted">${s ? (s.best ? t('bestNow') : t('histLow')) : t('noPrice')}</div></div>${starBtn(it.id)}</a>`;
     }).join('') : `<div class="empty">${dog(list.length ? 'sad' : 'sleep', list.length ? '' : 'z')}<div class="muted">${list.length ? t('noMatch') : t('emptyList')}</div></div>`;
   };
@@ -709,7 +725,7 @@ async function viewItem(id) {
     </div></div>
     <div class="card"><h2>🐾 ${t('byStore')}</h2>
       ${s.board.length ? `<table><tr><th>${t('store')}</th><th class="r">${t('price')}</th><th class="r">${t('unitP')}</th></tr>
-      ${s.board.map((r, i) => `<tr><td>${esc(r.o.store)}${i === 0 && s.board.length > 1 && r.u.key === s.key ? `<span class="tag">🏆 ${t('cheapest')}</span>` : ''}${r.o.sale ? `<span class="tag">${t('sale')}</span>` : ''}
+      ${s.board.map((r, i) => `<tr class="${isEnded(r.o) ? 'ended' : ''}"><td>${esc(r.o.store)}${i === 0 && s.board.length > 1 && r.u.key === s.key && isCurrent(r.o) ? `<span class="tag">🏆 ${t('cheapest')}</span>` : ''}${isEnded(r.o) ? `<span class="tag off">${t('ended')}</span>` : isUpcoming(r.o) ? `<span class="tag up">${fmtDate(r.o.date).slice(5)} ${t('starts')}</span>` : r.o.sale ? `<span class="tag">${t('sale')}</span>` : ''}
         <div class="muted">${esc(obsText(it, r.o))} · ${fmtDate(r.o.date)}${r.o.until ? '–' + fmtDate(r.o.until).slice(5) : ''}</div></td>
         <td class="r">${priceText(it, r.o)}${r.o.reg ? `<div class="muted">${t('reg')} ${money(r.o.reg)}</div>` : ''}</td>
         <td class="r"><b>${fmtU(r.u)}</b>${r.u.alt ? `<div class="muted">${r.u.alt}</div>` : ''}</td></tr>`).join('')}</table>` : `<div class="muted">${t('noRecent')}</div>`}
@@ -920,7 +936,7 @@ async function viewDeals() {
   }).sort((a, b) => b.off - a.off);
   app.innerHTML = `<div class="card muted">${t('dealsHint')}<div class="chips" id="dStores" style="margin-top:8px">${['', ...stores].map(s => `<button class="chip ${s === dealStore ? 'on' : ''}" data-s="${esc(s)}">${s ? esc(s) : t('allStores')}</button>`).join('')}</div></div><div class="card">${deals.length ? deals.slice(0, 200).map(d => `
     <a class="item" href="#item/${encodeURIComponent(d.it.id)}">${thumb((d.it.variants || {})[d.o.vid] && d.it.variants[d.o.vid].photo || itemPhoto(d.it), itemEmoji(d.it))}
-      <div class="main"><div class="name">${esc(itemName(d.it))}</div><div class="muted">${esc(obsText(d.it, d.o))}</div><div class="muted">${esc(d.o.store)} · ${fmtDate(d.o.date)}${d.o.until ? '–' + fmtDate(d.o.until).slice(5) : ''}</div></div>
+      <div class="main"><div class="name">${esc(itemName(d.it))}</div><div class="muted">${esc(obsText(d.it, d.o))}</div><div class="muted">${esc(d.o.store)} · ${fmtDate(d.o.date)}${d.o.until ? '–' + fmtDate(d.o.until).slice(5) : ''}${isUpcoming(d.o) ? ` <span class="tag up">${fmtDate(d.o.date).slice(5)} ${t('starts')}</span>` : ''}</div></div>
       <div class="price">${priceText(d.it, d.o)}<div class="muted">${d.off > 0 ? `<span class="tag">-${Math.round(d.off * 100)}%</span><br>${t('reg')} ${money(d.o.reg)}` : ''}${d.u ? '<br>' + fmtU(d.u) : ''}</div></div></a>`).join('')
     : `<div class="empty">${dog('sleep', 'z')}<div class="muted">${t('noDeals')}</div></div>`}</div>`;
   $('#dStores').querySelectorAll('.chip').forEach(b => b.onclick = () => { dealStore = b.dataset.s; viewDeals(); });
@@ -930,16 +946,69 @@ let dealStore = '';
 async function viewSettings() {
   setHeader(t('setTitle')); setTab('settings');
   const [items, obs] = await Promise.all([getAll('items'), getAll('obs')]);
+  const flyer = latestFlyer(obs);
   app.innerHTML = `
     <div class="card"><h2>🌐 ${t('lang')}</h2><div class="seg" id="sLang"><button data-l="zh" class="${LANG === 'zh' ? 'on' : ''}">繁體中文</button><button data-l="en" class="${LANG === 'en' ? 'on' : ''}">English</button></div></div>
     <div class="card"><h2>☁️ ${t('syncTitle')}</h2><div class="muted">${t('syncDesc')}</div>
-      <div style="margin:10px 0;font-weight:700">${fbUser ? t('signedInAs') + esc(fbUser.email) + ' · ' : ''}<span id="syncStatus">${syncLabel()}</span></div>
+      <div style="margin:10px 0 4px;font-weight:700">${fbUser ? t('signedInAs') + esc(fbUser.email) + ' · ' : ''}<span id="syncStatus">${syncLabel()}</span></div>
+      <div class="muted">${t('lastSync')}${fmtWhen(syncState === 'synced' ? Date.now() : lsGet('lastSync'))}</div>
+      ${flyer ? `<div class="muted" style="margin-bottom:10px">${t('latestFlyer')}${fmtDate(flyer.from)}–${fmtDate(flyer.to).slice(5)} · ${fmtWhen(flyer.ts)} ${t('loadedOn')}</div>` : '<div style="margin-bottom:10px"></div>'}
       ${fbUser ? `<button class="btn sec" id="sSignOut">${t('signOut')}</button>` : `<button class="btn" id="sSignIn">${t('signIn')}</button>`}</div>
     <div class="card"><h2>🦴 ${t('data')}</h2><div class="muted">${tf('count', items.length, obs.length)}</div></div>
+    ${isAdmin() ? `<div class="card"><h2>📊 ${t('usageTitle')}</h2><div class="muted">${t('usageHint')}</div><div id="usageBody"></div>
+      <div class="row" style="margin-top:8px"><button class="btn sec small" id="usageBtn">${t('usageLoad')}</button><a class="btn sec small" style="text-align:center;text-decoration:none" target="_blank" rel="noopener" href="https://console.firebase.google.com/project/${FB_CONFIG.projectId}/firestore/databases/-default-/usage">${t('usageConsole')}</a></div></div>` : ''}
     <div class="empty">${dog('sleep', 'z')}<div class="muted"><span class="brand" style="font-weight:800;font-size:16px">${LANG === 'zh' ? '格價狗 PricePup' : 'PricePup'}</span> v${APP_VERSION}<br>${t('credit')}</div></div>`;
   $('#sLang').querySelectorAll('button').forEach(b => b.onclick = () => { LANG = b.dataset.l; lsSet('lang', LANG); applyStatic(); setSync(syncState); viewSettings(); });
   if ($('#sSignIn')) $('#sSignIn').onclick = signIn;
   if ($('#sSignOut')) $('#sSignOut').onclick = signOutSync;
+  if ($('#usageBtn')) { $('#usageBtn').onclick = () => loadUsage(true); if (usageTok()) loadUsage(false); }
+}
+
+/* ---------- Latest flyer week + admin usage ---------- */
+function latestFlyer(obs) {
+  const fl = obs.filter(o => o.src === 'flyer' && o.date); if (!fl.length) return null;
+  const from = fl.reduce((m, o) => o.date > m ? o.date : m, '');
+  const wk = fl.filter(o => o.date === from), cnt = {}; wk.forEach(o => { if (o.until) cnt[o.until] = (cnt[o.until] || 0) + 1; });
+  const to = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a])[0] || from;
+  return { from, to, ts: Math.max(...fl.map(o => o.ts || 0)) };
+}
+const ADMIN = 'silveratca@gmail.com';
+const isAdmin = () => !!(fbUser && (fbUser.email || '').toLowerCase() === ADMIN);
+const usageTok = () => { try { const x = JSON.parse(sessionStorage.getItem('pp_mon') || 'null'); return x && x.exp > Date.now() ? x.t : null; } catch (e) { return null; } };
+async function loadUsage(interactive) {
+  const box = $('#usageBody'); if (!box) return;
+  let tok = usageTok();
+  try {
+    if (!tok) {
+      if (!interactive) return;
+      const p = new fb.A.GoogleAuthProvider(); p.addScope('https://www.googleapis.com/auth/monitoring.read'); p.setCustomParameters({ login_hint: fbUser.email });
+      const res = await fb.A.reauthenticateWithPopup(fbUser, p);
+      tok = (fb.A.GoogleAuthProvider.credentialFromResult(res) || {}).accessToken;
+      if (!tok) throw new Error('no token');
+      try { sessionStorage.setItem('pp_mon', JSON.stringify({ t: tok, exp: Date.now() + 50 * 60e3 })); } catch (e) {}
+    }
+    box.innerHTML = `<div class="muted">${t('usageLoading')}</div>`;
+    const end = new Date(), start = new Date(end - 7 * 864e5);
+    const pt = d => d.toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' }), todayPT = pt(end);
+    const series = async kind => {
+      const q = new URLSearchParams({ filter: `metric.type="firestore.googleapis.com/document/${kind}_count"`, 'interval.startTime': start.toISOString(), 'interval.endTime': end.toISOString(),
+        'aggregation.alignmentPeriod': '3600s', 'aggregation.perSeriesAligner': 'ALIGN_SUM', 'aggregation.crossSeriesReducer': 'REDUCE_SUM' });
+      const r = await fetch(`https://monitoring.googleapis.com/v3/projects/${FB_CONFIG.projectId}/timeSeries?${q}`, { headers: { Authorization: 'Bearer ' + tok } });
+      if (!r.ok) { const e = new Error(String(r.status)); e.status = r.status; e.body = await r.text().catch(() => ''); throw e; }
+      const byDay = {};
+      for (const s of (await r.json()).timeSeries || []) for (const p of s.points || []) { const d = pt(new Date(Date.parse(p.interval.endTime) - 1000)); byDay[d] = (byDay[d] || 0) + +(p.value.int64Value || p.value.doubleValue || 0); }
+      return { today: byDay[todayPT] || 0, peak: Math.max(0, ...Object.values(byDay)) };
+    };
+    const [rd, wr, dl] = await Promise.all(['read', 'write', 'delete'].map(series));
+    const bar = (label, v, q) => { const pc = Math.min(100, v / q * 100); return `<div style="margin-top:8px"><div class="row" style="justify-content:space-between"><b>${label}</b><span class="muted">${v.toLocaleString()} / ${q.toLocaleString()} (${pc.toFixed(pc < 10 ? 1 : 0)}%)</span></div><div class="meter"><i style="width:${pc}%;background:${pc > 80 ? 'var(--bad)' : pc > 50 ? '#e8a020' : 'var(--good)'}"></i></div></div>`; };
+    box.innerHTML = `<div class="muted" style="margin-top:6px">${t('usageToday')}</div>${bar(t('usageReads'), rd.today, 50000)}${bar(t('usageWrites'), wr.today, 20000)}${bar(t('usageDeletes'), dl.today, 20000)}
+      <div class="muted" style="margin-top:8px">${t('usagePeak')}: ${rd.peak.toLocaleString()} / 50,000</div>`;
+  } catch (e) {
+    if (e.status === 401) { try { sessionStorage.removeItem('pp_mon'); } catch (x) {} }
+    const noApi = e.status === 403 && /SERVICE_DISABLED|has not been used|is disabled/i.test(e.body || '');
+    box.innerHTML = noApi ? `<div class="muted" style="color:var(--bad)">${t('usageNoApi')} · <a target="_blank" rel="noopener" href="https://console.cloud.google.com/apis/library/monitoring.googleapis.com?project=${FB_CONFIG.projectId}">API</a></div>`
+      : `<div class="muted" style="color:var(--bad)">${t('usageFail')}${esc(e.code || e.status || e.message)}</div>`;
+  }
 }
 
 /* ---------- Router ---------- */
