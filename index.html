@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&display=swap" rel="stylesheet">
-<title>PricePup 格價狗</title>
+<title>PricePup</title>
 <style>
 :root{--bg:#fff8ef;--card:#fff;--text:#3b2a20;--muted:#8b7262;--line:#f0dfcc;--accent:#e07a3f;--accent-dk:#b85a26;--accent-text:#fff;--soft:#ffe6c7;
   --good:#2f8f5b;--good-bg:#e3f6ea;--bad:#c2553a;--bad-bg:#fde8e1;--eq-bg:#fff1d6;--head:#fff3e3;--shadow:0 3px 0 rgba(120,70,30,.12)}
@@ -96,6 +96,9 @@ h2{font-size:17px;margin:0 0 8px}
 @media (prefers-reduced-motion:reduce){.dog .ear,.bounce{animation:none}}
 .chip.on{background:var(--accent);color:var(--accent-text)}
 .item .main .muted .tag{margin-left:0}
+.star{flex:0 0 auto;background:none;border:0;font-size:24px;line-height:1;color:var(--muted);padding:6px 2px 6px 6px;cursor:pointer;font-family:system-ui,sans-serif}
+.star.big{font-size:32px}
+.star.on{color:#e8a020}
 </style>
 </head>
 <body>
@@ -132,7 +135,7 @@ h2{font-size:17px;margin:0 0 8px}
 
 <script>
 'use strict';
-const APP_VERSION = '4.0.2';
+const APP_VERSION = '4.1.0';
 const $ = s => document.querySelector(s);
 const app = $('#app');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -175,7 +178,9 @@ const I18N = {
   lookingUp:['🔎 狗狗查緊產品資料…','🔎 The pup is sniffing out product info…'], found:['✅ 搵到：','✅ Found: '], notFound:['資料庫搵唔到呢個 barcode，請揀返主產品','Barcode not in the database — choose the main item'],
   dealsTitle:['今期特價','Current deals'], allStores:['全部','All'], dealsHint:['近 14 日嘅特價，按折扣排序','Sales from the last 14 days, biggest discount first'], noDeals:['近 14 日未有特價紀錄','No sales recorded in the last 14 days'],
   setTitle:['設定','Settings'], lang:['語言 Language','Language 語言'], syncTitle:['數據同步','Data sync'],
-  syncDesc:['用 Google 登入之後，兩部電話共用同一份數據，冇網絡時都照用。','Sign in with Google to share one database across both phones. Works offline.'],
+  syncDesc:['用 Google 登入之後，大家共用同一個價錢資料庫，冇網絡時都照用。','Sign in with Google to share one price database with everyone. Works offline.'],
+  tabFav:['⭐ 我的最愛','⭐ Favourites'], tabAll:['全部產品','All items'], noFav:['未有最愛。撳產品右邊嘅 ☆ 就可以加入，方便追蹤價錢。','No favourites yet. Tap ☆ on an item to track it here.'],
+  favOn:['已加入最愛','Added to favourites'], favOff:['已從最愛移除','Removed from favourites'], favBtn:['最愛','Favourite'],
   signIn:['用 Google 登入並開始同步','Sign in with Google to sync'], signOut:['登出','Sign out'], signedInAs:['已登入：','Signed in: '],
   sOff:['未開啟','Off'], sConnecting:['連接中…','Connecting…'], sSynced:['已同步','Synced'], sSyncing:['同步中…','Syncing…'], sOffline:['離線（稍後自動上傳）','Offline (uploads later)'], sError:['同步出錯','Sync error'],
   notAllowed:['呢個 Google 帳戶未獲准使用','This Google account is not allowed'], signInFail:['登入失敗，請再試','Sign-in failed, please try again'],
@@ -206,7 +211,7 @@ function applyStatic() {
   document.documentElement.lang = LANG === 'zh' ? 'zh-Hant' : 'en';
   document.querySelectorAll('[data-t]').forEach(el => el.textContent = t(el.dataset.t));
   $('#manualCode').placeholder = t('manualPh');
-  document.title = LANG === 'zh' ? '格價狗 PricePup' : 'PricePup 格價狗';
+  document.title = LANG === 'zh' ? '格價狗 PricePup' : 'PricePup';
 }
 
 /* ---------- Puppy (original SVG character, based on our dog) ---------- */
@@ -357,7 +362,6 @@ const verdictHtml = (v, sub = '') => `<div class="verdict ${v.cls}">${dog(v.mood
 const FB_CONFIG = { apiKey: 'AIzaSyCBHCl3Wd-hCblhagOwfcdUuRRFG3uxZqo', authDomain: 'pricepup-b02ce.firebaseapp.com', projectId: 'pricepup-b02ce',
   storageBucket: 'pricepup-b02ce.firebasestorage.app', messagingSenderId: '809962807683', appId: '1:809962807683:web:4679d6222913b15a4dd6b6' };
 const HOUSEHOLD = 'silver-sumina';
-const ALLOWED = ['silveratca@gmail.com', 'foeverkira@gmail.com'];
 const FB_V = '10.12.2';
 let fb = null, fbUser = null, syncState = 'off', unsubs = [];
 const syncOn = () => !!(fb && fbUser);
@@ -398,9 +402,8 @@ const syncLabel = () => t({ off: 'sOff', connecting: 'sConnecting', synced: 'sSy
 async function onAuth(user) {
   stopListeners();
   if (!user) { fbUser = null; setSync('off'); if (location.hash === '#settings') viewSettings(); return; }
-  if (!ALLOWED.includes((user.email || '').toLowerCase())) { toast(t('notAllowed')); await fb.A.signOut(fb.auth); return; }
   fbUser = user; lsSet('sync', '1'); setSync('connecting');
-  startListeners();
+  startListeners(); listenFavs();
   if (location.hash === '#settings') viewSettings();
 }
 let rerenderT = null;
@@ -423,6 +426,21 @@ function startListeners() {
   }
 }
 function stopListeners() { unsubs.forEach(u => u()); unsubs = []; }
+
+/* ---------- Favourites (per user: local copy + Firestore households/<h>/users/<uid>) ---------- */
+let FAVS = new Set((() => { try { return JSON.parse(lsGet('favs') || '[]'); } catch (e) { return []; } })());
+const isFav = id => FAVS.has(id);
+const favRef = () => fb.F.doc(fb.db, 'households', HOUSEHOLD, 'users', fbUser.uid);
+function pushFavs() { lsSet('favs', JSON.stringify([...FAVS])); if (syncOn()) fb.F.setDoc(favRef(), { favs: [...FAVS], updated: Date.now() }).catch(e => setSync('error', e.code)); }
+function toggleFav(id) { if (FAVS.has(id)) FAVS.delete(id); else FAVS.add(id); pushFavs(); toast(t(FAVS.has(id) ? 'favOn' : 'favOff'), 1500); return FAVS.has(id); }
+function listenFavs() {
+  unsubs.push(fb.F.onSnapshot(favRef(), snap => {
+    if (!snap.exists()) { if (FAVS.size) pushFavs(); return; }
+    const remote = snap.data().favs || [];
+    if (remote.join('|') !== [...FAVS].join('|')) { FAVS = new Set(remote); lsSet('favs', JSON.stringify(remote)); scheduleRerender(); }
+  }, e => console.warn('favs', e.code)));
+}
+const starBtn = (id, big) => `<button class="star${big ? ' big' : ''}${isFav(id) ? ' on' : ''}" data-fav="${esc(id)}" aria-label="${esc(t('favBtn'))}" aria-pressed="${isFav(id)}">${isFav(id) ? '★' : '☆'}</button>`;
 async function signIn() {
   try {
     await loadFb();
@@ -434,7 +452,7 @@ async function signIn() {
     }
   } catch (e) { console.warn(e); toast(t('signInFail')); }
 }
-async function signOutSync() { lsSet('sync', '0'); stopListeners(); if (fb) await fb.A.signOut(fb.auth); fbUser = null; setSync('off'); viewSettings(); }
+async function signOutSync() { lsSet('sync', '0'); stopListeners(); FAVS = new Set(); lsSet('favs', '[]'); if (fb) await fb.A.signOut(fb.auth); fbUser = null; setSync('off'); viewSettings(); }
 
 /* ---------- Image helpers ---------- */
 async function loadBitmap(file) {
@@ -634,7 +652,7 @@ async function loadAll() {
   return { items, obs, by };
 }
 
-let homeQ = '';
+let homeQ = '', homeView = lsGet('homeView') || '';
 async function viewHome() {
   setHeader(t('appName')); setTab('home');
   const { items, by } = await loadAll();
@@ -642,25 +660,31 @@ async function viewHome() {
   list.sort((a, b) => ((b.s && b.s.rows[0].o.date) || '').localeCompare((a.s && a.s.rows[0].o.date) || '') || itemName(a.it).localeCompare(itemName(b.it)));
   app.innerHTML = `
     <div class="hero">${dog('happy', 'tag', 'bounce')}<div class="bubble">${t('hello')}<small>${t('tagline')}</small></div></div>
-    <button class="btn" id="goScan">${dog('sniff', 'glass')}<span>${t('scanBtn')}</span></button>
     <button class="btn sec" id="goLog">${t('logNoBarcode')}</button>
-    <input id="q" type="search" placeholder="${esc(t('search'))}" value="${esc(homeQ)}" style="margin:4px 0 12px">
+    <div class="seg" id="hView" style="margin:4px 0 10px"><button type="button" data-v="fav"></button><button type="button" data-v="all">${t('tabAll')}</button></div>
+    <input id="q" type="search" placeholder="${esc(t('search'))}" value="${esc(homeQ)}" style="margin:0 0 12px">
     <div class="card" id="list"></div>`;
-  $('#goScan').onclick = () => openScanner();
   $('#goLog').onclick = () => location.hash = '#pick/';
   const hay = ({ it, s }) => [it.name, it.en, ...(it.aliases || []), catLabel(it.cat), ...Object.values(it.variants || {}).map(v => v.brand + ' ' + (v.desc || '')), s ? s.rows.map(r => r.o.store).join(' ') : ''].join(' ').toLowerCase();
   const render = () => {
     homeQ = $('#q').value; const q = homeQ.trim().toLowerCase();
-    const rows = list.filter(x => !q || hay(x).includes(q));
+    const view = homeView || (FAVS.size ? 'fav' : 'all');
+    $('#hView').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === view));
+    $('#hView [data-v=fav]').textContent = `${t('tabFav')} (${FAVS.size})`;
+    const rows = list.filter(x => (view === 'all' || FAVS.has(x.it.id)) && (!q || hay(x).includes(q)));
+    if (view === 'fav' && !rows.length && !q) { $('#list').innerHTML = `<div class="empty">${dog('sniff', 'glass')}<div class="muted">${t('noFav')}</div></div>`; return; }
     $('#list').innerHTML = rows.length ? rows.slice(0, 300).map(({ it, s }) => {
       const b = s && (s.best || s.low);
       return `<a class="item" href="#item/${encodeURIComponent(it.id)}">${thumb(itemPhoto(it), itemEmoji(it))}
         <div class="main"><div class="name">${esc(itemName(it))}</div><div class="muted">${esc([itemSub(it), catLabel(it.cat)].filter(Boolean).join(' · '))}</div>
         ${b ? `<div class="muted">${esc(b.o.store)}${b.o.sale ? ` · <span class="tag">${t('sale')}</span>` : ''}</div>` : ''}</div>
-        <div class="price">${b ? fmtU(b.u) : '—'}<div class="muted">${s ? (s.best ? t('bestNow') : t('histLow')) : t('noPrice')}</div></div></a>`;
+        <div class="price">${b ? fmtU(b.u) : '—'}<div class="muted">${s ? (s.best ? t('bestNow') : t('histLow')) : t('noPrice')}</div></div>${starBtn(it.id)}</a>`;
     }).join('') : `<div class="empty">${dog(list.length ? 'sad' : 'sleep', list.length ? '' : 'z')}<div class="muted">${list.length ? t('noMatch') : t('emptyList')}</div></div>`;
   };
-  $('#q').oninput = render; render();
+  $('#q').oninput = render;
+  $('#hView').querySelectorAll('button').forEach(b => b.onclick = () => { homeView = b.dataset.v; lsSet('homeView', homeView); render(); });
+  $('#list').onclick = e => { const b = e.target.closest('[data-fav]'); if (!b) return; e.preventDefault(); e.stopPropagation(); toggleFav(b.dataset.fav); render(); };
+  render();
 }
 
 async function viewItem(id) {
@@ -673,7 +697,7 @@ async function viewItem(id) {
   app.innerHTML = `
     <div class="card"><div class="item" style="padding:0;border:0">${thumb(itemPhoto(it), itemEmoji(it))}<div class="main">
       <div class="name" style="white-space:normal">${esc(itemName(it))}</div>
-      <div class="muted">${esc([itemSub(it), catLabel(it.cat)].filter(Boolean).join(' · '))}</div></div></div></div>
+      <div class="muted">${esc([itemSub(it), catLabel(it.cat)].filter(Boolean).join(' · '))}</div></div><span id="favWrap">${starBtn(id, true)}</span></div></div>
     <button class="btn" id="addPrice">${dog('normal', 'tag')}<span>${t('addPrice')}</span></button>
     ${s ? `
     <div class="card"><div class="row" style="align-items:flex-start">
@@ -695,6 +719,7 @@ async function viewItem(id) {
         <td class="r">${priceText(it, r.o)}<div class="muted">${fmtU(r.u)}</div></td></tr>`).join('')}</table></div>` : `<div class="card empty">${dog('sniff', 'glass')}<div class="muted">${t('noPrice')}</div></div>`}
     ${vars.length ? `<div class="card"><h2>${t('variants')}</h2>${vars.map(([vid, va]) => `<div class="item">${thumb(va.photo, itemEmoji(it))}<div class="main"><div>${esc(variantText(it, vid))}</div>${va.barcode ? `<div class="muted">${esc(va.barcode)}</div>` : ''}</div></div>`).join('')}</div>` : ''}`;
   $('#addPrice').onclick = () => location.hash = `#add/${encodeURIComponent(id)}`;
+  $('#favWrap').onclick = e => { if (!e.target.closest('[data-fav]')) return; toggleFav(id); $('#favWrap').innerHTML = starBtn(id, true); };
 }
 
 function chartSvg(rowsDesc, minV, label) {
@@ -766,7 +791,7 @@ async function viewNewItem() {
   $('#nSave').onclick = async () => {
     const name = $('#nName').value.trim(); if (!name) return toast(t('needName'));
     const id = 'I' + Date.now().toString(36);
-    await save('items', { id, name, en: $('#nEn').value.trim(), cat: $('#nCat').value, mode, cmpUses: mode === 'pack' && $('#nUses').checked, aliases: [], variants: {}, photo: nPhoto || (pend.info && pend.info.image) || '', created: today(), by: fbUser ? fbUser.email : '' });
+    await save('items', { id, name, en: $('#nEn').value.trim(), cat: $('#nCat').value, mode, cmpUses: mode === 'pack' && $('#nUses').checked, aliases: [], variants: {}, photo: nPhoto || (pend.info && pend.info.image) || '', created: today(), by: fbUser ? fbUser.uid : '' });
     location.replace(`#add/${encodeURIComponent(id)}/${pend.code || pend.info ? 'new' : ''}`);
   };
 }
@@ -870,7 +895,7 @@ async function viewAdd(id, preVid) {
     }
     const multi = weight ? 1 : (parseInt($('#aMulti').value) || 1);
     const o = { id: newId(), itemId: id, vid: useVid, price: Math.round(price * 100) / 100, multi, per: weight ? per : 'pack', store: $('#aStore').value.trim(), date: $('#aDate').value || today(),
-                sale: $('#aSale').checked, note: $('#aNote').value.trim(), src: 'app', by: fbUser ? fbUser.email : '', ts: Date.now() };
+                sale: $('#aSale').checked, note: $('#aNote').value.trim(), src: 'app', by: fbUser ? fbUser.uid : '', ts: Date.now() };
     const v = verdict(await getOne('items', id), o, sum);
     await save('obs', o);
     if (o.store) lsSet('lastStore', o.store);
@@ -910,7 +935,7 @@ async function viewSettings() {
       <div style="margin:10px 0;font-weight:700">${fbUser ? t('signedInAs') + esc(fbUser.email) + ' · ' : ''}<span id="syncStatus">${syncLabel()}</span></div>
       ${fbUser ? `<button class="btn sec" id="sSignOut">${t('signOut')}</button>` : `<button class="btn" id="sSignIn">${t('signIn')}</button>`}</div>
     <div class="card"><h2>🦴 ${t('data')}</h2><div class="muted">${tf('count', items.length, obs.length)}</div></div>
-    <div class="empty">${dog('sleep', 'z')}<div class="muted"><span class="brand" style="font-weight:800;font-size:16px">PricePup 格價狗</span> v${APP_VERSION}<br>${t('credit')}</div></div>`;
+    <div class="empty">${dog('sleep', 'z')}<div class="muted"><span class="brand" style="font-weight:800;font-size:16px">${LANG === 'zh' ? '格價狗 PricePup' : 'PricePup'}</span> v${APP_VERSION}<br>${t('credit')}</div></div>`;
   $('#sLang').querySelectorAll('button').forEach(b => b.onclick = () => { LANG = b.dataset.l; lsSet('lang', LANG); applyStatic(); setSync(syncState); viewSettings(); });
   if ($('#sSignIn')) $('#sSignIn').onclick = signIn;
   if ($('#sSignOut')) $('#sSignOut').onclick = signOutSync;
