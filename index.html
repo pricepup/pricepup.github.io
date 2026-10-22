@@ -151,7 +151,7 @@ tr.ended td{color:var(--muted)}tr.ended b{font-weight:600}
 
 <script>
 'use strict';
-const APP_VERSION = '4.5.0';
+const APP_VERSION = '4.5.1';
 const $ = s => document.querySelector(s);
 const app = $('#app');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -211,6 +211,7 @@ const I18N = {
   curNone:['而家冇有效特價，近 7 日亦冇人記錄價錢','No valid deals now and no prices logged in the last 7 days'], logged:['記錄','logged'],
   varHint:['撳入去睇呢款喺各舖嘅價錢、走勢同紀錄','Tap one for its prices by store, trend and history'], looseTitle:['散裝價錢（各舖）','Loose prices by store'],
   scanGot:['📷 掃描到：','📷 Scanned: '], scanLog:['記錄呢件嘅價錢','Log its price'], scanOther:['唔係，揀其他','Not this, choose another'], scanKnown:['📷 掃描到呢款，下面係佢嘅特價同價錢紀錄。想記錄新價錢就撳下面個掣。','📷 Scanned this product — its deals and price history are below. Tap the button to log a new price.'],
+  showAll:[n=>`顯示全部（${n}）`,n=>`Show all (${n})`],
   suggested:['建議','Suggested'], whatsNew:['有乜新？','What’s new'], gotIt:['知道','Got it'],
   noSize:['呢款冇容量資料，計唔到單位價，只顯示價錢','No size on record, so prices are shown without unit price'],
   allCats:['全部','All'], varHist:['呢款嘅價錢紀錄','Price history for this variant'], curDeals:['而家嘅特價','Current deals'], noCurDeal:['而家冇特價','No current deal'], logThis:['記錄呢款嘅價錢','Log a price for this one'],
@@ -817,13 +818,14 @@ async function viewItem(id) {
     </div></div>` : `<div class="card empty">${dog('sniff', 'glass')}<div class="muted">${t('noPrice')}</div></div>`}
     <button class="btn" id="addPrice">${dog('normal', 'tag')}<span>${t('addPrice')}</span></button>
     <div class="card"><h2>${t('curTitle')}</h2><div class="muted" style="margin-bottom:4px">${t('curHint')}</div>
-      ${cur.length ? cur.map((r, i) => { const va = (it.variants || {})[r.o.vid]; return `<a class="item" href="${r.o.vid && va ? `#variant/${encodeURIComponent(id)}/${encodeURIComponent(r.o.vid)}` : 'javascript:void 0'}">${thumb(variantPhoto(it, va), itemEmoji(it))}
+      ${cur.length ? cur.map((r, i) => { const va = (it.variants || {})[r.o.vid]; return `<a class="item${i >= 8 ? ' more hidden' : ''}" href="${r.o.vid && va ? `#variant/${encodeURIComponent(id)}/${encodeURIComponent(r.o.vid)}` : 'javascript:void 0'}">${thumb(variantPhoto(it, va), itemEmoji(it))}
         <div class="main"><div class="name">${esc(r.o.store)}${i === 0 && cur.length > 1 && r.u && s && r.u.key === s.key && isCurrent(r.o) ? `<span class="tag">🏆 ${t('cheapest')}</span>` : ''}${isUpcoming(r.o) ? `<span class="tag up">${fmtDate(r.o.date).slice(5)} ${t('starts')}</span>` : r.o.sale ? `<span class="tag">${t('sale')}</span>` : `<span class="tag off">${t('logged')}</span>`}</div>
         <div class="muted">${esc(obsText(it, r.o))}</div><div class="muted">${fmtDate(r.o.date)}${r.o.until ? '–' + fmtDate(r.o.until).slice(5) : ''}</div></div>
-        <div class="price">${priceText(it, r.o)}<div class="muted">${r.u ? fmtU(r.u) : ''}${r.o.reg ? `<br>${t('reg')} ${money(r.o.reg)}` : ''}</div></div></a>`; }).join('') : `<div class="muted">${t('curNone')}</div>`}</div>
-    ${vstat.length ? `<div class="card"><h2>${t('variants')}</h2><div class="muted" style="margin-bottom:4px">${t('varHint')}</div>${vstat.map(({ vid, va, vo, vs, vb }) => `<a class="item" href="#variant/${encodeURIComponent(id)}/${encodeURIComponent(vid)}">${thumb(variantPhoto(it, va), itemEmoji(it))}<div class="main"><div>${esc(variantText(it, vid))}</div><div class="muted">${vo.length ? `${vo.length} ${t('records')}` : t('noPrice')}${va.barcode ? ' · ' + esc(va.barcode) : ''}</div></div><div class="price">${vb ? fmtU(vb.u) : vo.length ? priceText(it, vo[0]) : '—'}<div class="muted">${vs ? (vs.best ? t('bestNow') : t('histLow')) : vo.length ? fmtDate(vo[0].date) : ''}</div></div><span class="chev">›</span></a>`).join('')}</div>` : ''}
+        <div class="price">${priceText(it, r.o)}<div class="muted">${r.u ? fmtU(r.u) : ''}${r.o.reg ? `<br>${t('reg')} ${money(r.o.reg)}` : ''}</div></div></a>`; }).join('') + moreBtn(cur.length, 8) : `<div class="muted">${t('curNone')}</div>`}</div>
+    ${vstat.length ? `<div class="card"><h2>${t('variants')}</h2><div class="muted" style="margin-bottom:4px">${t('varHint')}</div>${vstat.map(({ vid, va, vo, vs, vb }, i) => `<a class="item${i >= 10 ? ' more hidden' : ''}" href="#variant/${encodeURIComponent(id)}/${encodeURIComponent(vid)}">${thumb(variantPhoto(it, va), itemEmoji(it))}<div class="main"><div>${esc(variantText(it, vid))}</div><div class="muted">${vo.length ? `${vo.length} ${t('records')}` : t('noPrice')}${va.barcode ? ' · ' + esc(va.barcode) : ''}</div></div><div class="price">${vb ? fmtU(vb.u) : vo.length ? priceText(it, vo[0]) : '—'}<div class="muted">${vs ? (vs.best ? t('bestNow') : t('histLow')) : vo.length ? fmtDate(vo[0].date) : ''}</div></div><span class="chev">›</span></a>`).join('') + moreBtn(vstat.length, 10)}</div>` : ''}
     ${ls ? `<div class="card"><h2>🐾 ${vstat.length ? t('looseTitle') : t('byStore')}</h2>${boardHtml(it, ls)}</div>${chartSvg(ls.rows, ls.low.u.v, ls.low.u.label)}` : ''}`;
   $('#addPrice').onclick = () => location.hash = `#add/${encodeURIComponent(id)}${sc ? '/new' : ''}`;
+  app.querySelectorAll('.showMore').forEach(b => b.onclick = () => { b.parentElement.querySelectorAll('.more').forEach(x => x.classList.remove('hidden')); b.remove(); });
   $('#favWrap').onclick = e => { if (!e.target.closest('[data-fav]')) return; toggleFav(id); $('#favWrap').innerHTML = starBtn(id, true); };
   if (sc) {
     $('#scLog').onclick = () => location.hash = `#add/${encodeURIComponent(id)}/new`;
@@ -831,6 +833,7 @@ async function viewItem(id) {
     app.querySelectorAll('[data-alt]').forEach(b => b.onclick = () => { scanCtx = { ...sc, itemId: b.dataset.alt, alts: [id, ...sc.alts.filter(a => a !== b.dataset.alt)] }; location.hash = `#item/${encodeURIComponent(b.dataset.alt)}`; });
   }
 }
+const moreBtn = (n, k) => n > k ? `<button class="btn sec small showMore" style="margin:8px 0 0">${tn('showAll', n)}</button>` : '';
 // table of the latest price per store (+variant) in the last 30 days
 function boardHtml(it, s) {
   return s.board.length ? `<table><tr><th>${t('store')}</th><th class="r">${t('price')}</th><th class="r">${t('unitP')}</th></tr>
@@ -1197,6 +1200,7 @@ function showGuide(i) {
 
 /* ---------- What's new (shown once after each update) ---------- */
 const CHANGES = {
+  '4.5.1': [['產品頁嘅特價同牌子列表太長時，先顯示頭幾個，撳「顯示全部」先展開。'], ['Long deal and brand lists on an item page now show the first few, with “Show all” to expand.']],
   '4.5.0': [['產品頁重新設計：頂部係歷史最低同近 30 日最平，跟住係而家有效嘅特價同近 7 日記錄嘅價錢（有舖名同產品相），再下面係各個牌子。',
              '各舖價錢、走勢同全部紀錄搬咗入每個牌子嘅頁面，撳牌子就睇到。',
              '掃 barcode：認得嘅產品直接打開嗰款嘅頁面睇特價同歷史價錢；新產品狗狗會自動估係邊件主產品，一撳就記錄價錢。',
@@ -1208,7 +1212,11 @@ const CHANGES = {
 };
 function showWhatsNew() {
   const seen = lsGet('seenVer'); lsSet('seenVer', APP_VERSION);
-  const notes = CHANGES[APP_VERSION]; if (seen === APP_VERSION || !notes) return;
+  if (seen === APP_VERSION) return;
+  const vnum = v => (v || '0').split('.').map(Number).reduce((s, x) => s * 1000 + x, 0);
+  const vs = Object.keys(CHANGES).filter(v => vnum(v) > vnum(seen) && vnum(v) <= vnum(APP_VERSION)).sort((x, y) => vnum(y) - vnum(x));
+  if (!vs.length) return;
+  const notes = [0, 1].map(k => vs.flatMap(v => CHANGES[v][k]));
   const m = showSheet(`<div style="text-align:center">${dog('happy', 'party', 'bounce')}</div><h2 style="text-align:center;font-size:20px">${t('whatsNew')} v${APP_VERSION}</h2>
     <ul class="news">${notes[LI()].map(x => `<li>${esc(x)}</li>`).join('')}</ul><button class="btn" id="wnOk" style="margin:0">${t('gotIt')}</button>`);
   m.querySelector('#wnOk').onclick = closeSheet;
