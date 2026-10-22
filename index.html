@@ -149,7 +149,7 @@ tr.ended td{color:var(--muted)}tr.ended b{font-weight:600}
 
 <script>
 'use strict';
-const APP_VERSION = '4.4.0';
+const APP_VERSION = '4.4.1';
 const $ = s => document.querySelector(s);
 const app = $('#app');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -205,6 +205,7 @@ const I18N = {
   usageHint:['免費額度每日太平洋時間午夜重設','Free daily quota resets at midnight Pacific'], usageLoad:['載入用量','Load usage'], usageLoading:['載入中…','Loading…'],
   usageReads:['讀取','Reads'], usageWrites:['寫入','Writes'], usageDeletes:['刪除','Deletes'], usageToday:['今日','Today'], usagePeak:['近 7 日最高讀取','7-day peak reads'],
   usageNoApi:['要先喺 Google Cloud 開啟 Cloud Monitoring API','Enable the Cloud Monitoring API in Google Cloud first'], usageFail:['讀唔到用量：','Could not load usage: '], usageConsole:['喺 Firebase 控制台睇','Open in Firebase console'],
+  noSize:['呢款冇容量資料，計唔到單位價，只顯示價錢','No size on record, so prices are shown without unit price'],
   allCats:['全部','All'], varHist:['呢款嘅價錢紀錄','Price history for this variant'], curDeals:['而家嘅特價','Current deals'], noCurDeal:['而家冇特價','No current deal'], logThis:['記錄呢款嘅價錢','Log a price for this one'],
   install:['📲 安裝','📲 Install'], installTitle:['將格價狗加到主畫面','Add PricePup to your home screen'], installed:['已安裝！以後喺主畫面打開就得','Installed! Open it from your home screen'],
   iosSteps:['1. 撳 Safari 下面嘅「分享」掣 ⬆️<br>2. 揀「加入主畫面」<br>3. 撳「新增」','1. Tap the Share button ⬆️ in Safari<br>2. Choose “Add to Home Screen”<br>3. Tap “Add”'],
@@ -785,7 +786,7 @@ async function viewItem(id) {
     <div class="card"><h2>${t('history')}（${s.rows.length}）</h2><table>
       ${s.rows.slice(0, 60).map(r => `<tr><td>${fmtDate(r.o.date)}<div class="muted">${esc(r.o.store)}${r.o.sale ? ' · ' + t('sale') : ''} · ${esc(obsText(it, r.o))}</div></td>
         <td class="r">${priceText(it, r.o)}<div class="muted">${fmtU(r.u)}</div></td></tr>`).join('')}</table></div>` : `<div class="card empty">${dog('sniff', 'glass')}<div class="muted">${t('noPrice')}</div></div>`}
-    ${vars.length ? `<div class="card"><h2>${t('variants')}</h2>${vars.map(([vid, va]) => { const vs = summarize(it, obs.filter(o => o.vid === vid)), vb = vs && (vs.best || vs.low); return `<a class="item" href="#variant/${encodeURIComponent(id)}/${encodeURIComponent(vid)}">${thumb(variantPhoto(it, va), itemEmoji(it))}<div class="main"><div>${esc(variantText(it, vid))}</div><div class="muted">${vs ? `${vs.rows.length} ${t('records')}` : t('noPrice')}${va.barcode ? ' · ' + esc(va.barcode) : ''}</div></div><div class="price">${vb ? fmtU(vb.u) : '—'}<div class="muted">${vs ? (vs.best ? t('bestNow') : t('histLow')) : ''}</div></div><span class="chev">›</span></a>`; }).join('')}</div>` : ''}`;
+    ${vars.length ? `<div class="card"><h2>${t('variants')}</h2>${vars.map(([vid, va]) => { const vo = obs.filter(o => o.vid === vid).sort((a, b) => (b.date || '').localeCompare(a.date || '')), vs = summarize(it, vo), vb = vs && (vs.best || vs.low); return `<a class="item" href="#variant/${encodeURIComponent(id)}/${encodeURIComponent(vid)}">${thumb(variantPhoto(it, va), itemEmoji(it))}<div class="main"><div>${esc(variantText(it, vid))}</div><div class="muted">${vo.length ? `${vo.length} ${t('records')}` : t('noPrice')}${va.barcode ? ' · ' + esc(va.barcode) : ''}</div></div><div class="price">${vb ? fmtU(vb.u) : vo.length ? priceText(it, vo[0]) : '—'}<div class="muted">${vs ? (vs.best ? t('bestNow') : t('histLow')) : vo.length ? fmtDate(vo[0].date) : ''}</div></div><span class="chev">›</span></a>`; }).join('')}</div>` : ''}`;
   $('#addPrice').onclick = () => location.hash = `#add/${encodeURIComponent(id)}`;
   $('#favWrap').onclick = e => { if (!e.target.closest('[data-fav]')) return; toggleFav(id); $('#favWrap').innerHTML = starBtn(id, true); };
 }
@@ -1097,8 +1098,17 @@ async function viewVariant(id, vid) {
     ${chartSvg(s.rows, s.low.u.v, s.low.u.label)}
     <div class="card"><h2>${t('varHist')}（${s.rows.length}）</h2><table>
       ${s.rows.slice(0, 80).map(r => `<tr class="${isEnded(r.o) ? 'ended' : ''}"><td>${fmtDate(r.o.date)}<div class="muted">${esc(r.o.store)}${r.o.sale ? ' · ' + t('sale') : ''}${isEnded(r.o) ? ' · ' + t('ended') : ''}</div></td>
-        <td class="r">${priceText(it, r.o)}<div class="muted">${fmtU(r.u)}</div></td></tr>`).join('')}</table></div>` : `<div class="card empty">${dog('sniff', 'glass')}<div class="muted">${t('noPrice')}</div></div>`}`;
+        <td class="r">${priceText(it, r.o)}<div class="muted">${fmtU(r.u)}</div></td></tr>`).join('')}</table></div>` : obs.length ? rawVariant(it, obs) : `<div class="card empty">${dog('sniff', 'glass')}<div class="muted">${t('noPrice')}</div></div>`}`;
   $('#vAdd').onclick = () => location.hash = `#add/${encodeURIComponent(id)}/${encodeURIComponent(vid)}`;
+}
+
+// variant without a usable size: list prices only
+function rawVariant(it, obs) {
+  const rows = obs.slice().sort((a, b) => (b.date || '').localeCompare(a.date || '')), cur = rows.filter(o => o.sale && isCurrent(o));
+  const tr = o => `<tr class="${isEnded(o) ? 'ended' : ''}"><td>${fmtDate(o.date)}${o.until ? '–' + fmtDate(o.until).slice(5) : ''}<div class="muted">${esc(o.store)}${o.sale ? ' · ' + t('sale') : ''}${isEnded(o) ? ' · ' + t('ended') : ''}</div></td><td class="r">${priceText(it, o)}${o.reg ? `<div class="muted">${t('reg')} ${money(o.reg)}</div>` : ''}</td></tr>`;
+  return `<div class="card muted">${t('noSize')}</div>
+    <div class="card"><h2>🏷️ ${t('curDeals')}</h2>${cur.length ? `<table>${cur.map(tr).join('')}</table>` : `<div class="muted">${t('noCurDeal')}</div>`}</div>
+    <div class="card"><h2>${t('varHist')}（${rows.length}）</h2><table>${rows.slice(0, 80).map(tr).join('')}</table></div>`;
 }
 
 /* ---------- Modal sheet, install button, first-run guide ---------- */
