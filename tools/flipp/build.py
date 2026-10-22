@@ -7,6 +7,7 @@ existing = json.load(open(f'{D}/existing_items.json'))  # {id:{mode,name,photo,v
 SKIP_STORES = set(sys.argv[1].split(',')) if len(sys.argv) > 1 and sys.argv[1] else set()
 skipre = re.compile(SKIP)
 from overrides import OVR, SKIP_EXTRA, MOVE_BEFORE
+from split_rules import SPLIT  # broad items split into specific ones (2026-10-22)
 R = list(R)
 for mv, before in MOVE_BEFORE.items():
     x = next(r for r in R if r[0] == mv); R.remove(x); R.insert(next(i for i, r in enumerate(R) if r[0] == before), x)
@@ -82,6 +83,9 @@ for i in items:
         if why == 'nomatch': unmatched.append(f'{st[:3]} {name} | {desc[:40]}')
         continue
     key, zh, en, cat, mode = c
+    if key in SPLIT:
+        for nid, nzh, nen, rx in SPLIT[key]:
+            if not rx or re.search(rx, name, re.I): key, zh, en = nid, nzh, nen; break
     ex = existing.get(key)
     imode = ex['mode'] if ex else ('weight' if mode == 'w' else 'pack')
     if key == 'avocado': imode = 'pack'
