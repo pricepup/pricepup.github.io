@@ -99,6 +99,8 @@ h2{font-size:17px;margin:0 0 8px}
 .star{flex:0 0 auto;background:none;border:0;font-size:24px;line-height:1;color:var(--muted);padding:6px 2px 6px 6px;cursor:pointer;font-family:system-ui,sans-serif}
 .star.big{font-size:32px}
 .star.on{color:#e8a020}
+.card.scan{display:flex;gap:12px;align-items:flex-start;border-color:var(--accent);background:var(--soft)}
+.news{padding-left:20px;margin:6px 0 14px;font-size:15px;line-height:1.55}.news li{margin-bottom:6px}
 .thumb.ill{object-fit:contain;padding:5px;background:var(--soft)}
 .chips.scroll{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding-bottom:2px}.chips.scroll::-webkit-scrollbar{display:none}
 .chips.scroll .chip{flex:0 0 auto;white-space:nowrap;padding:6px 12px}
@@ -149,7 +151,7 @@ tr.ended td{color:var(--muted)}tr.ended b{font-weight:600}
 
 <script>
 'use strict';
-const APP_VERSION = '4.4.1';
+const APP_VERSION = '4.5.0';
 const $ = s => document.querySelector(s);
 const app = $('#app');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -205,6 +207,11 @@ const I18N = {
   usageHint:['免費額度每日太平洋時間午夜重設','Free daily quota resets at midnight Pacific'], usageLoad:['載入用量','Load usage'], usageLoading:['載入中…','Loading…'],
   usageReads:['讀取','Reads'], usageWrites:['寫入','Writes'], usageDeletes:['刪除','Deletes'], usageToday:['今日','Today'], usagePeak:['近 7 日最高讀取','7-day peak reads'],
   usageNoApi:['要先喺 Google Cloud 開啟 Cloud Monitoring API','Enable the Cloud Monitoring API in Google Cloud first'], usageFail:['讀唔到用量：','Could not load usage: '], usageConsole:['喺 Firebase 控制台睇','Open in Firebase console'],
+  curTitle:['🏷️ 而家嘅特價同最新價錢','🏷️ Current deals & latest prices'], curHint:['傳單有效期內嘅特價，同近 7 日記錄嘅價錢，最抵排先','Valid flyer deals and prices logged in the last 7 days, cheapest first'],
+  curNone:['而家冇有效特價，近 7 日亦冇人記錄價錢','No valid deals now and no prices logged in the last 7 days'], logged:['記錄','logged'],
+  varHint:['撳入去睇呢款喺各舖嘅價錢、走勢同紀錄','Tap one for its prices by store, trend and history'], looseTitle:['散裝價錢（各舖）','Loose prices by store'],
+  scanGot:['📷 掃描到：','📷 Scanned: '], scanLog:['記錄呢件嘅價錢','Log its price'], scanOther:['唔係，揀其他','Not this, choose another'], scanKnown:['📷 掃描到呢款，下面係佢嘅特價同價錢紀錄。想記錄新價錢就撳下面個掣。','📷 Scanned this product — its deals and price history are below. Tap the button to log a new price.'],
+  suggested:['建議','Suggested'], whatsNew:['有乜新？','What’s new'], gotIt:['知道','Got it'],
   noSize:['呢款冇容量資料，計唔到單位價，只顯示價錢','No size on record, so prices are shown without unit price'],
   allCats:['全部','All'], varHist:['呢款嘅價錢紀錄','Price history for this variant'], curDeals:['而家嘅特價','Current deals'], noCurDeal:['而家冇特價','No current deal'], logThis:['記錄呢款嘅價錢','Log a price for this one'],
   install:['📲 安裝','📲 Install'], installTitle:['將格價狗加到主畫面','Add PricePup to your home screen'], installed:['已安裝！以後喺主畫面打開就得','Installed! Open it from your home screen'],
@@ -231,6 +238,7 @@ const I18N = {
 };
 const I18NF = {
   vLow:[(d,m,s)=>`汪！歷史新低！比之前最低（${m}，${s}）平 ${d}`,(d,m,s)=>`Woof! New all-time low — ${d} below the previous low (${m}, ${s})`],
+  scanGuess:[n=>`狗狗估係「${n}」，下面係呢類產品嘅價錢。`,n=>`The pup thinks it’s “${n}” — prices for this item are below.`],
   vEq:[(s,dt)=>`同歷史最低一樣（${s}，${dt}）`,(s,dt)=>`Same as the all-time low (${s}, ${dt})`],
   vHigh:[(d,p,m,s,dt)=>`比歷史最低 ${m}（${s}，${dt}）貴 ${d}（+${p}%）`,(d,p,m,s,dt)=>`${d} (+${p}%) above the all-time low of ${m} (${s}, ${dt})`],
   itemsAt:[(n,pr)=>`${n} 件 ${pr}`,(n,pr)=>`${n} for ${pr}`], count:[(i,o)=>`${i} 件產品 · ${o} 筆價錢`,(i,o)=>`${i} items · ${o} prices`],
@@ -544,10 +552,10 @@ function normCode(raw) { const d = String(raw || '').replace(/\D/g, ''); return 
 async function lookupProduct(code) {
   for (const h of ['world.openfoodfacts.org', 'world.openproductsfacts.org', 'world.openbeautyfacts.org']) {
     try {
-      const r = await fetch(`https://${h}/api/v2/product/${code}.json?fields=product_name,product_name_en,brands,quantity,image_front_small_url`, { signal: AbortSignal.timeout ? AbortSignal.timeout(7000) : undefined });
+      const r = await fetch(`https://${h}/api/v2/product/${code}.json?fields=product_name,product_name_en,brands,quantity,image_front_small_url,categories_tags`, { signal: AbortSignal.timeout ? AbortSignal.timeout(7000) : undefined });
       if (!r.ok) continue;
       const j = await r.json();
-      if (j.status === 1 && j.product) { const p = j.product; return { name: p.product_name || p.product_name_en || '', brand: (p.brands || '').split(',')[0].trim(), quantity: p.quantity || '', image: p.image_front_small_url || '' }; }
+      if (j.status === 1 && j.product) { const p = j.product; return { name: p.product_name_en || p.product_name || '', brand: (p.brands || '').split(',')[0].trim(), quantity: p.quantity || '', image: p.image_front_small_url || '', cats: (p.categories_tags || []).map(c => c.replace(/^[a-z]{2}:/, '').replace(/-/g, ' ')).join(' ') }; }
     } catch (e) {}
   }
   return null;
@@ -643,11 +651,32 @@ $('#photoScanBtn').onclick = async () => {
   try { const codes = await det.detect(await loadBitmap(f)); if (codes.length) { closeScanner(); cb2(codes[0].rawValue); } else toast(t('photoNoCode')); }
   catch (e) { toast(t('photoFail')); }
 };
+let scanCtx = null; // what the last barcode scan found, shown as a banner on the item / variant page
 async function handleBarcode(raw) {
   const code = normCode(raw);
   if (!code) return toast(t('badCode'));
   const hit = await findBarcode(code);
-  location.hash = hit ? `#add/${encodeURIComponent(hit.it.id)}/${encodeURIComponent(hit.vid)}` : `#pick/${code}`;
+  if (hit) { scanCtx = { code, itemId: hit.it.id, vid: hit.vid, known: true }; location.hash = `#variant/${encodeURIComponent(hit.it.id)}/${encodeURIComponent(hit.vid)}`; return; }
+  toast(t('lookingUp'), 5000);
+  const info = await lookupProduct(code);
+  const sug = info ? matchItems(info, await getAll('items')) : [];
+  sessionStorage.setItem('pp_pending', JSON.stringify({ code, info, sug: sug.slice(0, 5).map(x => x.it.id) }));
+  if (sug.length && sug[0].score >= 3) { scanCtx = { code, info, itemId: sug[0].it.id, alts: sug.slice(1, 4).map(x => x.it.id) }; location.hash = `#item/${encodeURIComponent(sug[0].it.id)}`; }
+  else location.hash = `#pick/${code}`;
+}
+// guess the main item for a scanned product from its name, brand and categories
+const STOPW = new Set(['the', 'and', 'or', 'with', 'de', 'la', 'le', 'du', 'des', 'et', 'of', 'in', 'en', 'au', 'aux', 'pack', 'ml', 'kg', 'oz', 'lb', 'food', 'foods', 'product', 'products', 'other', 'plant', 'based']);
+const toks = str => (str || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').split(/[^a-z0-9一-鿿]+/)
+  .filter(w => w.length > 1 && !STOPW.has(w) && !/^\d/.test(w)).map(w => w.replace(/ies$/, 'y').replace(/(?<=[a-z]{3})(es|s)$/, ''));
+function matchItems(info, items) {
+  const q = new Set(toks([info.name, info.brand, info.cats].join(' '))); if (!q.size) return [];
+  return items.map(it => {
+    const nameT = new Set(toks([it.en, ...(it.aliases || [])].join(' ')));
+    let score = 0; nameT.forEach(w => { if (q.has(w)) score += 3; });
+    let best = 0;
+    for (const va of Object.values(it.variants || {})) { const vt = [...new Set(toks([va.brand, va.desc].join(' ')))]; if (!vt.length) continue; const h = vt.filter(w => q.has(w)).length; best = Math.max(best, h * 2 / Math.sqrt(vt.length)); }
+    return { it, score: score + best };
+  }).filter(x => x.score > 0).sort((a, b) => b.score - a.score).slice(0, 6);
 }
 
 /* ---------- OCR (Tesseract.js, on the phone, free) ---------- */
@@ -763,32 +792,52 @@ async function viewItem(id) {
   const obs = await obsFor(id);
   const s = summarize(it, obs);
   const vars = Object.entries(it.variants || {});
+  const vstat = vars.map(([vid, va]) => { const vo = obs.filter(o => o.vid === vid).sort((a, b) => (b.date || '').localeCompare(a.date || '')), vs = summarize(it, vo); return { vid, va, vo, vs, vb: vs && (vs.best || vs.low) }; })
+    .sort((a, b) => ((b.vs && b.vs.best ? 1 : 0) - (a.vs && a.vs.best ? 1 : 0)) || ((a.vb && a.vb.u.key === (s && s.key) ? a.vb.u.v : 1e9) - (b.vb && b.vb.u.key === (s && s.key) ? b.vb.u.v : 1e9)) || b.vo.length - a.vo.length);
+  // current deals: valid flyer sales (incl. starting soon) + prices logged in the last 7 days; latest per store+variant
+  const pick = {}; obs.filter(o => (o.src === 'flyer' ? !isEnded(o) : daysAgo(o.date) <= 7 && !isEnded(o)))
+    .sort((a, b) => (b.date || '').localeCompare(a.date || '')).forEach(o => { const k = o.store + '|' + (o.vid || o.listing || ''); if (!pick[k]) pick[k] = o; });
+  const cur = Object.values(pick).map(o => ({ o, u: unitPrice(it, o) }))
+    .sort((a, b) => (isUpcoming(a.o) - isUpcoming(b.o)) || ((a.u && s && a.u.key === s.key ? a.u.v : 1e9) - (b.u && s && b.u.key === s.key ? b.u.v : 1e9)));
+  const loose = obs.filter(o => !o.vid), ls = loose.length ? summarize(it, loose) : null;
+  const sc = scanCtx && scanCtx.itemId === id && !scanCtx.known ? scanCtx : null;
   app.innerHTML = `
     <div class="card"><div class="item" style="padding:0;border:0">${thumb(itemPhoto(it), itemEmoji(it))}<div class="main">
       <div class="name" style="white-space:normal">${esc(itemName(it))}</div>
       <div class="muted">${esc([itemSub(it), catLabel(it.cat)].filter(Boolean).join(' · '))}</div></div><span id="favWrap">${starBtn(id, true)}</span></div></div>
-    <button class="btn" id="addPrice">${dog('normal', 'tag')}<span>${t('addPrice')}</span></button>
-    ${s ? `
-    <div class="card"><div class="row" style="align-items:flex-start">
+    ${sc ? `<div class="card scan">${thumb(sc.info && sc.info.image, '📷')}<div><b>${t('scanGot')}</b>${esc([sc.info && sc.info.brand, sc.info && sc.info.name, sc.info && sc.info.quantity].filter(Boolean).join(' ') || sc.code)}
+      <div class="muted" style="margin:4px 0 8px">${tf('scanGuess', esc(itemName(it)))}</div>
+      <div class="row" style="flex-wrap:wrap;gap:6px"><button class="btn small" id="scLog" style="margin:0">${t('scanLog')}</button><button class="btn sec small" id="scOther" style="margin:0">${t('scanOther')}</button></div>
+      ${(sc.alts || []).length ? `<div class="chips" style="margin-top:6px">${(await Promise.all(sc.alts.map(a => getOne('items', a)))).filter(Boolean).map(a => `<button class="chip" data-alt="${esc(a.id)}">${esc(itemName(a))}</button>`).join('')}</div>` : ''}</div></div>` : ''}
+    ${s ? `<div class="card"><div class="row" style="align-items:flex-start">
       <div><div class="muted">${t('histLow')}</div><div class="big-num">${fmtU(s.low.u)}</div>
         <div class="muted">${esc(s.low.o.store)} · ${fmtDate(s.low.o.date)}</div><div class="muted">${esc(obsText(it, s.low.o))} · ${priceText(it, s.low.o)}</div></div>
       ${s.best ? `<div><div class="muted">${t('bestNow')}</div><div class="big-num">${fmtU(s.best.u)}</div>
         <div class="muted">${esc(s.best.o.store)} · ${tf('ago', daysAgo(s.best.o.date))}</div><div class="muted">${esc(obsText(it, s.best.o))}</div></div>` : ''}
-    </div></div>
-    <div class="card"><h2>🐾 ${t('byStore')}</h2>
-      ${s.board.length ? `<table><tr><th>${t('store')}</th><th class="r">${t('price')}</th><th class="r">${t('unitP')}</th></tr>
-      ${s.board.map((r, i) => `<tr class="${isEnded(r.o) ? 'ended' : ''}"><td>${esc(r.o.store)}${i === 0 && s.board.length > 1 && r.u.key === s.key && isCurrent(r.o) ? `<span class="tag">🏆 ${t('cheapest')}</span>` : ''}${isEnded(r.o) ? `<span class="tag off">${t('ended')}</span>` : isUpcoming(r.o) ? `<span class="tag up">${fmtDate(r.o.date).slice(5)} ${t('starts')}</span>` : r.o.sale ? `<span class="tag">${t('sale')}</span>` : ''}
-        <div class="muted">${esc(obsText(it, r.o))} · ${fmtDate(r.o.date)}${r.o.until ? '–' + fmtDate(r.o.until).slice(5) : ''}</div></td>
-        <td class="r">${priceText(it, r.o)}${r.o.reg ? `<div class="muted">${t('reg')} ${money(r.o.reg)}</div>` : ''}</td>
-        <td class="r"><b>${fmtU(r.u)}</b>${r.u.alt ? `<div class="muted">${r.u.alt}</div>` : ''}</td></tr>`).join('')}</table>` : `<div class="muted">${t('noRecent')}</div>`}
-    </div>
-    ${chartSvg(s.rows, s.low.u.v, s.low.u.label)}
-    <div class="card"><h2>${t('history')}（${s.rows.length}）</h2><table>
-      ${s.rows.slice(0, 60).map(r => `<tr><td>${fmtDate(r.o.date)}<div class="muted">${esc(r.o.store)}${r.o.sale ? ' · ' + t('sale') : ''} · ${esc(obsText(it, r.o))}</div></td>
-        <td class="r">${priceText(it, r.o)}<div class="muted">${fmtU(r.u)}</div></td></tr>`).join('')}</table></div>` : `<div class="card empty">${dog('sniff', 'glass')}<div class="muted">${t('noPrice')}</div></div>`}
-    ${vars.length ? `<div class="card"><h2>${t('variants')}</h2>${vars.map(([vid, va]) => { const vo = obs.filter(o => o.vid === vid).sort((a, b) => (b.date || '').localeCompare(a.date || '')), vs = summarize(it, vo), vb = vs && (vs.best || vs.low); return `<a class="item" href="#variant/${encodeURIComponent(id)}/${encodeURIComponent(vid)}">${thumb(variantPhoto(it, va), itemEmoji(it))}<div class="main"><div>${esc(variantText(it, vid))}</div><div class="muted">${vo.length ? `${vo.length} ${t('records')}` : t('noPrice')}${va.barcode ? ' · ' + esc(va.barcode) : ''}</div></div><div class="price">${vb ? fmtU(vb.u) : vo.length ? priceText(it, vo[0]) : '—'}<div class="muted">${vs ? (vs.best ? t('bestNow') : t('histLow')) : vo.length ? fmtDate(vo[0].date) : ''}</div></div><span class="chev">›</span></a>`; }).join('')}</div>` : ''}`;
-  $('#addPrice').onclick = () => location.hash = `#add/${encodeURIComponent(id)}`;
+    </div></div>` : `<div class="card empty">${dog('sniff', 'glass')}<div class="muted">${t('noPrice')}</div></div>`}
+    <button class="btn" id="addPrice">${dog('normal', 'tag')}<span>${t('addPrice')}</span></button>
+    <div class="card"><h2>${t('curTitle')}</h2><div class="muted" style="margin-bottom:4px">${t('curHint')}</div>
+      ${cur.length ? cur.map((r, i) => { const va = (it.variants || {})[r.o.vid]; return `<a class="item" href="${r.o.vid && va ? `#variant/${encodeURIComponent(id)}/${encodeURIComponent(r.o.vid)}` : 'javascript:void 0'}">${thumb(variantPhoto(it, va), itemEmoji(it))}
+        <div class="main"><div class="name">${esc(r.o.store)}${i === 0 && cur.length > 1 && r.u && s && r.u.key === s.key && isCurrent(r.o) ? `<span class="tag">🏆 ${t('cheapest')}</span>` : ''}${isUpcoming(r.o) ? `<span class="tag up">${fmtDate(r.o.date).slice(5)} ${t('starts')}</span>` : r.o.sale ? `<span class="tag">${t('sale')}</span>` : `<span class="tag off">${t('logged')}</span>`}</div>
+        <div class="muted">${esc(obsText(it, r.o))}</div><div class="muted">${fmtDate(r.o.date)}${r.o.until ? '–' + fmtDate(r.o.until).slice(5) : ''}</div></div>
+        <div class="price">${priceText(it, r.o)}<div class="muted">${r.u ? fmtU(r.u) : ''}${r.o.reg ? `<br>${t('reg')} ${money(r.o.reg)}` : ''}</div></div></a>`; }).join('') : `<div class="muted">${t('curNone')}</div>`}</div>
+    ${vstat.length ? `<div class="card"><h2>${t('variants')}</h2><div class="muted" style="margin-bottom:4px">${t('varHint')}</div>${vstat.map(({ vid, va, vo, vs, vb }) => `<a class="item" href="#variant/${encodeURIComponent(id)}/${encodeURIComponent(vid)}">${thumb(variantPhoto(it, va), itemEmoji(it))}<div class="main"><div>${esc(variantText(it, vid))}</div><div class="muted">${vo.length ? `${vo.length} ${t('records')}` : t('noPrice')}${va.barcode ? ' · ' + esc(va.barcode) : ''}</div></div><div class="price">${vb ? fmtU(vb.u) : vo.length ? priceText(it, vo[0]) : '—'}<div class="muted">${vs ? (vs.best ? t('bestNow') : t('histLow')) : vo.length ? fmtDate(vo[0].date) : ''}</div></div><span class="chev">›</span></a>`).join('')}</div>` : ''}
+    ${ls ? `<div class="card"><h2>🐾 ${vstat.length ? t('looseTitle') : t('byStore')}</h2>${boardHtml(it, ls)}</div>${chartSvg(ls.rows, ls.low.u.v, ls.low.u.label)}` : ''}`;
+  $('#addPrice').onclick = () => location.hash = `#add/${encodeURIComponent(id)}${sc ? '/new' : ''}`;
   $('#favWrap').onclick = e => { if (!e.target.closest('[data-fav]')) return; toggleFav(id); $('#favWrap').innerHTML = starBtn(id, true); };
+  if (sc) {
+    $('#scLog').onclick = () => location.hash = `#add/${encodeURIComponent(id)}/new`;
+    $('#scOther').onclick = () => location.hash = `#pick/${sc.code}`;
+    app.querySelectorAll('[data-alt]').forEach(b => b.onclick = () => { scanCtx = { ...sc, itemId: b.dataset.alt, alts: [id, ...sc.alts.filter(a => a !== b.dataset.alt)] }; location.hash = `#item/${encodeURIComponent(b.dataset.alt)}`; });
+  }
+}
+// table of the latest price per store (+variant) in the last 30 days
+function boardHtml(it, s) {
+  return s.board.length ? `<table><tr><th>${t('store')}</th><th class="r">${t('price')}</th><th class="r">${t('unitP')}</th></tr>
+      ${s.board.map((r, i) => `<tr class="${isEnded(r.o) ? 'ended' : ''}"><td>${esc(r.o.store)}${i === 0 && s.board.length > 1 && r.u.key === s.key && isCurrent(r.o) ? `<span class="tag">🏆 ${t('cheapest')}</span>` : ''}${isEnded(r.o) ? `<span class="tag off">${t('ended')}</span>` : isUpcoming(r.o) ? `<span class="tag up">${fmtDate(r.o.date).slice(5)} ${t('starts')}</span>` : r.o.sale ? `<span class="tag">${t('sale')}</span>` : ''}
+        <div class="muted">${fmtDate(r.o.date)}${r.o.until ? '–' + fmtDate(r.o.until).slice(5) : ''}</div></td>
+        <td class="r">${priceText(it, r.o)}${r.o.reg ? `<div class="muted">${t('reg')} ${money(r.o.reg)}</div>` : ''}</td>
+        <td class="r"><b>${fmtU(r.u)}</b>${r.u.alt ? `<div class="muted">${r.u.alt}</div>` : ''}</td></tr>`).join('')}</table>` : `<div class="muted">${t('noRecent')}</div>`;
 }
 
 function chartSvg(rowsDesc, minV, label) {
@@ -820,10 +869,10 @@ async function viewPick(code) {
     <input id="pq" type="search" placeholder="${esc(t('search'))}" style="margin-top:8px"></div>
     <div class="card" id="plist"></div>
     <button class="btn sec" id="pNew">${t('newItem')}</button>`;
-  let info = null;
+  let info = null; const pend0 = JSON.parse(sessionStorage.getItem('pp_pending') || '{}'); const sug = pend0.code === code ? pend0.sug || [] : [];
   if (code) {
     $('#pickMsg').textContent = t('lookingUp');
-    info = await lookupProduct(code);
+    info = pend0.code === code && pend0.info ? pend0.info : await lookupProduct(code);
     $('#pickMsg').textContent = info ? t('found') + [info.brand, info.name, info.quantity].filter(Boolean).join(' ') : t('notFound');
   }
   const go = id => {
@@ -832,8 +881,9 @@ async function viewPick(code) {
   };
   const render = () => {
     const q = $('#pq').value.trim().toLowerCase();
-    const rows = items.filter(it => !q || [it.name, it.en, ...(it.aliases || [])].join(' ').toLowerCase().includes(q)).sort((a, b) => itemName(a).localeCompare(itemName(b))).slice(0, 80);
-    $('#plist').innerHTML = rows.map(it => `<a class="item" href="javascript:void 0" data-id="${esc(it.id)}">${thumb(itemPhoto(it), itemEmoji(it))}<div class="main"><div class="name">${esc(itemName(it))}</div><div class="muted">${esc([itemSub(it), catLabel(it.cat)].filter(Boolean).join(' · '))}</div></div></a>`).join('') || `<div class="muted">${t('noMatch')}</div>`;
+    const si = id => { const k = sug.indexOf(id); return !q && k >= 0 ? k : 99; };
+    const rows = items.filter(it => !q || [it.name, it.en, ...(it.aliases || [])].join(' ').toLowerCase().includes(q)).sort((a, b) => (si(a.id) - si(b.id)) || itemName(a).localeCompare(itemName(b))).slice(0, 80);
+    $('#plist').innerHTML = rows.map(it => `<a class="item" href="javascript:void 0" data-id="${esc(it.id)}">${thumb(itemPhoto(it), itemEmoji(it))}<div class="main"><div class="name">${esc(itemName(it))}${si(it.id) < 99 ? `<span class="tag">${t('suggested')}</span>` : ''}</div><div class="muted">${esc([itemSub(it), catLabel(it.cat)].filter(Boolean).join(' · '))}</div></div></a>`).join('') || `<div class="muted">${t('noMatch')}</div>`;
     $('#plist').querySelectorAll('[data-id]').forEach(a => a.onclick = () => code ? go(a.dataset.id) : (location.hash = `#add/${encodeURIComponent(a.dataset.id)}`));
   };
   $('#pq').oninput = render; render();
@@ -1090,11 +1140,13 @@ async function viewVariant(id, vid) {
     <div class="card"><div class="item" style="padding:0;border:0">${thumb(variantPhoto(it, va), itemEmoji(it))}<div class="main">
       <div class="name" style="white-space:normal">${esc(variantText(it, vid))}</div>
       <div class="muted"><a href="#item/${encodeURIComponent(id)}" style="color:inherit">${esc(itemName(it))}</a>${va.barcode ? ' · ' + esc(va.barcode) : ''}</div></div></div></div>
+    ${scanCtx && scanCtx.known && scanCtx.vid === vid ? `<div class="card scan"><div>${t('scanKnown')}</div></div>` : ''}
     <button class="btn" id="vAdd">${dog('normal', 'tag')}<span>${t('logThis')}</span></button>
     ${s ? `<div class="card"><div class="row" style="align-items:flex-start">
       <div><div class="muted">${t('histLow')}</div><div class="big-num">${fmtU(s.low.u)}</div><div class="muted">${esc(s.low.o.store)} · ${fmtDate(s.low.o.date)}</div><div class="muted">${priceText(it, s.low.o)}</div></div>
       ${s.best ? `<div><div class="muted">${t('bestNow')}</div><div class="big-num">${fmtU(s.best.u)}</div><div class="muted">${esc(s.best.o.store)} · ${tf('ago', daysAgo(s.best.o.date))}</div></div>` : ''}</div></div>
     <div class="card"><h2>🏷️ ${t('curDeals')}</h2>${cur.length ? `<table>${cur.map(r => `<tr><td>${esc(r.o.store)}<div class="muted">${fmtDate(r.o.date)}${r.o.until ? '–' + fmtDate(r.o.until).slice(5) : ''}</div></td><td class="r">${priceText(it, r.o)}${r.o.reg ? `<div class="muted">${t('reg')} ${money(r.o.reg)}</div>` : ''}</td><td class="r"><b>${fmtU(r.u)}</b></td></tr>`).join('')}</table>` : `<div class="muted">${t('noCurDeal')}</div>`}</div>
+    <div class="card"><h2>🐾 ${t('byStore')}</h2>${boardHtml(it, s)}</div>
     ${chartSvg(s.rows, s.low.u.v, s.low.u.label)}
     <div class="card"><h2>${t('varHist')}（${s.rows.length}）</h2><table>
       ${s.rows.slice(0, 80).map(r => `<tr class="${isEnded(r.o) ? 'ended' : ''}"><td>${fmtDate(r.o.date)}<div class="muted">${esc(r.o.store)}${r.o.sale ? ' · ' + t('sale') : ''}${isEnded(r.o) ? ' · ' + t('ended') : ''}</div></td>
@@ -1143,12 +1195,32 @@ function showGuide(i) {
   m.querySelector('#gNext').onclick = () => last ? done() : showGuide(i + 1);
 }
 
+/* ---------- What's new (shown once after each update) ---------- */
+const CHANGES = {
+  '4.5.0': [['產品頁重新設計：頂部係歷史最低同近 30 日最平，跟住係而家有效嘅特價同近 7 日記錄嘅價錢（有舖名同產品相），再下面係各個牌子。',
+             '各舖價錢、走勢同全部紀錄搬咗入每個牌子嘅頁面，撳牌子就睇到。',
+             '掃 barcode：認得嘅產品直接打開嗰款嘅頁面睇特價同歷史價錢；新產品狗狗會自動估係邊件主產品，一撳就記錄價錢。',
+             '每次更新都會彈出呢個「有乜新」。'],
+            ['Item page redesigned: all-time low and best of the last 30 days on top, then valid deals and prices logged in the last 7 days (with store and product photo), then each brand.',
+             'Prices by store, the trend and all records now live on each brand’s page — tap a brand to see them.',
+             'Barcode scan: a known product opens its page with deals and price history; for a new product the pup guesses the main item so you can log the price in one tap.',
+             'This “What’s new” pops up after every update.']],
+};
+function showWhatsNew() {
+  const seen = lsGet('seenVer'); lsSet('seenVer', APP_VERSION);
+  const notes = CHANGES[APP_VERSION]; if (seen === APP_VERSION || !notes) return;
+  const m = showSheet(`<div style="text-align:center">${dog('happy', 'party', 'bounce')}</div><h2 style="text-align:center;font-size:20px">${t('whatsNew')} v${APP_VERSION}</h2>
+    <ul class="news">${notes[LI()].map(x => `<li>${esc(x)}</li>`).join('')}</ul><button class="btn" id="wnOk" style="margin:0">${t('gotIt')}</button>`);
+  m.querySelector('#wnOk').onclick = closeSheet;
+}
+
 /* ---------- Router ---------- */
 async function route(bg) {
   const parts = location.hash.slice(1).split('/').map(decodeURIComponent);
   const r = parts[0];
   if (!bg) window.scrollTo(0, 0);
   if (r !== 'scan' && scanStream && !bg) closeScanner();
+  if (!bg && !['item', 'variant', 'add', 'pick', 'newitem'].includes(r)) scanCtx = null;
   switch (r) {
     case 'item': return viewItem(parts[1]);
     case 'pick': return viewPick(normCode(parts[1] || ''));
@@ -1171,7 +1243,8 @@ window.addEventListener('hashchange', () => route());
   route();
   if (lsGet('sync') !== '0') { setSync('connecting'); loadFb().catch(e => setSync('error', e.message)); }
   updInstall();
-  if (!lsGet('guided')) setTimeout(() => showGuide(0), 600);
+  if (!lsGet('guided')) { lsSet('seenVer', APP_VERSION); setTimeout(() => showGuide(0), 600); }
+  else setTimeout(showWhatsNew, 800);
 })();
 </script>
 </body>
