@@ -99,6 +99,16 @@ h2{font-size:17px;margin:0 0 8px}
 .star{flex:0 0 auto;background:none;border:0;font-size:24px;line-height:1;color:var(--muted);padding:6px 2px 6px 6px;cursor:pointer;font-family:system-ui,sans-serif}
 .star.big{font-size:32px}
 .star.on{color:#e8a020}
+.thumb.ill{object-fit:contain;padding:5px;background:var(--soft)}
+.chips.scroll{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding-bottom:2px}.chips.scroll::-webkit-scrollbar{display:none}
+.chips.scroll .chip{flex:0 0 auto;white-space:nowrap;padding:6px 12px}
+.item .chev{color:var(--muted);font-size:22px;padding-left:2px}
+header.top #installBtn{width:auto;flex:0 0 auto;font-size:13px;font-weight:800;padding:0 10px;color:var(--accent-dk);border-color:var(--accent)}
+.modal{position:fixed;inset:0;z-index:40;background:rgba(40,25,15,.45);display:flex;align-items:flex-end;justify-content:center}
+.modal .box{background:var(--card);color:var(--text);width:100%;max-width:480px;border-radius:24px 24px 0 0;padding:18px 18px calc(18px + env(safe-area-inset-bottom));box-shadow:0 -4px 20px rgba(0,0,0,.2)}
+@media (min-width:600px){.modal{align-items:center}.modal .box{border-radius:24px}}
+.modal .dog{width:110px;height:110px}
+.dots{display:flex;justify-content:center;gap:6px;margin:6px 0 14px}.dots span{width:8px;height:8px;border-radius:50%;background:var(--line)}.dots span.on{background:var(--accent);width:20px;border-radius:4px}
 .tag.off{background:var(--line);color:var(--muted)}
 .tag.up{background:var(--soft);color:var(--accent-dk)}
 tr.ended td{color:var(--muted)}tr.ended b{font-weight:600}
@@ -106,7 +116,7 @@ tr.ended td{color:var(--muted)}tr.ended b{font-weight:600}
 </style>
 </head>
 <body>
-<header class="top"><button id="backBtn" class="hidden" aria-label="Back">‹</button><span id="headDog"></span><h1 id="title" class="brand">PricePup</h1><a id="syncBadge" class="hidden" href="#settings"></a></header>
+<header class="top"><button id="backBtn" class="hidden" aria-label="Back">‹</button><span id="headDog"></span><h1 id="title" class="brand">PricePup</h1><button id="installBtn" class="hidden" type="button"></button><a id="syncBadge" class="hidden" href="#settings"></a></header>
 <main id="app"></main>
 <nav class="tabs">
   <a href="#home" data-tab="home"><span>🦴</span><b data-t="tabItems"></b></a>
@@ -139,7 +149,7 @@ tr.ended td{color:var(--muted)}tr.ended b{font-weight:600}
 
 <script>
 'use strict';
-const APP_VERSION = '4.3.0';
+const APP_VERSION = '4.4.0';
 const $ = s => document.querySelector(s);
 const app = $('#app');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -195,11 +205,22 @@ const I18N = {
   usageHint:['免費額度每日太平洋時間午夜重設','Free daily quota resets at midnight Pacific'], usageLoad:['載入用量','Load usage'], usageLoading:['載入中…','Loading…'],
   usageReads:['讀取','Reads'], usageWrites:['寫入','Writes'], usageDeletes:['刪除','Deletes'], usageToday:['今日','Today'], usagePeak:['近 7 日最高讀取','7-day peak reads'],
   usageNoApi:['要先喺 Google Cloud 開啟 Cloud Monitoring API','Enable the Cloud Monitoring API in Google Cloud first'], usageFail:['讀唔到用量：','Could not load usage: '], usageConsole:['喺 Firebase 控制台睇','Open in Firebase console'],
+  allCats:['全部','All'], varHist:['呢款嘅價錢紀錄','Price history for this variant'], curDeals:['而家嘅特價','Current deals'], noCurDeal:['而家冇特價','No current deal'], logThis:['記錄呢款嘅價錢','Log a price for this one'],
+  install:['📲 安裝','📲 Install'], installTitle:['將格價狗加到主畫面','Add PricePup to your home screen'], installed:['已安裝！以後喺主畫面打開就得','Installed! Open it from your home screen'],
+  iosSteps:['1. 撳 Safari 下面嘅「分享」掣 ⬆️<br>2. 揀「加入主畫面」<br>3. 撳「新增」','1. Tap the Share button ⬆️ in Safari<br>2. Choose “Add to Home Screen”<br>3. Tap “Add”'],
+  otherSteps:['喺瀏覽器選單（⋮ 或 ⋯）揀「安裝應用程式」或者「加到主畫面」。','In the browser menu (⋮ or ⋯) choose “Install app” or “Add to Home screen”.'],
+  guide:['📖 使用教學','📖 How to use'], next:['下一步','Next'], skip:['略過','Skip'], start:['開始使用','Let’s go'], close2:['關閉','Close'],
+  g1t:['汪！歡迎用格價狗','Woof! Welcome to PricePup'], g1:['記低每次買餸嘅價錢，狗狗幫你搵歷史最低價，同埋邊間超市最抵。','Log what you pay and the pup finds the all-time low and the cheapest store.'],
+  g2t:['先登入','Sign in first'], g2:['去「設定」用 Google 登入，就可以同大家共用價錢資料庫，你嘅最愛都會同步去其他裝置。','Go to Settings and sign in with Google to share one price database with everyone; your favourites sync too.'],
+  g3t:['記價錢','Log a price'], g3:['撳下面「掃描」影 barcode，或者喺產品頁撳「記錄價錢」。仲可以影價錢牌，狗狗自動讀價。','Tap Scan to read a barcode, or tap “Log a price” on an item. You can also snap the price tag and the pup reads it.'],
+  g4t:['睇價錢','Compare prices'], g4:['產品頁有歷史最低、各舖最新價錢同走勢；撳某個牌子／容量，睇嗰款自己嘅紀錄。撳 ☆ 加入最愛，首頁一撳就見到。','Each item shows the all-time low, latest prices by store and a trend; tap a brand/size to see its own history. Tap ☆ to add it to your favourites.'],
+  g5t:['睇特價','Find deals'], g5:['「特價」頁有各超市今期傳單特價，逢星期三更新；「已完」嘅特價會變灰。','The Deals tab lists this week’s flyer deals, updated every Wednesday; ended deals turn grey.'],
+  g6:['💡 用瀏覽器開緊？撳右上角「📲 安裝」，將格價狗加到主畫面，用起嚟好似 App 一樣。','💡 Using a browser? Tap “📲 Install” at the top right to add PricePup to your home screen.'],
   favOn:['已加入最愛','Added to favourites'], favOff:['已從最愛移除','Removed from favourites'], favBtn:['最愛','Favourite'],
   signIn:['用 Google 登入並開始同步','Sign in with Google to sync'], signOut:['登出','Sign out'], signedInAs:['已登入：','Signed in: '],
   sOff:['未開啟','Off'], sConnecting:['連接中…','Connecting…'], sSynced:['已同步','Synced'], sSyncing:['同步中…','Syncing…'], sOffline:['離線（稍後自動上傳）','Offline (uploads later)'], sError:['同步出錯','Sync error'],
   notAllowed:['呢個 Google 帳戶未獲准使用','This Google account is not allowed'], signInFail:['登入失敗，請再試','Sign-in failed, please try again'],
-  data:['數據','Data'], credit:['產品資料來自 Open Food Facts 同各超市網上 flyer','Product info from Open Food Facts and store flyers'],
+  data:['數據','Data'], credit:['產品資料來自 Open Food Facts 同各超市網上 flyer；新鮮食品插畫來自 OpenMoji（CC BY-SA 4.0）','Product info from Open Food Facts and store flyers; fresh-food illustrations by OpenMoji (CC BY-SA 4.0)'],
   scanAim:['將 barcode 對準方框','Point at the barcode'], scanNo:['呢個瀏覽器唔支援即時掃描，請手動輸入','Live scanning not supported — type the barcode'],
   scanCam:['開唔到相機（請允許相機權限），可以用相片或者手動輸入','Camera unavailable — use a photo or type it'],
   torch:['電筒','Torch'], fromPhoto:['用相片讀','From photo'], close:['關閉','Close'], manualPh:['或者手動輸入 barcode 數字','Or type the barcode number'], ok:['確定','OK'],
@@ -499,8 +520,22 @@ async function thumbFrom(file, max = 240) {
   return c.toDataURL('image/jpeg', 0.7);
 }
 function pickFile(input) { return new Promise(res => { input.value = ''; input.onchange = () => res(input.files[0] || null); input.click(); }); }
-const thumb = (src, emoji = '🛒') => src ? `<img class="thumb" src="${esc(src)}" alt="" loading="lazy">` : `<div class="thumb">${emoji}</div>`;
-const itemPhoto = it => it.photo || Object.values(it.variants || {}).map(v => v.photo).find(Boolean) || '';
+const thumb = (src, emoji = '🛒') => src ? `<img class="thumb${src.startsWith('fresh/') ? ' ill' : ''}" src="${esc(src)}" alt="" loading="lazy">` : `<div class="thumb">${emoji}</div>`;
+// Fresh food (produce, meat, seafood) shows an OpenMoji illustration instead of a brand photo
+const FRESH_CATS = ['水果蔬菜', '肉類', '海鮮'];
+const FRESH_ID = { apple:'1F34E', avocado:'1F951', bacon:'1F953', 'turkey-bacon':'1F953', banana:'1F34C', 'beans-fresh':'1FADB', broccoli:'1F966', cauliflower:'1F966', carrot:'1F955',
+  celery:'1F96C', 'chili-pepper':'1F336', coconut:'1F965', corn:'1F33D', crab:'1F980', 'imitation-crab':'1F980', cucumber:'1F952', zucchini:'1F952', daikon:'1FADC', 'root-veg':'1FADC', 'lotus-root':'1FADC',
+  duck:'1F986', eggplant:'1F346', ginger:'1FADA', grapefruit:'E0C0', grapes:'1F347', 'herbs-fresh':'1F33F', mint:'1F33F', hotdog:'1F32D', sausage:'1F32D', 'filipino-sausage':'1F32D', kiwi:'1F95D',
+  lemon:'1F34B', lime:'1F34B-200D-1F7E9', lobster:'1F99E', mandarin:'1F34A', orange:'1F34A', persimmon:'1F34A', mango:'1F96D', melon:'1F348', 'winter-melon':'1F348', mushroom:'1F344-200D-1F7EB',
+  mussels:'1F9AA', onion:'1F9C5', leek:'1F9C5', pear:'1F350', pineapple:'1F34D', 'tropical-fruit':'1F34D', plumcot:'1F351', pomegranate:'E0C4', potato:'1F954', raspberry:'1F353', strawberry:'1F353',
+  scallop:'1F41A', shrimp:'1F990', 'sweet-pepper':'1FAD1', tomato:'1F345', turkey:'1F983', yam:'1F360', squash:'1F360', 'whole-chicken':'1F357', ham:'1F356', lamb:'1F356', 'pork-back-ribs':'1F356' };
+const FRESH_RX = [[/bone|骨(?!仔)/i, '1F9B4'], [/chicken|雞/i, '1F357'], [/ribs?\b|排骨|豬手|豬蹄/i, '1F356'], [/salmon|fish|fillet|魚/i, '1F41F'], [/shrimp|prawn|蝦/i, '1F990'],
+  [/cabbage|lettuce|spinach|choy|greens?\b|菜/i, '1F96C'], [/beef|pork|lamb|meat|steak|牛|豬|羊|肉/i, '1F969']];
+const FRESH_CAT = { '水果蔬菜': '1F96C', '肉類': '1F969', '海鮮': '1F41F' };
+const isFresh = it => FRESH_CATS.includes(it.cat);
+const freshIcon = it => { if (!isFresh(it)) return ''; const s = `${it.en || ''} ${it.name || ''}`; return `fresh/${FRESH_ID[it.id] || (FRESH_RX.find(([rx]) => rx.test(s)) || [])[1] || FRESH_CAT[it.cat]}.svg`; };
+const itemPhoto = it => freshIcon(it) || it.photo || Object.values(it.variants || {}).map(v => v.photo).find(Boolean) || '';
+const variantPhoto = (it, va) => freshIcon(it) || (va && va.photo) || itemPhoto(it);
 const itemEmoji = it => ({ '水果蔬菜':'🥬','肉類':'🥩','海鮮':'🐟','奶類蛋':'🥛','麵包':'🍞','米麵乾貨':'🍚','調味醬料':'🧂','早餐穀物':'🥣','零食':'🍪','飲品':'🧃','急凍':'🧊','清潔用品':'🧴','個人護理':'🧼' }[it.cat] || '🛒');
 
 /* ---------- Barcode lookup ---------- */
@@ -685,6 +720,7 @@ async function loadAll() {
 }
 
 let homeQ = '', homeView = lsGet('homeView') || '';
+const catEmoji = c => itemEmoji({ cat: c });
 async function viewHome() {
   setHeader(t('appName')); setTab('home');
   const { items, by } = await loadAll();
@@ -693,7 +729,7 @@ async function viewHome() {
   app.innerHTML = `
     <div class="hero">${dog('happy', 'tag', 'bounce')}<div class="bubble">${t('hello')}<small>${t('tagline')}</small></div></div>
     <button class="btn sec" id="goLog">${t('logNoBarcode')}</button>
-    <div class="seg" id="hView" style="margin:4px 0 10px"><button type="button" data-v="fav"></button><button type="button" data-v="all">${t('tabAll')}</button></div>
+    <div class="chips scroll" id="hView" style="margin:4px 0 10px">${[['fav', ''], ['all', t('allCats')], ...CATS.filter(c => items.some(i => i.cat === c[0])).map(c => [c[0], catEmoji(c[0]) + ' ' + c[LI()]])].map(([v, l]) => `<button type="button" class="chip" data-v="${esc(v)}">${esc(l)}</button>`).join('')}</div>
     <input id="q" type="search" placeholder="${esc(t('search'))}" value="${esc(homeQ)}" style="margin:0 0 12px">
     <div class="card" id="list"></div>`;
   $('#goLog').onclick = () => location.hash = '#pick/';
@@ -703,7 +739,7 @@ async function viewHome() {
     const view = homeView || (FAVS.size ? 'fav' : 'all');
     $('#hView').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === view));
     $('#hView [data-v=fav]').textContent = `${t('tabFav')} (${FAVS.size})`;
-    const rows = list.filter(x => (view === 'all' || FAVS.has(x.it.id)) && (!q || hay(x).includes(q)));
+    const rows = list.filter(x => (view === 'all' || (view === 'fav' ? FAVS.has(x.it.id) : x.it.cat === view)) && (!q || hay(x).includes(q)));
     if (view === 'fav' && !rows.length && !q) { $('#list').innerHTML = `<div class="empty">${dog('sniff', 'glass')}<div class="muted">${t('noFav')}</div></div>`; return; }
     $('#list').innerHTML = rows.length ? rows.slice(0, 300).map(({ it, s }) => {
       const b = s && (s.best || s.low);
@@ -749,7 +785,7 @@ async function viewItem(id) {
     <div class="card"><h2>${t('history')}（${s.rows.length}）</h2><table>
       ${s.rows.slice(0, 60).map(r => `<tr><td>${fmtDate(r.o.date)}<div class="muted">${esc(r.o.store)}${r.o.sale ? ' · ' + t('sale') : ''} · ${esc(obsText(it, r.o))}</div></td>
         <td class="r">${priceText(it, r.o)}<div class="muted">${fmtU(r.u)}</div></td></tr>`).join('')}</table></div>` : `<div class="card empty">${dog('sniff', 'glass')}<div class="muted">${t('noPrice')}</div></div>`}
-    ${vars.length ? `<div class="card"><h2>${t('variants')}</h2>${vars.map(([vid, va]) => `<div class="item">${thumb(va.photo, itemEmoji(it))}<div class="main"><div>${esc(variantText(it, vid))}</div>${va.barcode ? `<div class="muted">${esc(va.barcode)}</div>` : ''}</div></div>`).join('')}</div>` : ''}`;
+    ${vars.length ? `<div class="card"><h2>${t('variants')}</h2>${vars.map(([vid, va]) => { const vs = summarize(it, obs.filter(o => o.vid === vid)), vb = vs && (vs.best || vs.low); return `<a class="item" href="#variant/${encodeURIComponent(id)}/${encodeURIComponent(vid)}">${thumb(variantPhoto(it, va), itemEmoji(it))}<div class="main"><div>${esc(variantText(it, vid))}</div><div class="muted">${vs ? `${vs.rows.length} ${t('records')}` : t('noPrice')}${va.barcode ? ' · ' + esc(va.barcode) : ''}</div></div><div class="price">${vb ? fmtU(vb.u) : '—'}<div class="muted">${vs ? (vs.best ? t('bestNow') : t('histLow')) : ''}</div></div><span class="chev">›</span></a>`; }).join('')}</div>` : ''}`;
   $('#addPrice').onclick = () => location.hash = `#add/${encodeURIComponent(id)}`;
   $('#favWrap').onclick = e => { if (!e.target.closest('[data-fav]')) return; toggleFav(id); $('#favWrap').innerHTML = starBtn(id, true); };
 }
@@ -950,7 +986,7 @@ async function viewDeals() {
     return { o, it, off, u: unitPrice(it, o) };
   }).sort((a, b) => b.off - a.off);
   app.innerHTML = `<div class="card muted">${t('dealsHint')}<div class="chips" id="dStores" style="margin-top:8px">${['', ...stores].map(s => `<button class="chip ${s === dealStore ? 'on' : ''}" data-s="${esc(s)}">${s ? esc(s) : t('allStores')}</button>`).join('')}</div></div><div class="card">${deals.length ? deals.slice(0, 200).map(d => `
-    <a class="item" href="#item/${encodeURIComponent(d.it.id)}">${thumb((d.it.variants || {})[d.o.vid] && d.it.variants[d.o.vid].photo || itemPhoto(d.it), itemEmoji(d.it))}
+    <a class="item" href="#item/${encodeURIComponent(d.it.id)}">${thumb(variantPhoto(d.it, (d.it.variants || {})[d.o.vid]), itemEmoji(d.it))}
       <div class="main"><div class="name">${esc(itemName(d.it))}</div><div class="muted">${esc(obsText(d.it, d.o))}</div><div class="muted">${esc(d.o.store)} · ${fmtDate(d.o.date)}${d.o.until ? '–' + fmtDate(d.o.until).slice(5) : ''}${isUpcoming(d.o) ? ` <span class="tag up">${fmtDate(d.o.date).slice(5)} ${t('starts')}</span>` : ''}</div></div>
       <div class="price">${priceText(d.it, d.o)}<div class="muted">${d.off > 0 ? `<span class="tag">-${Math.round(d.off * 100)}%</span><br>${t('reg')} ${money(d.o.reg)}` : ''}${d.u ? '<br>' + fmtU(d.u) : ''}</div></div></a>`).join('')
     : `<div class="empty">${dog('sleep', 'z')}<div class="muted">${t('noDeals')}</div></div>`}</div>`;
@@ -973,7 +1009,9 @@ async function viewSettings() {
     ${isAdmin() ? `<div class="card"><h2>👥 ${t('usersTitle')}</h2><div id="usersBody" class="muted">…</div></div>` : ''}
     ${isAdmin() ? `<div class="card"><h2>📊 ${t('usageTitle')}</h2><div class="muted">${t('usageHint')}</div><div id="usageBody"></div>
       <div class="row" style="margin-top:8px"><button class="btn sec small" id="usageBtn">${t('usageLoad')}</button><a class="btn sec small" style="text-align:center;text-decoration:none" target="_blank" rel="noopener" href="https://console.firebase.google.com/project/${FB_CONFIG.projectId}/firestore/databases/-default-/usage">${t('usageConsole')}</a></div></div>` : ''}
+    <button class="btn sec" id="sGuide">${t('guide')}</button>
     <div class="empty">${dog('sleep', 'z')}<div class="muted"><span class="brand" style="font-weight:800;font-size:16px">${LANG === 'zh' ? '格價狗 PricePup' : 'PricePup'}</span> v${APP_VERSION}<br>${t('credit')}</div></div>`;
+  $('#sGuide').onclick = () => showGuide(0);
   $('#sLang').querySelectorAll('button').forEach(b => b.onclick = () => { LANG = b.dataset.l; lsSet('lang', LANG); applyStatic(); setSync(syncState); viewSettings(); });
   if ($('#sSignIn')) $('#sSignIn').onclick = signIn;
   if ($('#sSignOut')) $('#sSignOut').onclick = signOutSync;
@@ -1040,6 +1078,61 @@ async function loadUsage(interactive) {
   }
 }
 
+/* ---------- Variant page: one brand/size of an item ---------- */
+async function viewVariant(id, vid) {
+  const it = await getOne('items', id); const va = it && (it.variants || {})[vid];
+  if (!va) { location.hash = it ? `#item/${encodeURIComponent(id)}` : '#home'; return; }
+  setHeader(variantText(it, vid) || itemName(it), true); setTab('home');
+  const obs = (await obsFor(id)).filter(o => o.vid === vid), s = summarize(it, obs);
+  const cur = s ? s.rows.filter(r => r.o.sale && isCurrent(r.o)).sort((a, b) => a.u.v - b.u.v) : [];
+  app.innerHTML = `
+    <div class="card"><div class="item" style="padding:0;border:0">${thumb(variantPhoto(it, va), itemEmoji(it))}<div class="main">
+      <div class="name" style="white-space:normal">${esc(variantText(it, vid))}</div>
+      <div class="muted"><a href="#item/${encodeURIComponent(id)}" style="color:inherit">${esc(itemName(it))}</a>${va.barcode ? ' · ' + esc(va.barcode) : ''}</div></div></div></div>
+    <button class="btn" id="vAdd">${dog('normal', 'tag')}<span>${t('logThis')}</span></button>
+    ${s ? `<div class="card"><div class="row" style="align-items:flex-start">
+      <div><div class="muted">${t('histLow')}</div><div class="big-num">${fmtU(s.low.u)}</div><div class="muted">${esc(s.low.o.store)} · ${fmtDate(s.low.o.date)}</div><div class="muted">${priceText(it, s.low.o)}</div></div>
+      ${s.best ? `<div><div class="muted">${t('bestNow')}</div><div class="big-num">${fmtU(s.best.u)}</div><div class="muted">${esc(s.best.o.store)} · ${tf('ago', daysAgo(s.best.o.date))}</div></div>` : ''}</div></div>
+    <div class="card"><h2>🏷️ ${t('curDeals')}</h2>${cur.length ? `<table>${cur.map(r => `<tr><td>${esc(r.o.store)}<div class="muted">${fmtDate(r.o.date)}${r.o.until ? '–' + fmtDate(r.o.until).slice(5) : ''}</div></td><td class="r">${priceText(it, r.o)}${r.o.reg ? `<div class="muted">${t('reg')} ${money(r.o.reg)}</div>` : ''}</td><td class="r"><b>${fmtU(r.u)}</b></td></tr>`).join('')}</table>` : `<div class="muted">${t('noCurDeal')}</div>`}</div>
+    ${chartSvg(s.rows, s.low.u.v, s.low.u.label)}
+    <div class="card"><h2>${t('varHist')}（${s.rows.length}）</h2><table>
+      ${s.rows.slice(0, 80).map(r => `<tr class="${isEnded(r.o) ? 'ended' : ''}"><td>${fmtDate(r.o.date)}<div class="muted">${esc(r.o.store)}${r.o.sale ? ' · ' + t('sale') : ''}${isEnded(r.o) ? ' · ' + t('ended') : ''}</div></td>
+        <td class="r">${priceText(it, r.o)}<div class="muted">${fmtU(r.u)}</div></td></tr>`).join('')}</table></div>` : `<div class="card empty">${dog('sniff', 'glass')}<div class="muted">${t('noPrice')}</div></div>`}`;
+  $('#vAdd').onclick = () => location.hash = `#add/${encodeURIComponent(id)}/${encodeURIComponent(vid)}`;
+}
+
+/* ---------- Modal sheet, install button, first-run guide ---------- */
+function showSheet(html, onClose) {
+  closeSheet(); const m = document.createElement('div'); m.className = 'modal'; m.id = 'sheet';
+  m.innerHTML = `<div class="box" role="dialog" aria-modal="true">${html}</div>`;
+  m.addEventListener('click', e => { if (e.target === m) { closeSheet(); onClose && onClose(); } });
+  document.body.appendChild(m); return m;
+}
+function closeSheet() { const m = $('#sheet'); if (m) m.remove(); }
+let installEvt = null;
+const isStandalone = () => (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; updInstall(); });
+window.addEventListener('appinstalled', () => { installEvt = null; updInstall(); toast(t('installed'), 3500); });
+function updInstall() { const b = $('#installBtn'); if (!b) return; b.textContent = t('install'); b.classList.toggle('hidden', isStandalone()); }
+$('#installBtn').onclick = async () => {
+  if (installEvt) { installEvt.prompt(); try { await installEvt.userChoice; } catch (e) {} installEvt = null; updInstall(); return; }
+  const m = showSheet(`<div style="text-align:center">${dog('happy', 'tag', 'bounce')}</div><h2 style="text-align:center">${t('installTitle')}</h2>
+    <div style="font-size:16px;line-height:1.7;margin:8px 0 14px">${isIOS() ? t('iosSteps') : t('otherSteps')}</div><button class="btn" id="shOk">${t('close2')}</button>`);
+  m.querySelector('#shOk').onclick = closeSheet;
+};
+const GUIDE = [['g1t', 'g1', 'happy', 'tag'], ['g2t', 'g2', 'normal', ''], ['g3t', 'g3', 'sniff', 'glass'], ['g4t', 'g4', 'happy', 'party'], ['g5t', 'g5', 'normal', 'tag']];
+function showGuide(i) {
+  const done = () => { lsSet('guided', '1'); closeSheet(); };
+  const [tt, tx, mood, acc] = GUIDE[i], last = i === GUIDE.length - 1;
+  const m = showSheet(`<div class="guide"><div style="text-align:center">${dog(mood, acc, 'bounce')}</div><h2 style="text-align:center;font-size:20px">${t(tt)}</h2>
+    <div style="font-size:16px;line-height:1.6;margin:6px 0 10px">${t(tx)}</div>${last && !isStandalone() ? `<div class="muted" style="margin-bottom:10px">${t('g6')}</div>` : ''}
+    <div class="dots">${GUIDE.map((_, j) => `<span class="${j === i ? 'on' : ''}"></span>`).join('')}</div>
+    <div class="row">${last ? '' : `<button class="btn sec" id="gSkip" style="margin:0">${t('skip')}</button>`}<button class="btn" id="gNext" style="margin:0">${last ? t('start') : t('next')}</button></div></div>`, done);
+  if (m.querySelector('#gSkip')) m.querySelector('#gSkip').onclick = done;
+  m.querySelector('#gNext').onclick = () => last ? done() : showGuide(i + 1);
+}
+
 /* ---------- Router ---------- */
 async function route(bg) {
   const parts = location.hash.slice(1).split('/').map(decodeURIComponent);
@@ -1053,6 +1146,7 @@ async function route(bg) {
     case 'add': return viewAdd(parts[1], parts[2] || '');
     case 'deals': return viewDeals();
     case 'settings': return viewSettings();
+    case 'variant': return viewVariant(parts[1], parts[2]);
     case 'scan': await viewHome(); setTab('scan'); return openScanner();
     default: return viewHome();
   }
@@ -1066,6 +1160,8 @@ window.addEventListener('hashchange', () => route());
   if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('sw.js').catch(() => {});
   route();
   if (lsGet('sync') !== '0') { setSync('connecting'); loadFb().catch(e => setSync('error', e.message)); }
+  updInstall();
+  if (!lsGet('guided')) setTimeout(() => showGuide(0), 600);
 })();
 </script>
 </body>
