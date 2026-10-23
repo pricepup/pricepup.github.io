@@ -1,5 +1,5 @@
 'use strict';
-const APP_VERSION = '4.9.0';
+const APP_VERSION = '4.9.1';
 const $ = s => document.querySelector(s);
 const app = $('#app');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -78,6 +78,7 @@ const I18N = {
   toyTitle:['玩具箱','Toy box'], toyOld:['舊咗又污糟，要買過新嘅','Old and dirty — time for a new one'], toyBin:['掉咗佢','Throw away'], toyPlay:['玩！','Play!'],
   toyNone:['仲未有玩具，去商店買啦！','No toys yet — get one at the shop!'], gToyWeak:['Regen 太肚餓，冇力玩，先餵佢食嘢啦。','Regen is too hungry to play — give a treat first.'],
   ropeHint:['㩒住繩尾粒藍波，向邊度拉都得！放手就 Regen 贏；快速大力一拉就你贏。','Hold the blue knot and pull any way! Let go and Regen wins; a quick strong yank and you win.'],
+  ballHint:['👆 向上掃個波！愈快愈遠','👆 Swipe the ball up! Faster = farther'],
   coinPlus:['🪙 +1 金幣！可以去花園商店買嘢俾 Regen','🪙 +1 coin! Spend it at the garden shop for Regen'],
   treatPlus:['🦴 +1 零食俾 Regen！','🦴 +1 treat for Regen!'],
   curTitle:['🏷️ 而家嘅特價同最新價錢','🏷️ Current deals & latest prices'], curHint:['傳單有效期內嘅特價，同近 7 日記錄嘅價錢，最抵排先','Valid flyer deals and prices logged in the last 7 days, cheapest first'],
@@ -1082,6 +1083,7 @@ function gDay(g) {
   if (g.free > FREE_TREATS) g.free = FREE_TREATS;   // older versions gave 10 a day
   g.bonus = g.bonus || 0; g.coins = g.coins || 0; g.toys = g.toys || [];
   if (g.pup && !g.waterAt) g.waterAt = Date.now();
+  if (typeof isAdmin === 'function' && isAdmin()) g.coins = 99; // power user: always 99 coins for testing
   return g;
 }
 function gSave(g) { g.updated = Date.now(); lsSet(GKEY, JSON.stringify(g)); if (syncOn()) fb.F.setDoc(favRef(), { garden: g }, { merge: true }).catch(() => {}); }
@@ -1091,6 +1093,13 @@ async function gSync() { // newest copy wins (phone vs cloud)
   return g;
 }
 function earnCoin() { const g = gLoad(); if ((g.coinsToday || 0) >= COIN_CAP) return false; g.coins++; g.coinsToday = (g.coinsToday || 0) + 1; gSave(g); return true; }
+// golden coin (drawn, so it looks the same on every phone)
+const COIN_SVG = '<svg class="coin" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10.5" fill="#f5b70a" stroke="#a86b00" stroke-width="2"/><circle cx="12" cy="12" r="7" fill="#ffd54a" stroke="#d99a00" stroke-width="1.5"/><path d="M12.00 7.40 L13.18 10.38 L16.37 10.58 L13.90 12.62 L14.70 15.72 L12.00 14.00 L9.30 15.72 L10.10 12.62 L7.63 10.58 L10.82 10.38z" fill="#e8a200"/><path d="M7 6 q2 -2 4.5 -2.3" stroke="#fff6c8" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg>';
+const cn = s => String(s).replace(/🪙/g, COIN_SVG);
+// app icon follows the puppy's colour (favicon, home-screen icon, install manifest)
+function setAppIcon(c) { const s = c === 'white' || c === 'brown' ? '-' + c : '';
+  const set = (rel, href) => { let l = document.querySelector(`link[rel="${rel}"]`); if (!l) { l = document.createElement('link'); l.rel = rel; document.head.appendChild(l); } if (l.getAttribute('href') !== href) l.setAttribute('href', href); };
+  set('icon', `icon${s}-192.png`); set('apple-touch-icon', `icon${s}-192.png`); set('manifest', `manifest${s}.webmanifest`); }
 const treatsLeft = g => (g.free || 0) + (g.bonus || 0);
 // water gets dirtier over time: level 0 (fresh) .. 5; at level 4+ (12 h) the puppy won't drink and gets thirsty
 const waterLevel = g => Math.min(5, Math.floor(H(g.waterAt) / 3));
@@ -1147,14 +1156,14 @@ const PUP_COLORS = {
   white: { fur: '#f7f3ec', ear: '#e6dccb', face: '#ffffff', earHi: '#fffaf3' },
   brown: { fur: '#c98a4b', ear: '#9a5f2c', face: '#ecc896', earHi: '#ddaa72' }
 };
-let pupColor = 'black';
+var pupColor = (() => { try { return (JSON.parse(lsGet(GKEY) || '{}').pup || {}).color || 'black'; } catch (e) { return 'black'; } })();
 function regenB(pose, expr, color) {
   const pc = PUP_COLORS[color || pupColor] || PUP_COLORS.black;
   const ink = '#15151a', fur = pc.fur, ear = pc.ear, face = pc.face, W = 6;
   const L = (d, f = 'none', w = W) => `<path d="${d}" fill="${f}" stroke="${ink}" stroke-width="${w}" stroke-linejoin="round" stroke-linecap="round"/>`;
   const eye = (x, y) => {
     if (expr === 'happy' || expr === 'super' || expr === 'eat' || expr === 'tug') return L(`M${x - 8} ${y + 2} q8 -10 16 0`, 'none', 5);
-    if (expr === 'sleep') return L(`M${x - 8} ${y} q8 7 16 0`, 'none', 5);
+    if (expr === 'sleep' || expr === 'eatdown') return L(`M${x - 8} ${y} q8 7 16 0`, 'none', 5);
     if (expr === 'grumpy') return L(`M${x - 8} ${y} h16`, 'none', 5);
     return `<g class="eye"><circle cx="${x}" cy="${y}" r="7" fill="${ink}"/><circle cx="${x + 2.5}" cy="${y - 2.5}" r="2.4" fill="#fff"/></g>` + (expr === 'sad' ? `<path d="M${x} ${y + 11} q-3 6 0 9 q3 -3 0 -9z" fill="#8fd0ff"/>` : '');
   };
@@ -1165,7 +1174,7 @@ function regenB(pose, expr, color) {
     eat: `<ellipse cx="120" cy="127" rx="7" ry="5" fill="${ink}"/>`,
     thirsty: L('M106 122 q7 7 14 0 q7 7 14 0', 'none', 4.5) + `<path d="M112 126 q8 30 16 0 z" fill="#ff7a59" stroke="${ink}" stroke-width="3.5" stroke-linejoin="round"/><path d="M120 130 v12" stroke="#d9583d" stroke-width="2.5" stroke-linecap="round"/>`,
     tug: L('M106 124 q14 5 28 0', 'none', 5) + `<path d="M110 124 l3 5 l3 -4 l4 5 l4 -5 l3 4 l3 -5" fill="#fff" stroke="${ink}" stroke-width="2" stroke-linejoin="round"/>`,
-    sad: L('M110 130 q10 -8 20 0', 'none', 4.5), sleep: L('M114 126 q6 3 12 0', 'none', 4), grumpy: L('M110 128 h20', 'none', 4.5)
+    eatdown: '', sad: L('M110 130 q10 -8 20 0', 'none', 4.5), sleep: L('M114 126 q6 3 12 0', 'none', 4), grumpy: L('M110 128 h20', 'none', 4.5)
   }[expr];
   const head = (tx = 0, ty = 0, rot = 0, s = 1) => `<g class="hd" transform="translate(${tx} ${ty}) rotate(${rot} 120 100) translate(120 100) scale(${s}) translate(-120 -100)"><g class="hdi">
     ${L('M120 46 C156 46 172 70 172 98 C172 128 150 144 120 144 C90 144 68 128 68 98 C68 70 84 46 120 46 Z', fur)}
@@ -1181,13 +1190,17 @@ function regenB(pose, expr, color) {
     <circle cx="120" cy="155" r="8.5" fill="#2fa36b" stroke="${ink}" stroke-width="4"/><circle cx="120" cy="157.5" r="2.6" fill="#e9fff2"/><circle cx="116.3" cy="153" r="1.4" fill="#e9fff2"/><circle cx="120" cy="151.5" r="1.4" fill="#e9fff2"/><circle cx="123.7" cy="153" r="1.4" fill="#e9fff2"/></g></g>`;
   const tail = d => `<g class="tail">${L(d, 'none', 14)}<path d="${d}" stroke="${fur}" stroke-width="6" fill="none" stroke-linecap="round"/></g>`;
   const shadow = `<ellipse cx="120" cy="222" rx="60" ry="6" fill="rgba(60,40,20,.14)"/>`;
-  let body = '', hd = head();
-  if (pose === 'sit' || pose === 'eat' || pose === 'drink') {
+  let body = '', hd = head(), front = '';
+  const FOOD = '<path d="M96 203 q6 -7 12 0 M116 202 q6 -7 12 0 M134 203 q6 -6 10 0" fill="#e9b872" stroke="#15151a" stroke-width="3"/>', FOOD2 = '<path d="M82 198 q6 -8 12 0 M146 198 q6 -8 12 0 M158 197 q4 -6 8 0" fill="#e9b872" stroke="#15151a" stroke-width="3"/>';
+  if (pose === 'sit' || pose === 'eatup') {
     body = shadow + tail('M152 196 C174 194 180 176 174 160') +
       L('M90 150 C82 170 80 196 84 216 L156 216 C160 196 158 170 150 150', fur) +
       L('M106 176 L106 214', 'none', 5) + L('M134 176 L134 214', 'none', 5) + L('M84 216 h72', 'none', 6);
-    if (pose === 'eat') { body += L('M84 204 h72 l-8 16 h-56z', '#ff7a59', 5) + '<path d="M96 203 q6 -7 12 0 M116 202 q6 -7 12 0 M134 203 q6 -6 10 0" fill="#e9b872" stroke="#15151a" stroke-width="3"/>'; hd = head(0, 38, 12, .92); }
-    if (pose === 'drink') { body += L('M84 204 h72 l-8 16 h-56z', '#4f8fd6', 5) + '<ellipse cx="120" cy="204" rx="33" ry="3.5" fill="#6fc8ff"/>'; hd = head(0, 38, 12, .92); }
+    if (pose === 'eatup') { body += L('M84 204 h72 l-8 16 h-56z', '#ff7a59', 5) + FOOD; hd = head(0, 38, 12, .92); }
+  } else if (pose === 'eat' || pose === 'drink') { // head down in the bowl: we see his back and the top of his head
+    body = shadow + tail('M156 170 C178 160 184 140 176 124') + L('M74 214 C70 160 94 118 120 118 C146 118 170 160 166 214 Z', fur) + L('M88 196 L86 218', 'none', 8) + L('M152 196 L154 218', 'none', 8);
+    hd = head(0, 76, 0, .8);
+    front = pose === 'eat' ? FOOD2 + L('M74 198 h92 l-11 24 h-70z', '#ff7a59', 5) : `<ellipse cx="120" cy="199" rx="44" ry="5" fill="#6fc8ff" stroke="${ink}" stroke-width="3"/>` + L('M74 198 h92 l-11 24 h-70z', '#4f8fd6', 5);
   } else if (pose === 'run' || pose === 'run2') {
     // base: the version Silver picked (big head front-left, round body behind, chunky legs); body 10% bigger + a proper neck
     const big = x => `<g transform="translate(148 166) scale(1.1) translate(-148 -166)">${x}</g>`;
@@ -1211,7 +1224,7 @@ function regenB(pose, expr, color) {
       L('M84 218 h40', 'none', 6) + L('M158 196 q10 8 8 22', 'none', 5);
     hd = head(-14, sl ? 58 : 42, sl ? -8 : 0, sl ? .9 : .95);
   }
-  return `<svg class="regen" viewBox="0 0 240 240" aria-hidden="true"><g class="rgAll"><g class="bd">${body}</g>${hd}</g></svg>`;
+  return `<svg class="regen" viewBox="0 0 240 240" aria-hidden="true"><g class="rgAll"><g class="bd">${body}</g>${hd}${front}</g></svg>`;
 }
 // poo (same in both styles, cute not gross)
 const pooSvg = (ink = '#141418') => `<svg viewBox="0 0 60 50" class="poo" aria-hidden="true"><path d="M8 44 C2 44 2 34 10 33 C6 26 14 20 20 23 C18 14 30 8 34 16 C42 14 46 22 42 27 C50 28 52 38 46 40 C54 44 50 48 44 48 L12 48 C9 48 8 46 8 44 Z" fill="#8a5a33" stroke="${ink}" stroke-width="3" stroke-linejoin="round"/><path d="M14 36 q8 4 18 0M20 26 q6 3 12 0" stroke="#b07b4f" stroke-width="3" fill="none" stroke-linecap="round"/><path d="M14 8 q-4 -4 0 -8M28 6 q-4 -4 0 -8M42 8 q-4 -4 0 -8" stroke="#8aa36a" stroke-width="2.5" fill="none" stroke-linecap="round"/></svg>`;
@@ -1266,7 +1279,7 @@ const mmss = ms => { const s = Math.max(0, Math.ceil(ms / 1000)); return Math.fl
 async function viewGarden() {
   let g = await gSync();
   if (!g.pup || !g.pup.name) return viewAdopt();
-  pupColor = g.pup.color || 'black';
+  pupColor = g.pup.color || 'black'; setAppIcon(pupColor);
   setHeader(tf('gTitle', g.pup.name), true); setTab('home');
   const mood0 = gMood(g);
   g.lastVisit = Date.now(); gSave(g);
@@ -1281,7 +1294,7 @@ async function viewGarden() {
       <div id="gPoos"></div>
       <button class="bowlbtn" id="gBowl" aria-label="water"></button>
       <div class="pupwrap" id="gWrap"><div class="pflip" id="gFlip"><div class="pup" id="gPup"></div><div class="carry" id="gCarry"></div></div></div>
-      <div class="ballfly hidden" id="gBall">${toySvg('ball')}</div>
+      <div class="ballfly hidden" id="gBall">${toySvg('ball')}</div><div class="ballhand hidden" id="gHand">${toySvg('ball')}</div><div class="balltip hidden" id="gTip">${t('ballHint')}</div>
       <svg class="ropesvg hidden" id="gRope" aria-hidden="true"><path class="ro" id="gRopeO"/><path class="ri" id="gRopeI"/></svg><b class="ropeknot hidden" id="gKnot"></b>
       <div class="gtimer hidden" id="gTimer"></div>
       <div class="fx" id="gFx"></div>
@@ -1299,7 +1312,7 @@ async function viewGarden() {
       <button class="btn sec" id="gToyBtn">🎾<span>${t('gToyBtn')}</span></button>
       <button class="btn sec" id="gShopBtn">🛒<span>${t('gShopBtn')}</span></button>
     </div>
-    <div class="ghint">${t('gHint')}</div><div class="ghint credit">${t('gWxCredit')}</div>`;
+    <div class="ghint">${cn(t('gHint'))}</div><div class="ghint credit">${t('gWxCredit')}</div>`;
   const pup = $('#gPup'), wrap = $('#gWrap'), carry = $('#gCarry');
   let state = mood0, grumpLeft = 2, night = false, walkT = null, timerT = null, play = null;
   const vid = viewGarden._vid = (viewGarden._vid || 0) + 1; gBusy = false; // a fresh visit cancels anything left over from the last one
@@ -1319,7 +1332,7 @@ async function viewGarden() {
   const bars = () => { g = gLoad(); const f = fullness(g), j = joy(g), w = waterPct(g), lv = waterLevel(g);
     $('#mFull').style.width = f + '%'; $('#mJoy').style.width = j + '%'; $('#mWater').style.width = w + '%';
     $('#mFull').style.background = f < 25 ? 'var(--bad)' : 'var(--good)'; $('#mJoy').style.background = j < 25 ? 'var(--bad)' : '#e8a020'; $('#mWater').style.background = lv >= 4 ? 'var(--bad)' : '#3d9be0';
-    $('#gTreats').innerHTML = tf('gTreatsLine', g.free || 0, FREE_TREATS, g.bonus || 0, g.coins || 0);
+    $('#gTreats').innerHTML = cn(tf('gTreatsLine', g.free || 0, FREE_TREATS, g.bonus || 0, g.coins || 0));
     $('#gBowl').innerHTML = waterSvg(lv);
     const wh = $('#gWaterHint'); wh.classList.toggle('hidden', lv < 3); wh.textContent = withName(t(lv >= 4 ? 'gWaterBad' : 'gWaterDirty')); };
   const poos = () => { g = gLoad(); const box = $('#gPoos'); if (!box) return; $('#gPooHint').classList.toggle('hidden', !g.poos.length);
@@ -1340,10 +1353,17 @@ async function viewGarden() {
     else draw('sit', 'open', ''); };
   const recheck = () => { const m = gMood(gLoad()); if (m === 'weak' || m === 'thirsty' || m === 'dirty') state = m; else if (state !== 'grumpy') state = 'idle'; };
   // ---- eating: takes about a minute ----
+  const EAT_MOVES = [['eat', 'eatdown', 'r-chompl'], ['eat', 'eatdown', 'r-nudge'], ['eat', 'eatdown', 'r-dig'], ['eat', 'eatdown', 'r-chompl r-tailfast'], ['eatup', 'eat', 'r-chompl']];
   const eat = until => {
-    gBusy = true; draw('eat', 'eat', 'r-chompl wagfast'); fx('✨🦴✨', 5);
+    gBusy = true; draw('eat', 'eatdown', 'r-chompl wagfast'); fx('✨🦴✨', 5);
+    let last = 0; const mv = () => { if (!alive() || Date.now() >= until) return;
+      let i; do { i = Math.floor(Math.random() * EAT_MOVES.length); } while (i === last); last = i; const m = EAT_MOVES[i];
+      draw(m[0], m[1], m[2] + ' wagfast'); if (Math.random() < .35) fx(m[0] === 'eatup' ? '💕' : '✨', 2, 50);
+      later(m[0] === 'eatup' ? 1600 : 2400 + Math.random() * 1600, mv); };
+    later(2600, mv);
     later(until - Date.now(), () => { recheck(); draw('sit', state === 'idle' ? 'super' : 'open', 'r-jump wagfast'); fx('❤️💛', 4); later(1500, () => { gBusy = false; rest(); }); });
   };
+
   // ---- chewing toy: plays by himself for half an hour ----
   const chew = until => { stopTimer(); gBusy = false; rest(); timer('🦴 ' + withName(t('gChewing')), until, () => { carry.innerHTML = ''; draw('sit', 'super', 'r-jump wagfast'); fx('💖✨', 4); later(1500, rest); }); };
   // ---- arrival ----
@@ -1407,7 +1427,7 @@ async function viewGarden() {
     g = gLoad(); const was = waterLevel(g); g.waterAt = Date.now(); gSave(g); bars(); fx('💦✨', 4, 76);
     if (gBusy || play || chewing()) return;
     gBusy = true; draw('sit', 'open', 'r-look');
-    later(800, () => { draw('drink', 'eat', 'r-chompl wagfast'); fx('💧', 3); });
+    later(800, () => { draw('drink', 'eatdown', 'r-dig wagfast'); fx('💧', 3); });
     later(3800, () => { recheck(); draw('sit', was >= 4 ? 'super' : 'happy', was >= 4 ? 'r-jump wagfast' : 'wagfast'); fx(was >= 4 ? '💙💖💙' : '💙', 3); });
     later(5200, () => { gBusy = false; rest(); });
   };
@@ -1417,8 +1437,8 @@ async function viewGarden() {
   const shopIcon = it => it.kind === 'treat' ? treatSvg() : toySvg(it.id);
   const openShop = () => {
     g = gLoad();
-    const m = showSheet(`<h2 style="margin-top:0">🛒 ${t('shopTitle')}</h2><div class="muted">${tf('shopCoins', g.coins || 0)}</div>
-      <div class="shopgrid">${SHOP.map(it => `<button class="shopitem" data-id="${it.id}" ${g.coins >= it.price ? '' : 'disabled'}><span class="ic">${shopIcon(it)}</span><b>${shopName(it)}</b><span class="price">🪙 ${it.price}</span></button>`).join('')}</div>
+    const m = showSheet(`<h2 style="margin-top:0">🛒 ${t('shopTitle')}</h2><div class="muted">${cn(tf('shopCoins', g.coins || 0))}</div>
+      <div class="shopgrid">${SHOP.map(it => `<button class="shopitem" data-id="${it.id}" ${g.coins >= it.price ? '' : 'disabled'}><span class="ic">${shopIcon(it)}</span><b>${shopName(it)}</b><span class="price">${COIN_SVG} ${it.price}</span></button>`).join('')}</div>
       <div class="muted" style="margin-top:10px">${t('shopHint')}</div><button class="btn sec" id="shopClose">${t('close')}</button>`);
     m.querySelector('#shopClose').onclick = closeSheet;
     m.querySelectorAll('.shopitem').forEach(b => b.onclick = () => {
@@ -1453,18 +1473,49 @@ async function viewGarden() {
   $('#gToyBtn').onclick = openToys;
   // ball: thrown far away, he runs off (gets small), catches it and brings it back
   const playBall = end => {
-    play = {}; gBusy = true; stopTimer(); const ball = $('#gBall');
-    draw('sit', 'super', 'r-wiggle wagfast');
-    ball.className = 'ballfly'; ball.style.transition = 'none'; ball.style.transform = 'translate(0,0) scale(1)';
-    later(700, () => { ball.style.transition = 'transform 1s cubic-bezier(.2,.7,.4,1)'; ball.style.transform = 'translate(118px,-150px) scale(.45)'; });
-    later(1000, () => { move('super', 'wagfast', true); place(96, -66, .42, 1500, true); });
-    later(1700, () => { ball.style.transition = 'transform .5s ease-in'; ball.style.transform = 'translate(118px,-92px) scale(.4)'; });
-    later(2600, () => { ball.className = 'ballfly hidden'; carry.className = 'carry mouth'; carry.innerHTML = toySvg('ball'); draw('sit', 'happy', 'r-jump wagfast'); place(96, -66, .42, 0, false); });
-    later(3300, () => { carry.className = 'carry mouth runm'; move('happy', 'wagfast', true); place(0, 0, 1, 1500, false); });
-    later(4900, () => { carry.innerHTML = ''; carry.className = 'carry'; draw('sit', 'super', 'r-jump wagfast'); fx('🎾💖✨', 6);
-      ball.className = 'ballfly'; ball.style.transition = 'none'; ball.style.transform = 'translate(-20px,0) scale(.8)'; });
-    later(6600, () => { ball.className = 'ballfly hidden'; gBusy = false; end(); rest(); });
+    play = { pet: () => {} }; gBusy = true; stopTimer();
+    const scene = $('#gScene'), ball = $('#gBall'), hand = $('#gHand'), W = scene.clientWidth, SH = scene.clientHeight;
+    const homeX = W / 2 + 10, homeY = SH - 2, HZ = SH - 165;            // horizon: the far edge of the lawn
+    const depth = y => .32 + .68 * Math.max(0, Math.min(1, (y - HZ) / (homeY - HZ)));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    draw('sit', 'super', 'r-wiggle wagfast'); hand.classList.remove('hidden'); hand.style.cssText = ''; $('#gTip').classList.remove('hidden');
+    let samples = [], down = false, start = null;
+    const at = e => [performance.now(), e.clientX, e.clientY];
+    hand.onpointerdown = e => { e.preventDefault(); try { hand.setPointerCapture(e.pointerId); } catch (x) {} down = true; start = [e.clientX, e.clientY]; samples = [at(e)]; hand.style.transition = 'none'; };
+    hand.onpointermove = e => { if (!down) return; const s1 = at(e); samples.push(s1); samples = samples.filter(q => s1[0] - q[0] < 110);
+      hand.style.transform = `translate(calc(-50% + ${(e.clientX - start[0]) * .5}px), ${(e.clientY - start[1]) * .5}px)`; };
+    hand.onpointerup = hand.onpointercancel = e => { if (!down) return; down = false; samples.push(at(e)); samples = samples.filter(q => samples[samples.length - 1][0] - q[0] < 110);
+      const a = samples[0], z = samples[samples.length - 1], dt = Math.max(16, z[0] - a[0]), vx = (z[1] - a[1]) / dt, vy = (z[2] - a[2]) / dt, sp = Math.hypot(vx, vy);
+      if (sp < .3 || vy > -.15) { hand.style.transition = 'transform .25s'; hand.style.transform = ''; $('#gTip').classList.add('r-shake'); later(600, () => $('#gTip').classList.remove('r-shake')); return; } // too soft, or not upwards: try again
+      $('#gTip').classList.add('hidden'); hand.onpointerdown = hand.onpointermove = hand.onpointerup = hand.onpointercancel = null; toss(vx / sp, -vy / sp, sp); };
+    const toss = (dx, up, sp) => {
+      // where it lands: the faster the swipe the farther (higher up the lawn); left/right follows the finger
+      const reach = Math.max(.08, Math.min(1, (sp - .3) / 2.4)), ly = homeY - 12 - reach * (homeY - 12 - HZ);
+      const lx = Math.max(20, Math.min(W - 20, W / 2 + dx / Math.max(.35, up) * (homeY - ly + 120) * .55));
+      const r0 = hand.getBoundingClientRect(), sr = scene.getBoundingClientRect(), x0 = r0.left + r0.width / 2, y0 = r0.top + r0.height / 2;
+      const x1 = sr.left + lx, y1 = sr.top + ly - 12, w0 = r0.width, w1 = 34 * depth(ly), T = 650 + reach * 650, arc = 80 + reach * 140, t0 = performance.now();
+      hand.style.transition = 'none'; hand.style.transform = 'none'; hand.style.left = x0 + 'px'; hand.style.top = y0 + 'px'; hand.style.bottom = 'auto'; hand.style.marginLeft = (-w0 / 2) + 'px'; hand.style.marginTop = (-w0 / 2) + 'px';
+      const fly = now => { if (!alive()) return; const k = Math.min(1, (now - t0) / T), e = 1 - Math.pow(1 - k, 2), w = w0 + (w1 - w0) * e;
+        hand.style.left = (x0 + (x1 - x0) * e) + 'px'; hand.style.top = (y0 + (y1 - y0) * e - arc * Math.sin(Math.PI * k)) + 'px'; hand.style.width = w + 'px'; hand.style.marginLeft = hand.style.marginTop = (-w / 2) + 'px';
+        hand.style.transform = `rotate(${k * 540}deg)`;
+        if (k < 1) requestAnimationFrame(fly); else land(lx, ly, w1, T); };
+      requestAnimationFrame(fly);
+      later(T * .35, () => { const right = lx > homeX; move('super', 'wagfast', true); place(lx - homeX + (right ? -14 : 14) * depth(ly), ly - homeY, depth(ly), 500 + Math.abs(ly - homeY) * 5 + Math.abs(lx - homeX) * 2, right); });
+    };
+    const land = (lx, ly, w, T) => {
+      hand.classList.add('hidden'); hand.style.cssText = '';
+      ball.className = 'ballfly'; ball.style.cssText = `left:${lx - w / 2}px;top:${ly - w}px;width:${w}px;bottom:auto;transform:none`;
+      const runMs = 500 + Math.abs(ly - homeY) * 5 + Math.abs(lx - homeX) * 2, wait = Math.max(250, runMs - T * .65);
+      later(wait, () => { // got it!
+        ball.className = 'ballfly hidden'; carry.className = 'carry mouth'; carry.innerHTML = toySvg('ball'); draw('sit', 'happy', 'r-jump wagfast'); place(lx - homeX, ly - homeY, depth(ly), 0, false);
+        later(700, () => { carry.className = 'carry mouth runm'; move('happy', 'wagfast', true); place(0, 0, 1, runMs, lx < homeX); });
+        later(700 + runMs, () => { carry.innerHTML = ''; carry.className = 'carry'; place(0, 0, 1, 0, false); draw('sit', 'super', 'r-jump wagfast'); fx('🎾💖✨', 6);
+          ball.className = 'ballfly'; ball.style.cssText = ''; });
+        later(2400 + runMs, () => { ball.className = 'ballfly hidden'; ball.style.cssText = ''; gBusy = false; end(); rest(); });
+      });
+    };
   };
+
   // rope: tug-of-war. The rope starts hanging straight down from his mouth; hold the knot and pull any way you like.
   // Let go = he wins; a quick strong yank (or pulling far) = you win. Either way he's thrilled.
   const playRope = end => {
@@ -1557,7 +1608,7 @@ function viewAdopt() {
       const name = $('#adName').value.trim(); if (!name) return toast(t('adoptNeedName'));
       const g = gLoad(); if (g.pup && g.pup.name) return viewGarden(); const first = true; g.pup = { color, name, adopted: Date.now() };
       if (first) { g.lastFed = g.lastFed || Date.now(); g.lastPet = Date.now(); g.lastVisit = Date.now(); } // a new puppy starts happy
-      gSave(g); pupColor = color;
+      gSave(g); pupColor = color; setAppIcon(color);
       app.innerHTML = `<div class="shop small"><div class="pups one"><div class="pupbox on r-jump">${regenSvg('sit', 'super', color)}<span class="cushion"></span></div></div><div class="fx" id="gFx"></div></div>
         <div class="card" style="text-align:center"><b>${tf('adoptWelcome', esc(name))}</b></div>`;
       const box = $('#gFx'); ['💕', '🎉', '✨', '💖', '🐾'].forEach((c, i) => { const sp = document.createElement('span'); sp.textContent = c; sp.style.left = (25 + i * 12) + '%'; sp.style.animationDelay = i * .15 + 's'; box.appendChild(sp); });
@@ -1569,6 +1620,14 @@ function viewAdopt() {
 
 /* ---------- What's new (shown once after each update) ---------- */
 const CHANGES = {
+  '4.9.1': [['掟波：撳個波之後，波會出現喺畫面底部，用手指向上掃出去。方向跟你手指，掃得愈快丟得愈遠。',
+             '狗仔食嘢會低頭埋落碗度食，仲會有唔同動作。',
+             '金幣改為金色。',
+             '狗仔領養咗之後，App 入面嘅狗仔圖案同 App 圖示都會跟返你隻狗仔嘅顏色（已經加咗落主畫面嘅圖示要刪咗再加一次先會變）。'],
+            ['Throwing the ball: tap the ball, it appears at the bottom of the screen — swipe it up to throw. It follows your finger; the faster the swipe, the farther it goes.',
+             'Your puppy now eats with his head down in the bowl, with different moves.',
+             'Coins are now golden.',
+             'After adopting, the puppy pictures in the app and the app icon match your puppy’s colour (re-add the app to your home screen to update an installed icon).']],
   '4.9.0': [['新增金幣：每記錄一個價錢賺 1 個金幣，去花園商店買零食同玩具。每日免費零食改為 3 粒。',
              '新增清水：水會慢慢變污糟（5 級），超過 12 個鐘冇換水，狗仔唔肯飲會口渴。隨時撳「換水」或者水兜換新水。',
              '新增玩具（每件玩 10 次）：波波（狗仔跑去遠處咬返嚟）、拔河繩（㩒住繩尾向任何方向拉，同佢拔河）、咬咬玩具（佢自己玩半個鐘）。',
