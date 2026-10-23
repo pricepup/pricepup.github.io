@@ -133,13 +133,13 @@ h2{font-size:17px;margin:0 0 8px}
 .garden .pupwrap{position:absolute;left:50%;bottom:2px;width:230px;margin-left:-105px;z-index:2;transition:transform .4s}.garden .pupwrap.turned{transform:scaleX(-1)}
 .garden .pup{cursor:pointer;transform-origin:50% 100%}
 .regen{width:100%;display:block;overflow:visible}
-.regen .lid{transform-box:fill-box;transform-origin:50% 0;transform:scaleY(0);animation:blink 4.8s infinite}
-@keyframes blink{0%,91%,100%{transform:scaleY(0)}94%{transform:scaleY(1)}97%{transform:scaleY(0)}}
-.regen .breath{transform-box:fill-box;transform-origin:50% 100%;animation:breathe 3s ease-in-out infinite}@keyframes breathe{50%{transform:scaleY(1.04)}}
+.regen .eye{transform-box:fill-box;transform-origin:50% 50%;animation:blink 4.8s infinite}
+@keyframes blink{0%,91%,100%{transform:scaleY(1)}94%{transform:scaleY(.1)}97%{transform:scaleY(1)}}
+.regen .bd{transform-box:fill-box;transform-origin:50% 100%;animation:breathe 3s ease-in-out infinite}@keyframes breathe{50%{transform:scaleY(1.04)}}
 .regen .tail{transform-box:fill-box;transform-origin:0% 100%;animation:tail .8s ease-in-out infinite alternate}@keyframes tail{from{transform:rotate(-12deg)}to{transform:rotate(14deg)}}
 .wagfast .regen .tail{animation-duration:.16s}.sleeping .regen .tail,.weak .regen .tail{animation-duration:3s}
-.regen .hd,.regen .earL,.regen .earR,.regen .eye,.regen .rgAll,.regen [class^=leg]{transform-box:fill-box}
-.regen .earL{transform-origin:80% 10%}.regen .earR{transform-origin:20% 10%}.regen .hd{transform-origin:50% 85%}.regen .rgAll{transform-origin:50% 100%}
+.regen .hdi,.regen .earL,.regen .earR,.regen .eye,.regen .rgAll,.regen [class^=leg]{transform-box:fill-box}
+.regen .earL{transform-origin:80% 10%}.regen .earR{transform-origin:20% 10%}.regen .hdi{transform-origin:50% 85%}.regen .rgAll{transform-origin:50% 100%}
 .weak .regen .earL{transform:rotate(10deg)}.weak .regen .earR{transform:rotate(-10deg)}.weak .regen .rgAll{filter:saturate(.7) brightness(.92)}
 .pup.sleeping{position:relative}.pup.sleeping:after{content:'💤';position:absolute;left:20%;top:30%;font-size:22px;animation:zz 2.6s ease-in-out infinite}@keyframes zz{0%{opacity:0;transform:translate(0,10px)}40%{opacity:1}100%{opacity:0;transform:translate(-12px,-26px)}}
 .r-jump{animation:rjump .55s ease 2}@keyframes rjump{50%{transform:translateY(-36px)}}
@@ -148,12 +148,12 @@ h2{font-size:17px;margin:0 0 8px}
 .r-wiggle{animation:rwig .22s ease 5}@keyframes rwig{50%{transform:rotate(4deg)}}
 .r-bow .rgAll{animation:rbow 1.1s ease}@keyframes rbow{40%{transform:scaleY(.86) translateY(10px) rotate(-5deg)}}
 .r-stretch .rgAll{animation:rstr 1.1s ease}@keyframes rstr{40%{transform:scaleX(1.12) scaleY(.92)}}
-.r-tilt .hd{animation:tilt 1.6s ease}@keyframes tilt{30%,70%{transform:rotate(-14deg)}}
+.r-tilt .hdi{animation:tilt 1.6s ease}@keyframes tilt{30%,70%{transform:rotate(-14deg)}}
 .r-look .eye{animation:look 1.8s ease}@keyframes look{25%,40%{transform:translateX(-4px)}60%,80%{transform:translateX(4px)}}
 .r-twitch .earR{animation:twitch .5s ease 2}@keyframes twitch{50%{transform:rotate(-16deg)}}
-.r-sniff .hd{animation:sniff .32s ease 5}@keyframes sniff{50%{transform:translateY(5px) rotate(3deg)}}
-.r-chomp .hd{animation:chomp .3s ease 6}@keyframes chomp{50%{transform:translateY(6px)}}.regen .chew{transform-box:fill-box;transform-origin:50% 50%;animation:chew .3s infinite}@keyframes chew{50%{transform:scaleY(.4)}}
-.r-shake .hd{animation:shake .18s ease 6}@keyframes shake{50%{transform:rotate(9deg)}}
+.r-sniff .hdi{animation:sniff .32s ease 5}@keyframes sniff{50%{transform:translateY(5px) rotate(3deg)}}
+.r-chomp .hdi{animation:chomp .3s ease 6}@keyframes chomp{50%{transform:translateY(6px)}}.regen .chew{transform-box:fill-box;transform-origin:50% 50%;animation:chew .3s infinite}@keyframes chew{50%{transform:scaleY(.4)}}
+.r-shake .hdi{animation:shake .18s ease 6}@keyframes shake{50%{transform:rotate(9deg)}}
 .r-sigh .rgAll{animation:sigh 2.4s ease}@keyframes sigh{40%{transform:scaleY(.95)}}
 .r-walk{animation:walk 3.6s ease-in-out}@keyframes walk{40%{transform:translateX(-70px)}55%{transform:translateX(-70px) scaleX(-1)}95%{transform:translateX(0) scaleX(-1)}100%{transform:none}}
 .r-zoom{animation:zoom 1.4s ease-in-out}@keyframes zoom{25%{transform:translateX(-90px)}50%{transform:translateX(80px) scaleX(-1)}75%{transform:translateX(-40px)}}
@@ -165,6 +165,18 @@ h2{font-size:17px;margin:0 0 8px}
 .garden .fx .fly{position:absolute;left:-30px;top:120px;font-size:22px;animation:flyby 4s ease-in-out forwards}@keyframes flyby{25%{transform:translate(120px,-30px)}50%{transform:translate(200px,20px)}75%{transform:translate(290px,-20px)}100%{transform:translate(420px,-60px)}}
 .meter2{display:flex;align-items:center;gap:10px;margin:4px 0}.meter2 span{flex:0 0 72px;font-weight:700;font-size:14px}.meter2 .meter{flex:1;margin:0}
 .btn:disabled{opacity:.5}
+.shop{position:relative;height:330px;border-radius:24px;overflow:hidden;margin:0 0 12px;border:2px solid var(--line);box-shadow:var(--shadow);background:linear-gradient(#ffe9c7 0 66%,#c9935f 66%,#b07a48)}
+.shop:before{content:'';position:absolute;inset:0 0 34% 0;background:repeating-linear-gradient(90deg,transparent 0 38px,rgba(255,255,255,.35) 38px 42px)}
+.shop.small{height:250px}.shop .shopsign{position:absolute;top:14px;left:50%;transform:translateX(-50%);background:#8a4a22;color:#fff4dc;font-weight:800;padding:6px 16px;border-radius:12px;border:3px solid #15151a;white-space:nowrap;font-size:15px}
+.shop .shelf{position:absolute;top:66px;left:20px;right:20px;height:10px;background:#a8743a;border:3px solid #15151a;border-radius:6px}
+.shop .pups{position:absolute;left:0;right:0;bottom:6px;display:flex;justify-content:center;gap:2px}.shop .pups.one{bottom:10px}
+.shop .pupbox{position:relative;flex:0 0 31%;background:none;border:0;padding:0;cursor:pointer;transition:transform .2s;color:#3b2a20}.shop .pups.one .pupbox{flex:0 0 62%}
+.shop .pupbox svg{width:100%;display:block;position:relative;z-index:1}.shop .pupbox .cushion{position:absolute;left:8%;right:8%;bottom:16%;height:16%;background:#e07a3f;border:3px solid #15151a;border-radius:50%}
+.shop .pupbox b{display:block;font-size:13px;margin-top:-4px}.shop .pupbox.on{transform:scale(1.08)}.shop .pupbox.on b{color:#b85a26}.shop .pupbox:not(.on){opacity:.85}
+.shop .fx{position:absolute;inset:0;pointer-events:none;z-index:4}.shop .fx span{position:absolute;bottom:120px;font-size:26px;animation:floatup 2.4s ease-out forwards}
+.garden .poobtn{position:absolute;bottom:12px;width:44px;height:38px;margin-left:-22px;background:none;border:0;padding:0;z-index:3;cursor:pointer;animation:pooin .5s ease}
+.garden .poobtn svg{width:100%;display:block}.garden .poobtn svg path:last-child{animation:stink 1.6s ease-in-out infinite}
+@keyframes pooin{from{transform:scale(0)}70%{transform:scale(1.2)}}@keyframes stink{50%{transform:translateY(-3px);opacity:.5}}
 @media (prefers-reduced-motion:reduce){.regen .tail,.regen .lid,.regen .breath,.garden .cloud,.garden .fall i{animation:none}}
 .card.scan{display:flex;gap:12px;align-items:flex-start;border-color:var(--accent);background:var(--soft)}
 .news{padding-left:20px;margin:6px 0 14px;font-size:15px;line-height:1.55}.news li{margin-bottom:6px}
@@ -218,7 +230,7 @@ tr.ended td{color:var(--muted)}tr.ended b{font-weight:600}
 
 <script>
 'use strict';
-const APP_VERSION = '4.7.0';
+const APP_VERSION = '4.8.0';
 const $ = s => document.querySelector(s);
 const app = $('#app');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -284,6 +296,11 @@ const I18N = {
   gYawn:['呵～（伸懶腰）你返嚟喇？','Yawn~ (stretch) you’re back?'], gWelcome:['汪！我好掛住你！','Woof! I missed you!'], gHi:['汪！一齊玩呀！','Woof! Let’s play!'],
   gNoTreat:['今日零食食晒喇～去記錄價錢就可以再賺！','No treats left today — log a price to earn more!'],
   gIdle1:['嗅嗅…今日邊度有特價？','Sniff sniff… any deals today?'], gIdle2:['陪我玩多陣啦','Stay and play a bit'], gIdle3:['我幫你睇住價錢㗎！','I’m watching prices for you!'],
+  gPooHint:['💩 Regen 屙咗便便，撳一下清走佢，佢先會開心返！','💩 Regen pooped — tap it to clean up so he’s happy again!'],
+  gRename:['改名／換狗仔顏色','Rename / change colour'], adoptTitle:['狗仔店','Puppy shop'], adoptShop:['格價狗狗仔店','PricePup Puppy Shop'],
+  adoptHello:['歡迎嚟到狗仔店！','Welcome to the puppy shop!'], adoptPickAgain:['想換顏色？','Want a different colour?'], adoptPick:['揀一隻你鍾意嘅狗仔','Pick the puppy you like'], adoptThis:['就係佢！','This one!'],
+  col_white:['白色','White'], col_black:['黑色','Black'], col_brown:['啡色','Brown'], adoptName:['幫你隻狗仔改個名','Give your puppy a name'], adoptNamePh:['例如 Regen','e.g. Regen'],
+  adoptBack:['返去揀','Back'], adoptDone:['完成','Done'], adoptNeedName:['請幫狗仔改個名','Please give your puppy a name'], adoptPromise:['揀咗同改咗名之後就唔可以再改，呢個係你對狗仔嘅承諾。','Once chosen and named, it can’t be changed — it’s your promise to your puppy.'],
   treatPlus:['🦴 +1 零食俾 Regen！','🦴 +1 treat for Regen!'],
   curTitle:['🏷️ 而家嘅特價同最新價錢','🏷️ Current deals & latest prices'], curHint:['傳單有效期內嘅特價，同近 7 日記錄嘅價錢，最抵排先','Valid flyer deals and prices logged in the last 7 days, cheapest first'],
   curNone:['而家冇有效特價，近 7 日亦冇人記錄價錢','No valid deals now and no prices logged in the last 7 days'], logged:['記錄','logged'],
@@ -319,6 +336,7 @@ const I18NF = {
   vLow:[(d,m,s)=>`汪！歷史新低！比之前最低（${m}，${s}）平 ${d}`,(d,m,s)=>`Woof! New all-time low — ${d} below the previous low (${m}, ${s})`],
   mixNote:[k=>`呢件產品嘅款式計法唔同，最平只比較按「${k}」計嘅款式。`,k=>`Variants here are measured differently; “lowest” only compares those priced per ${k}.`],
   gTreatsLine:[(f,F,b,left)=>`🦴 今日免費零食 <b>${f}/${F}</b> · 獎勵零食 <b>${b}</b> · 今日仲可以賺 ${left} 粒`,(f,F,b,left)=>`🦴 Free today <b>${f}/${F}</b> · Earned <b>${b}</b> · ${left} more to earn today`],
+  gTitle:[n=>`${n} 嘅花園`,n=>`${n}’s garden`], adoptWelcome:[n=>`🎉 歡迎 ${n} 返屋企！`,n=>`🎉 Welcome home, ${n}!`],
   scanGuess:[n=>`狗狗估係「${n}」，下面係呢類產品嘅價錢。`,n=>`The pup thinks it’s “${n}” — prices for this item are below.`],
   vEq:[(s,dt)=>`同歷史最低一樣（${s}，${dt}）`,(s,dt)=>`Same as the all-time low (${s}, ${dt})`],
   vHigh:[(d,p,m,s,dt)=>`比歷史最低 ${m}（${s}，${dt}）貴 ${d}（+${p}%）`,(d,p,m,s,dt)=>`${d} (+${p}%) above the all-time low of ${m} (${s}, ${dt})`],
@@ -855,7 +873,7 @@ function extractPrices(data, H = 1, weightMode = false) {
 }
 
 /* ---------- Views ---------- */
-function setHeader(title, back) { $('#title').textContent = title; $('#backBtn').classList.toggle('hidden', !back); $('#headDog').innerHTML = back ? '' : dog(gMood(gLoad()) === 'weak' ? 'sad' : 'happy') + gardenDot(); }
+function setHeader(title, back) { $('#title').textContent = title; $('#backBtn').classList.toggle('hidden', !back); $('#headDog').innerHTML = back ? '' : dog(gLoad().pup && gMood(gLoad()) === 'weak' ? 'sad' : 'happy') + gardenDot(); }
 $('#headDog').onclick = () => { if ($('#headDog').innerHTML) location.hash = '#garden'; };
 $('#backBtn').onclick = () => history.length > 1 ? history.back() : (location.hash = '#home');
 function setTab(tb) { document.querySelectorAll('nav.tabs a').forEach(a => a.classList.toggle('on', a.dataset.tab === tb)); }
@@ -1143,7 +1161,7 @@ async function viewAdd(id, preVid) {
                 sale: $('#aSale').checked, note: $('#aNote').value.trim(), src: 'app', by: fbUser ? fbUser.uid : '', ts: Date.now() };
     const v = verdict(await getOne('items', id), o, sum);
     await save('obs', o);
-    if (earnTreat()) setTimeout(() => toast(t('treatPlus'), 2200), 3300);
+    if (earnTreat()) setTimeout(() => toast(withName(t('treatPlus')), 2200), 3300);
     if (o.store) lsSet('lastStore', o.store);
     sessionStorage.removeItem('pp_pending');
     toast(v.cls === 'good' ? t('savedLow') : v.cls === 'eq' ? t('savedEq') : t('saved'), 3200);
@@ -1327,12 +1345,12 @@ function showGuide(i) {
 const FREE_TREATS = 10, BONUS_CAP = 10;
 const GKEY = 'garden';
 const H = ms => (Date.now() - (ms || 0)) / 36e5;
-function gLoad() { let g = {}; try { g = JSON.parse(lsGet(GKEY) || '{}'); } catch (e) {} return gDay(g); }
+function gLoad() { let g = {}; try { g = JSON.parse(lsGet(GKEY) || '{}'); } catch (e) {} return gPoo(gDay(g)); }
 function gDay(g) { if (g.day !== today()) { g.day = today(); g.free = FREE_TREATS; g.bonusToday = 0; } g.bonus = g.bonus || 0; return g; }
 function gSave(g) { g.updated = Date.now(); lsSet(GKEY, JSON.stringify(g)); if (syncOn()) fb.F.setDoc(favRef(), { garden: g }, { merge: true }).catch(() => {}); }
 async function gSync() { // newest copy wins (phone vs cloud)
   let g = gLoad();
-  if (syncOn()) { try { const s = await fb.F.getDoc(favRef()); const r = s.exists() && s.data().garden; if (r && (r.updated || 0) > (g.updated || 0)) { g = gDay({ ...r }); lsSet(GKEY, JSON.stringify(g)); } } catch (e) {} }
+  if (syncOn()) { try { const s = await fb.F.getDoc(favRef()); const r = s.exists() && s.data().garden; if (r && (r.updated || 0) > (g.updated || 0)) { g = gPoo(gDay({ ...r })); lsSet(GKEY, JSON.stringify(g)); } } catch (e) {} }
   return g;
 }
 function earnTreat() { const g = gLoad(); if (g.bonusToday >= BONUS_CAP) return false; g.bonus++; g.bonusToday++; gSave(g); return true; }
@@ -1340,98 +1358,97 @@ const treatsLeft = g => (g.free || 0) + (g.bonus || 0);
 function gMood(g) {
   if (!g.lastFed || H(g.lastFed) >= 12) return 'weak';
   if (Math.min(H(g.lastFed), H(g.lastPet)) >= 6) return 'grumpy';
+  if ((g.poos || []).length) return 'dirty';
   if (!g.lastVisit || H(g.lastVisit) * 60 >= 10) return 'waking';
   return 'idle';
 }
 const clamp = x => Math.max(0, Math.min(100, Math.round(x)));
 const fullness = g => g.lastFed ? clamp((100 - H(g.lastFed) / 12 * 100) * Math.min(1, (g.recentFeeds || 1) / 3)) : 0; // 3 treats = full
-const joy = g => clamp(100 - Math.min(H(g.lastFed), H(g.lastPet)) / 6 * 100);
+const joy = g => clamp(100 - Math.min(H(g.lastFed), H(g.lastPet)) / 6 * 100 - (g.poos || []).length * 25);
 
-/* Regen, anime style (same design as the app puppy: black fur, folded ears, amber eyes, blue collar, green tag).
-   expr: open | happy | sad | sleep | eat | yawn ; pose: sit | lie | stand | eat */
-const RG = { fur: '#202026', fur2: '#3a3a46', rim: '#7d8396', ink: '#0b0b0e', muz: '#34343e', blush: '#ff8fa6', tongue: '#ff7896', collar: '#2f6fdc', tag: '#2fa36b' };
-const regenDefs = `<defs>
-  <radialGradient id="rgFur" cx="38%" cy="30%" r="75%"><stop offset="0" stop-color="#4a4a58"/><stop offset=".45" stop-color="#26262d"/><stop offset="1" stop-color="#15151a"/></radialGradient>
-  <radialGradient id="rgBody" cx="40%" cy="25%" r="80%"><stop offset="0" stop-color="#40404c"/><stop offset=".55" stop-color="#222228"/><stop offset="1" stop-color="#121216"/></radialGradient>
-  <linearGradient id="rgEar" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2b2b33"/><stop offset="1" stop-color="#0f0f13"/></linearGradient>
-  <radialGradient id="rgIris" cx="50%" cy="62%" r="62%"><stop offset="0" stop-color="#f3b46a"/><stop offset=".55" stop-color="#b8692a"/><stop offset="1" stop-color="#5a2c0e"/></radialGradient>
-  <radialGradient id="rgMuz" cx="50%" cy="35%" r="70%"><stop offset="0" stop-color="#4a4a56"/><stop offset="1" stop-color="#2a2a32"/></radialGradient>
-  <linearGradient id="rgCollar" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5b93f0"/><stop offset="1" stop-color="#1f53b8"/></linearGradient>
-  <radialGradient id="rgTag" cx="35%" cy="30%" r="70%"><stop offset="0" stop-color="#6fd6a0"/><stop offset="1" stop-color="#1f7f50"/></radialGradient>
-</defs>`;
-function rgEye(x, expr) {
-  if (expr === 'happy' || expr === 'eat') return `<path d="M${x - 12} 2 q12 -15 24 0" stroke="${RG.ink}" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M${x + 13} -11 l2 -4 l2 4 l4 2 l-4 2 l-2 4 l-2 -4 l-4 -2z" fill="#fff6c8" opacity=".9"/>`;
-  if (expr === 'sleep' || expr === 'yawn') return `<path d="M${x - 12} 0 q12 10 24 0" stroke="${RG.ink}" stroke-width="4.5" fill="none" stroke-linecap="round"/><path d="M${x - 13} 1 l-4 -3M${x + 13} 1 l4 -3" stroke="${RG.ink}" stroke-width="2.5" stroke-linecap="round"/>`;
-  const sad = expr === 'sad', ry = sad ? 14 : 16;
-  return `<g class="eye"><ellipse cx="${x}" cy="0" rx="13.5" ry="${ry}" fill="${RG.ink}"/>
-    <ellipse cx="${x}" cy="1.5" rx="11.5" ry="${ry - 2}" fill="url(#rgIris)"/>
-    <ellipse class="pupil" cx="${x}" cy="3" rx="6.5" ry="${ry - 6}" fill="#160b05"/>
-    <circle cx="${x + 4.5}" cy="-5.5" r="5" fill="#fff"/><circle cx="${x - 4.5}" cy="6.5" r="2.4" fill="#fff" opacity=".9"/>
-    ${sad ? `<ellipse cx="${x}" cy="${ry - 2}" rx="9" ry="3" fill="#bfe4ff" opacity=".85"/>` : `<circle cx="${x - 6}" cy="-3" r="1.2" fill="#fff" opacity=".8"/>`}
-    <path d="M${x - 13} -${ry - 4} q13 -12 26 0" stroke="${RG.ink}" stroke-width="3.6" fill="none" stroke-linecap="round"/>
-    <ellipse class="lid" cx="${x}" cy="0" rx="14.5" ry="${ry + 1.5}" fill="url(#rgFur)"/></g>`;
+// poo: about 3 hours after a meal Regen poos once (max 3 piles); piles stay until the user cleans them
+const POO_H = 3, POO_MAX = 3;
+function gPoo(g) {
+  g.poos = g.poos || [];
+  if (g.pendingPoo && Date.now() >= g.pendingPoo) { if (g.poos.length < POO_MAX) g.poos.push({ x: [8, 22, 66, 80, 88][Math.floor(Math.random() * 5)] + Math.round(Math.random() * 4), t: g.pendingPoo }); g.pendingPoo = 0; }
+  return g;
 }
-function rgHead(expr) {
-  const sad = expr === 'sad';
+// ---------- Style B: clean line art (bold rounded lines, flat colours, simple dot eyes) ----------
+const PUP_COLORS = {
+  black: { fur: '#35353e', ear: '#24242b', face: '#575763', earHi: '#4a4a56' },
+  white: { fur: '#f7f3ec', ear: '#e6dccb', face: '#ffffff', earHi: '#fffaf3' },
+  brown: { fur: '#c98a4b', ear: '#9a5f2c', face: '#ecc896', earHi: '#ddaa72' }
+};
+let pupColor = 'black';
+function regenB(pose, expr, color) {
+  const pc = PUP_COLORS[color || pupColor] || PUP_COLORS.black;
+  const ink = '#15151a', fur = pc.fur, ear = pc.ear, face = pc.face, W = 6;
+  const L = (d, f = 'none', w = W) => `<path d="${d}" fill="${f}" stroke="${ink}" stroke-width="${w}" stroke-linejoin="round" stroke-linecap="round"/>`;
+  const eye = (x, y) => {
+    if (expr === 'happy' || expr === 'super' || expr === 'eat') return L(`M${x - 8} ${y + 2} q8 -10 16 0`, 'none', 5);
+    if (expr === 'sleep') return L(`M${x - 8} ${y} q8 7 16 0`, 'none', 5);
+    if (expr === 'grumpy') return L(`M${x - 8} ${y} h16`, 'none', 5);
+    return `<g class="eye"><circle cx="${x}" cy="${y}" r="7" fill="${ink}"/><circle cx="${x + 2.5}" cy="${y - 2.5}" r="2.4" fill="#fff"/></g>` + (expr === 'sad' ? `<path d="M${x} ${y + 11} q-3 6 0 9 q3 -3 0 -9z" fill="#8fd0ff"/>` : '');
+  };
   const mouth = {
-    open: `<path d="M-11 25 q5.5 6 11 0 q5.5 6 11 0" stroke="${RG.ink}" stroke-width="3" fill="none" stroke-linecap="round"/>`,
-    happy: `<path d="M-12 24 q6 7 12 0 q6 7 12 0" stroke="${RG.ink}" stroke-width="3" fill="none" stroke-linecap="round"/><path d="M-6 28 q6 16 12 0 z" fill="${RG.tongue}"/><path d="M0 29 v6" stroke="#e05578" stroke-width="1.5"/>`,
-    eat: `<ellipse class="chew" cx="0" cy="29" rx="8" ry="6" fill="#3a0d18"/><path d="M-5 31 q5 5 10 0" fill="${RG.tongue}"/>`,
-    sad: `<path d="M-8 30 q8 -7 16 0" stroke="${RG.ink}" stroke-width="3" fill="none" stroke-linecap="round"/>`,
-    sleep: `<path d="M-5 27 q5 3 10 0" stroke="${RG.ink}" stroke-width="2.6" fill="none" stroke-linecap="round"/>`,
-    yawn: `<ellipse cx="0" cy="30" rx="9" ry="11" fill="#3a0d18"/><ellipse cx="0" cy="35" rx="6" ry="4" fill="${RG.tongue}"/>`
-  }[expr] || '';
-  return `<g class="earL"><path d="M-34 -36 C-58 -40 -76 -18 -70 14 C-66 34 -52 42 -44 30 C-38 20 -40 0 -30 -18 Z" fill="url(#rgEar)" stroke="${RG.rim}" stroke-width="1.6" stroke-linejoin="round"/>
-      <path d="M-40 -28 C-58 -26 -64 -6 -60 14" stroke="#45454f" stroke-width="3" fill="none" stroke-linecap="round" opacity=".7"/></g>
-    <g class="earR"><path d="M34 -36 C58 -40 76 -18 70 14 C66 34 52 42 44 30 C38 20 40 0 30 -18 Z" fill="url(#rgEar)" stroke="${RG.rim}" stroke-width="1.6" stroke-linejoin="round"/>
-      <path d="M40 -28 C58 -26 64 -6 60 14" stroke="#45454f" stroke-width="3" fill="none" stroke-linecap="round" opacity=".7"/></g>
-    <path d="M0 -50 C32 -50 54 -30 54 -2 C54 26 36 48 0 48 C-36 48 -54 26 -54 -2 C-54 -30 -32 -50 0 -50 Z" fill="url(#rgFur)" stroke="${RG.rim}" stroke-width="1.6"/>
-    <path d="M-10 -48 q2 -14 10 -8 q5 -13 12 -1 q2 -6 6 -2" fill="url(#rgFur)" stroke="${RG.rim}" stroke-width="1.4" stroke-linejoin="round"/>
-    <path d="M-30 -36 q10 -8 22 -8" stroke="#5c5c6c" stroke-width="3" fill="none" stroke-linecap="round" opacity=".6"/>
-    <ellipse cx="0" cy="22" rx="24" ry="17" fill="url(#rgMuz)"/>
-    <g class="eyes">${rgEye(-21, expr)}${rgEye(21, expr)}</g>
-    ${sad ? `<path d="M-33 -22 l15 -6M33 -22 l-15 -6" stroke="#8a8a98" stroke-width="3" stroke-linecap="round"/><path class="tear" d="M-14 14 q4 7 0 11 q-4 -4 0 -11z" fill="#9fd4ff"/>` : ''}
-    <ellipse cx="-34" cy="17" rx="9" ry="5" fill="${RG.blush}" opacity="${sad ? .25 : .55}"/><ellipse cx="34" cy="17" rx="9" ry="5" fill="${RG.blush}" opacity="${sad ? .25 : .55}"/>
-    <path d="M-9 12 q9 -6 18 0 q-2 9 -9 10 q-7 -1 -9 -10z" fill="${RG.ink}"/><ellipse cx="-2" cy="12.5" rx="3.6" ry="1.8" fill="#8d8d9c"/>
-    <path d="M0 21 v3" stroke="${RG.ink}" stroke-width="2.5" stroke-linecap="round"/>${mouth}
-    <path d="M-34 40 q34 18 68 0 l2 8 q-36 20 -72 0 z" fill="url(#rgCollar)" stroke="#173f8f" stroke-width="1.4"/>
-    <g class="tag"><circle cx="0" cy="60" r="8.5" fill="url(#rgTag)" stroke="#155c39" stroke-width="1.4"/><circle cx="0" cy="62" r="2.6" fill="#e9fff2"/><circle cx="-3.6" cy="57.5" r="1.4" fill="#e9fff2"/><circle cx="0" cy="56" r="1.4" fill="#e9fff2"/><circle cx="3.6" cy="57.5" r="1.4" fill="#e9fff2"/></g>`;
-}
-const rgPaw = (x, y, rx = 13) => `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${rx * .58}" fill="url(#rgBody)" stroke="${RG.rim}" stroke-width="1.4"/><path d="M${x - rx * .35} ${y - 2} v4M${x + rx * .35} ${y - 2} v4" stroke="#4d4d5a" stroke-width="1.6" stroke-linecap="round"/>`;
-const rgTail = (d, w = 15) => `<g class="tail"><path d="${d}" stroke="url(#rgBody)" stroke-width="${w}" fill="none" stroke-linecap="round"/><path d="${d}" stroke="${RG.rim}" stroke-width="1.4" fill="none" stroke-linecap="round" opacity=".55" transform="translate(-2 -2)"/></g>`;
-function regenSvg(pose, expr) {
-  let body = '', head = '';
-  if (pose === 'lie') {
-    body = `<ellipse cx="124" cy="226" rx="92" ry="8" fill="rgba(0,0,0,.16)"/>
-      ${rgTail('M196 210 q30 -2 34 -22', 14)}
-      <path class="breath" d="M60 214 C58 170 120 160 168 170 C206 178 214 214 196 222 L74 224 C64 223 60 220 60 214 Z" fill="url(#rgBody)" stroke="${RG.rim}" stroke-width="1.6"/>
-      ${rgPaw(176, 218, 16)}${rgPaw(46, 222, 15)}${rgPaw(78, 224, 15)}`;
-    head = `<g class="headg" transform="translate(78 168) rotate(-4) scale(.82)"><g class="hd">${rgHead(expr)}</g></g>`;
-  } else if (pose === 'stand') {
-    body = `<ellipse cx="124" cy="226" rx="78" ry="8" fill="rgba(0,0,0,.16)"/>
-      ${rgTail('M178 150 q30 -8 32 -40', 14)}
-      <g class="legB"><rect x="152" y="168" width="17" height="50" rx="8" fill="url(#rgBody)" stroke="${RG.rim}" stroke-width="1.4"/>${rgPaw(161, 220, 12)}</g>
-      <g class="legF"><rect x="88" y="168" width="17" height="50" rx="8" fill="url(#rgBody)" stroke="${RG.rim}" stroke-width="1.4"/>${rgPaw(97, 220, 12)}</g>
-      <ellipse class="breath" cx="130" cy="160" rx="58" ry="32" fill="url(#rgBody)" stroke="${RG.rim}" stroke-width="1.6"/>
-      <g class="legB2"><rect x="168" y="170" width="17" height="48" rx="8" fill="url(#rgBody)" stroke="${RG.rim}" stroke-width="1.4"/>${rgPaw(177, 220, 12)}</g>
-      <g class="legF2"><rect x="104" y="170" width="17" height="48" rx="8" fill="url(#rgBody)" stroke="${RG.rim}" stroke-width="1.4"/>${rgPaw(113, 220, 12)}</g>`;
-    head = `<g class="headg" transform="translate(78 112) scale(.86)"><g class="hd">${rgHead(expr)}</g></g>`;
-  } else {
-    const eat = pose === 'eat';
-    body = `<ellipse cx="120" cy="228" rx="78" ry="8" fill="rgba(0,0,0,.16)"/>
-      ${rgTail('M164 206 q34 -6 40 -46', 15)}
-      <ellipse cx="120" cy="196" rx="54" ry="34" fill="url(#rgBody)" stroke="${RG.rim}" stroke-width="1.6"/>
-      <path class="breath" d="M120 116 C150 116 160 150 158 182 C156 206 140 214 120 214 C100 214 84 206 82 182 C80 150 90 116 120 116 Z" fill="url(#rgBody)" stroke="${RG.rim}" stroke-width="1.6"/>
-      <path d="M106 150 l6 8 l4 -8 l4 9 l4 -9 l4 8 l6 -8 q-2 22 -14 26 q-12 -4 -14 -26z" fill="#3c3c48" opacity=".75"/>
-      ${rgPaw(70, 222, 17)}${rgPaw(170, 222, 17)}
-      <rect x="96" y="168" width="18" height="52" rx="9" fill="url(#rgBody)" stroke="${RG.rim}" stroke-width="1.4"/><rect x="126" y="168" width="18" height="52" rx="9" fill="url(#rgBody)" stroke="${RG.rim}" stroke-width="1.4"/>
-      ${rgPaw(105, 222, 12)}${rgPaw(135, 222, 12)}
-      ${eat ? `<g class="bowl"><path d="M76 208 h88 l-10 22 h-68z" fill="#e07a3f" stroke="#a5501f" stroke-width="2"/><path d="M80 212 h80" stroke="#f6b07a" stroke-width="3" stroke-linecap="round"/><ellipse cx="120" cy="208" rx="44" ry="7" fill="#7a4a22"/><circle cx="106" cy="205" r="5" fill="#c98b4e"/><circle cx="122" cy="204" r="5" fill="#d9a06a"/><circle cx="136" cy="206" r="4.5" fill="#c98b4e"/></g>` : ''}`;
-    head = `<g class="headg" transform="translate(120 ${eat ? 152 : 92}) rotate(${eat ? 8 : 0}) scale(${eat ? .9 : 1})"><g class="hd">${rgHead(expr)}</g></g>`;
-  }
-  return `<svg class="regen" viewBox="0 0 240 240" aria-hidden="true">${regenDefs}<g class="rgAll">${body}${head}</g></svg>`;
-}
+    open: L('M108 124 q6 6 12 0 q6 6 12 0', 'none', 4.5),
+    happy: L('M106 122 q7 7 14 0 q7 7 14 0', 'none', 4.5) + `<path d="M113 127 q7 14 14 0 z" fill="#ff7a59" stroke="${ink}" stroke-width="3.5" stroke-linejoin="round"/>`,
+    super: L('M104 121 q8 8 16 0 q8 8 16 0', 'none', 4.5) + `<path d="M112 127 q8 16 16 0 z" fill="#ff7a59" stroke="${ink}" stroke-width="3.5" stroke-linejoin="round"/>`,
+    eat: `<ellipse cx="120" cy="127" rx="7" ry="5" fill="${ink}"/>`,
+    sad: L('M110 130 q10 -8 20 0', 'none', 4.5), sleep: L('M114 126 q6 3 12 0', 'none', 4), grumpy: L('M110 128 h20', 'none', 4.5)
+  }[expr];
+  const head = (tx = 0, ty = 0, rot = 0, s = 1) => `<g class="hd" transform="translate(${tx} ${ty}) rotate(${rot} 120 100) translate(120 100) scale(${s}) translate(-120 -100)"><g class="hdi">
+    ${L('M120 46 C156 46 172 70 172 98 C172 128 150 144 120 144 C90 144 68 128 68 98 C68 70 84 46 120 46 Z', fur)}
+    <ellipse cx="120" cy="118" rx="27" ry="20" fill="${face}"/>
+    <g class="earL">${L('M100 48 C90 31 70 28 57 36 C44 44 37 62 39 81 C41 93 52 97 59 87 C66 78 72 69 82 62 C90 58 97 55 100 48 Z', ear, 5.5)}<path d="M95 44 C85 35 70 33 59 41" stroke="${pc.earHi}" stroke-width="5" fill="none" stroke-linecap="round"/></g>
+    <g class="earR">${L('M140 48 C150 31 170 28 183 36 C196 44 203 62 201 81 C199 93 188 97 181 87 C174 78 168 69 158 62 C150 58 143 55 140 48 Z', ear, 5.5)}<path d="M145 44 C155 35 170 33 181 41" stroke="${pc.earHi}" stroke-width="5" fill="none" stroke-linecap="round"/></g>
 
+    ${eye(96, 94)}${eye(144, 94)}
+    <ellipse cx="84" cy="114" rx="8" ry="5" fill="#ff8fa3" opacity=".5"/><ellipse cx="156" cy="114" rx="8" ry="5" fill="#ff8fa3" opacity=".5"/>
+    <path d="M111 108 q9 -6 18 0 q-2 8 -9 9 q-7 -1 -9 -9z" fill="${ink}"/><circle cx="116" cy="108" r="2" fill="#fff" opacity=".8"/>
+    ${expr === 'sad' ? L('M86 78 l12 -4M154 78 l-12 -4', 'none', 4.5) : ''}${mouth}
+    ${L('M90 140 q30 12 60 0', 'none', 12)}<path d="M90 140 q30 12 60 0" stroke="#2f6fdc" stroke-width="6" fill="none" stroke-linecap="round"/>
+    <circle cx="120" cy="155" r="8.5" fill="#2fa36b" stroke="${ink}" stroke-width="4"/><circle cx="120" cy="157.5" r="2.6" fill="#e9fff2"/><circle cx="116.3" cy="153" r="1.4" fill="#e9fff2"/><circle cx="120" cy="151.5" r="1.4" fill="#e9fff2"/><circle cx="123.7" cy="153" r="1.4" fill="#e9fff2"/></g></g>`;
+  const tail = d => `<g class="tail">${L(d, 'none', 14)}<path d="${d}" stroke="${fur}" stroke-width="6" fill="none" stroke-linecap="round"/></g>`;
+  const shadow = `<ellipse cx="120" cy="222" rx="60" ry="6" fill="rgba(60,40,20,.14)"/>`;
+  let body = '', hd = head();
+  if (pose === 'sit' || pose === 'eat') {
+    body = shadow + tail('M152 196 C174 194 180 176 174 160') +
+      L('M90 150 C82 170 80 196 84 216 L156 216 C160 196 158 170 150 150', fur) +
+      L('M106 176 L106 214', 'none', 5) + L('M134 176 L134 214', 'none', 5) + L('M84 216 h72', 'none', 6);
+    if (pose === 'eat') { body += L('M84 204 h72 l-8 16 h-56z', '#ff7a59', 5); hd = head(0, 38, 12, .92); }
+  } else if (pose === 'run' || pose === 'run2') {
+    // base: the version Silver picked (big head front-left, round body behind, chunky legs); body 10% bigger + a proper neck
+    const big = x => `<g transform="translate(148 166) scale(1.1) translate(-148 -166)">${x}</g>`;
+    const neck = `<path d="M74 118 C72 136 78 154 90 166 L124 158 C116 146 110 132 108 116 Z" fill="${fur}"/>` + L('M75 120 C73 138 78 152 87 162', 'none', 6);
+    if (pose === 'run') { // running: legs stretched front and back
+      body = shadow + tail('M196 158 C216 148 222 128 216 112') +
+        L('M112 190 L84 212', 'none', 9) + L('M130 194 L116 216', 'none', 9) + L('M184 188 L208 208', 'none', 9) + L('M174 194 L184 216', 'none', 9) +
+        big(L('M92 158 C96 136 128 128 160 132 C192 136 206 152 202 172 C198 190 176 198 146 198 C116 198 88 182 92 158 Z', fur)) + neck;
+      hd = head(-28, -10, -6, .92);
+    } else { // trotting: four short legs under the body
+      body = shadow + tail('M196 158 C216 148 222 128 216 112') +
+        L('M108 184 L104 216', 'none', 9) + L('M182 184 L186 216', 'none', 9) +
+        big(L('M90 160 C92 138 124 130 156 132 C188 134 204 150 200 170 C196 188 174 196 146 196 C116 196 88 182 90 160 Z', fur)) +
+        L('M126 192 L128 216', 'none', 9) + L('M164 192 L162 216', 'none', 9) + neck;
+      hd = head(-30, -12, -4, .92);
+    }
+  } else {
+    const sl = pose === 'sleep';
+    body = shadow + tail('M180 208 C202 206 206 194 202 182') +
+      L('M72 216 C66 188 98 170 134 170 C170 170 192 186 192 206 C192 214 186 218 172 218 L82 218 C76 218 72 218 72 216 Z', fur) +
+      L('M84 218 h40', 'none', 6) + L('M158 196 q10 8 8 22', 'none', 5);
+    hd = head(-14, sl ? 58 : 42, sl ? -8 : 0, sl ? .9 : .95);
+  }
+  return `<svg class="regen" viewBox="0 0 240 240" aria-hidden="true"><g class="rgAll"><g class="bd">${body}</g>${hd}</g></svg>`;
+}
+// poo (same in both styles, cute not gross)
+const pooSvg = (ink = '#141418') => `<svg viewBox="0 0 60 50" class="poo" aria-hidden="true"><path d="M8 44 C2 44 2 34 10 33 C6 26 14 20 20 23 C18 14 30 8 34 16 C42 14 46 22 42 27 C50 28 52 38 46 40 C54 44 50 48 44 48 L12 48 C9 48 8 46 8 44 Z" fill="#8a5a33" stroke="${ink}" stroke-width="3" stroke-linejoin="round"/><path d="M14 36 q8 4 18 0M20 26 q6 3 12 0" stroke="#b07b4f" stroke-width="3" fill="none" stroke-linecap="round"/><path d="M14 8 q-4 -4 0 -8M28 6 q-4 -4 0 -8M42 8 q-4 -4 0 -8" stroke="#8aa36a" stroke-width="2.5" fill="none" stroke-linecap="round"/></svg>`;
+// garden poses -> drawing: sit | lie | sleep | walk | run | eat ; expressions: open | happy | super | sad | sleep | eat | grumpy
+function regenSvg(pose, expr, color) { return regenB({ walk: 'run2', stand: 'run2' }[pose] || pose, expr === 'yawn' ? 'sleep' : expr, color); }
+// the user's own puppy: colour and name chosen on the first visit
+const pupName = () => ((gLoad().pup || {}).name || 'Regen');
+const withName = s => s.replace(/Regen/g, pupName());
 /* ---------- weather + Calgary day/night ---------- */
 const WX = {
   0: ['☀️', '晴', 'Clear'], 1: ['🌤️', '大致晴', 'Mostly clear'], 2: ['⛅', '間中有雲', 'Partly cloudy'], 3: ['☁️', '多雲', 'Cloudy'],
@@ -1469,13 +1486,16 @@ function sky(w) {
 
 let gBusy = false, gLastPet = -1;
 const PET = [
-  { a: 'r-jump', e: 'happy', fx: '❤️💕❤️' }, { a: 'r-spin', e: 'happy', fx: '✨⭐✨' }, { a: 'r-roll', e: 'happy', fx: '💕💗', pose: 'lie' },
+  { a: 'r-jump', e: 'super', fx: '❤️💕❤️' }, { a: 'r-spin', e: 'super', fx: '✨⭐✨' }, { a: 'r-roll', e: 'happy', fx: '💕💗', pose: 'lie' },
   { a: 'r-wiggle', e: 'happy', fx: '🎵🎶' }, { a: 'r-bow', e: 'open', fx: '🎾' }, { a: 'r-tilt', e: 'open', fx: '💗' },
-  { a: 'r-zoom', e: 'happy', fx: '💨✨', pose: 'stand' }, { a: 'r-jump', e: 'happy', fx: '💖🌟' }
+  { a: 'r-zoom', e: 'super', fx: '💨✨', pose: 'run' }, { a: 'r-jump', e: 'happy', fx: '💖🌟' }
 ];
 async function viewGarden() {
-  setHeader(LANG === 'zh' ? 'Regen 嘅花園' : 'Regen’s garden', true); setTab('home');
-  let g = await gSync(); const mood0 = gMood(g);
+  let g = await gSync();
+  if (!g.pup || !g.pup.name) return viewAdopt();
+  pupColor = g.pup.color || 'black';
+  setHeader(tf('gTitle', g.pup.name), true); setTab('home');
+  const mood0 = gMood(g);
   g.lastVisit = Date.now(); gSave(g);
   app.innerHTML = `
     <div class="garden day clear" id="gScene">
@@ -1483,36 +1503,47 @@ async function viewGarden() {
         <div class="sun"></div><div class="moon"></div><div class="cloud c1"></div><div class="cloud c2"></div><div class="cloud c3"></div><div class="fall"></div></div>
       <div class="wx" id="gWx">📍 Calgary</div>
       <div class="hill h1"></div><div class="hill h2"></div><div class="ground"><i class="fl f1">🌼</i><i class="fl f2">🌷</i><i class="fl f3">🌼</i></div>
-      <svg class="tree" viewBox="0 0 100 140" aria-hidden="true"><rect x="44" y="80" width="12" height="58" rx="4" fill="#7a4a22"/><circle cx="50" cy="60" r="34" fill="#4f9e4a"/><circle cx="30" cy="70" r="22" fill="#5cb055"/><circle cx="70" cy="68" r="24" fill="#56a84f"/><circle cx="50" cy="38" r="22" fill="#6cc064"/></svg>
-      <svg class="house" viewBox="0 0 110 100" aria-hidden="true"><path d="M6 44 L55 6 L104 44" fill="none" stroke="#9e3b26" stroke-width="10" stroke-linejoin="round" stroke-linecap="round"/><path d="M16 42 L55 12 L94 42 V96 H16 Z" fill="#f0c27c" stroke="#a8743a" stroke-width="3" stroke-linejoin="round"/><path d="M40 96 V70 a15 15 0 0 1 30 0 V96 Z" fill="#4a2f1c"/><rect x="34" y="46" width="42" height="13" rx="4" fill="#fff4dc" stroke="#a8743a" stroke-width="2"/><text x="55" y="56" font-size="10" font-weight="800" text-anchor="middle" fill="#8a4a22" font-family="Arial">REGEN</text></svg>
+      <svg class="tree" viewBox="0 0 100 140" aria-hidden="true"><rect x="44" y="80" width="12" height="58" rx="4" fill="#7a4a22" stroke="#15151a" stroke-width="3"/><circle cx="50" cy="60" r="34" fill="#4f9e4a" stroke="#15151a" stroke-width="3"/><circle cx="30" cy="70" r="22" fill="#5cb055" stroke="#15151a" stroke-width="3"/><circle cx="70" cy="68" r="24" fill="#56a84f" stroke="#15151a" stroke-width="3"/><circle cx="50" cy="40" r="22" fill="#6cc064" stroke="#15151a" stroke-width="3"/></svg>
+      <svg class="house" viewBox="0 0 110 100" aria-hidden="true"><path d="M6 44 L55 6 L104 44" fill="none" stroke="#15151a" stroke-width="14" stroke-linejoin="round" stroke-linecap="round"/><path d="M6 44 L55 6 L104 44" fill="none" stroke="#c2553a" stroke-width="8" stroke-linejoin="round" stroke-linecap="round"/><path d="M16 42 L55 12 L94 42 V96 H16 Z" fill="#f0c27c" stroke="#15151a" stroke-width="4" stroke-linejoin="round"/><path d="M40 96 V70 a15 15 0 0 1 30 0 V96 Z" fill="#4a2f1c" stroke="#15151a" stroke-width="3"/><rect x="34" y="46" width="42" height="13" rx="4" fill="#fff4dc" stroke="#15151a" stroke-width="2.5"/><text x="55" y="56" font-size="${g.pup.name.length > 7 ? 7 : 10}" font-weight="800" text-anchor="middle" fill="#8a4a22" font-family="Arial">${esc(g.pup.name.toUpperCase().slice(0, 10))}</text></svg>
+      <div id="gPoos"></div>
       <div class="pupwrap" id="gWrap"><div class="pup" id="gPup"></div></div>
       <div class="fx" id="gFx"></div>
     </div>
     <div class="card"><div class="meter2"><span>🍖 ${t('gFull')}</span><div class="meter"><i id="mFull"></i></div></div>
       <div class="meter2"><span>💛 ${t('gJoy')}</span><div class="meter"><i id="mJoy"></i></div></div>
-      <div class="muted" id="gTreats" style="margin-top:8px"></div></div>
-    <div class="row"><button class="btn sec" id="gPet" style="margin:0">🤚 ${t('gPetBtn')}</button><button class="btn" id="gFeed" style="margin:0">🦴 ${t('gFeedBtn')}</button></div>
+      <div class="muted" id="gTreats" style="margin-top:8px"></div><div class="muted hidden" id="gPooHint" style="margin-top:4px">${withName(t('gPooHint'))}</div></div>
+    <div class="row"><button class="btn sec" id="gPet" style="margin:0">🤚 ${withName(t('gPetBtn'))}</button><button class="btn" id="gFeed" style="margin:0">🦴 ${t('gFeedBtn')}</button></div>
     <div class="muted" style="text-align:center;margin:12px 0">${t('gHint')}</div>
     <div class="muted" style="text-align:center;font-size:12px">${t('gWxCredit')}</div>`;
   const pup = $('#gPup'), wrap = $('#gWrap');
-  let state = mood0, pose = 'sit', expr = 'open', grumpLeft = 2, night = false;
-  const draw = (p, e, anim) => { pose = p; expr = e; pup.innerHTML = regenSvg(p, e); pup.className = 'pup' + (anim ? ' ' + anim : ''); wrap.classList.toggle('turned', state === 'grumpy'); };
-  const fx = (chars, n = 6) => { const box = $('#gFx'); if (!box) return; const cs = [...chars].filter(c => c.trim()); cs.forEach((c, i) => { for (let k = 0; k < Math.ceil(n / cs.length); k++) { const s = document.createElement('span'); s.textContent = c; s.style.left = (38 + Math.random() * 26) + '%'; s.style.animationDelay = (i * .12 + k * .25) + 's'; s.style.fontSize = (16 + Math.random() * 14) + 'px'; box.appendChild(s); setTimeout(() => s.remove(), 2600); } }); };
+  let state = mood0, grumpLeft = 2, night = false, walkT = null;
+  const stopWalk = () => { clearInterval(walkT); walkT = null; };
+  const draw = (p, e, anim) => { if (p !== 'walk' && p !== 'run') stopWalk(); pup.innerHTML = regenSvg(p, e); pup.className = 'pup' + (anim ? ' ' + anim : ''); wrap.classList.toggle('turned', state === 'grumpy'); };
+  // walking / running: swap leg frames like a flip book
+  const move = (e, anim, fast) => { stopWalk(); let f = 0; draw(fast ? 'run' : 'walk', e, anim); walkT = setInterval(() => { if (!$('#gPup')) return stopWalk(); f ^= 1; pup.innerHTML = regenSvg(f ? 'run' : 'walk', e); }, fast ? 140 : 260); };
+  const fx = (chars, n = 6, left) => { const box = $('#gFx'); if (!box) return; const cs = [...chars].filter(c => c.trim()); cs.forEach((c, i) => { for (let k = 0; k < Math.ceil(n / cs.length); k++) { const s = document.createElement('span'); s.textContent = c; s.style.left = (left != null ? left - 4 + Math.random() * 8 : 38 + Math.random() * 26) + '%'; s.style.animationDelay = (i * .12 + k * .25) + 's'; s.style.fontSize = (16 + Math.random() * 14) + 'px'; box.appendChild(s); setTimeout(() => s.remove(), 2600); } }); };
   const bars = () => { g = gLoad(); const f = fullness(g), j = joy(g); $('#mFull').style.width = f + '%'; $('#mJoy').style.width = j + '%';
     $('#mFull').style.background = f < 25 ? 'var(--bad)' : 'var(--good)'; $('#mJoy').style.background = j < 25 ? 'var(--bad)' : '#e8a020';
     $('#gTreats').innerHTML = tf('gTreatsLine', g.free || 0, FREE_TREATS, g.bonus || 0, BONUS_CAP - (g.bonusToday || 0)); $('#gFeed').disabled = !treatsLeft(g); };
+  const poos = () => { g = gLoad(); const box = $('#gPoos'); if (!box) return; $('#gPooHint').classList.toggle('hidden', !g.poos.length);
+    box.innerHTML = g.poos.map((p, i) => `<button class="poobtn" data-i="${i}" style="left:${p.x}%" aria-label="poo">${pooSvg()}</button>`).join('');
+    box.querySelectorAll('.poobtn').forEach(b => b.onclick = e => { e.stopPropagation(); const i = +b.dataset.i, x = g.poos[i].x; g = gLoad(); g.poos.splice(i, 1); g.lastPet = Date.now(); gSave(g);
+      fx('✨🧹✨', 4, x); poos(); bars();
+      if (!g.poos.length && state === 'dirty') { state = 'idle'; gBusy = true; draw('sit', 'super', 'r-jump wagfast'); fx('💖✨', 4); setTimeout(() => { gBusy = false; rest(); }, 1500); } }); };
   const rest = () => { // resting look for the current state
     if (state === 'weak') draw('lie', 'sad', 'r-breathe weak');
-    else if (state === 'grumpy') draw('sit', 'sad', '');
-    else if (night && Math.random() < .6) draw('lie', 'sleep', 'r-breathe sleeping');
+    else if (state === 'grumpy') draw('sit', 'grumpy', '');
+    else if (state === 'dirty') draw('sit', 'sad', '');
+    else if (night && Math.random() < .6) draw('sleep', 'sleep', 'r-breathe sleeping');
     else draw('sit', 'open', ''); };
   // arrival
   if (mood0 === 'weak') draw('lie', 'sad', 'r-breathe weak');
-  else if (mood0 === 'grumpy') draw('sit', 'sad', '');
-  else if (mood0 === 'waking') { gBusy = true; draw('lie', 'sleep', 'r-breathe sleeping'); setTimeout(() => draw('lie', 'yawn', 'r-stretch'), 1700); setTimeout(() => draw('lie', 'open', ''), 2700);
-    setTimeout(() => { state = 'idle'; draw('sit', 'happy', 'r-wiggle wagfast'); fx('💕', 3); }, 3500); setTimeout(() => { gBusy = false; rest(); }, 5000); }
+  else if (mood0 === 'grumpy') draw('sit', 'grumpy', '');
+  else if (mood0 === 'dirty') draw('sit', 'sad', 'r-sigh');
+  else if (mood0 === 'waking') { gBusy = true; draw('sleep', 'sleep', 'r-breathe sleeping'); setTimeout(() => draw('lie', 'sleep', 'r-stretch'), 1700); setTimeout(() => draw('lie', 'open', ''), 2600);
+    setTimeout(() => { state = 'idle'; draw('sit', 'super', 'r-wiggle wagfast'); fx('💕', 3); }, 3400); setTimeout(() => { gBusy = false; rest(); }, 4900); }
   else draw('sit', 'happy', 'r-wiggle wagfast');
-  bars();
+  bars(); poos();
   const applySky = w => { const sc = $('#gScene'); if (!sc) return; const cls = sky(w); night = /night/.test(cls); sc.className = 'garden ' + cls;
     if (w) { const x = WX[w.weather_code] || ['🌡️', '', '']; $('#gWx').textContent = `📍 Calgary · ${calgaryNow().slice(11)} · ${x[0]} ${Math.round(w.temperature_2m)}°C ${x[LANG === 'zh' ? 1 : 2]} · ${t('gFeels')} ${Math.round(w.apparent_temperature)}°C`; }
     else $('#gWx').textContent = `📍 Calgary · ${calgaryNow().slice(11)}`;
@@ -1520,47 +1551,93 @@ async function viewGarden() {
   let wx = null; applySky(null);
   const loadWx = () => calgaryWeather().then(w => { wx = w; applySky(w); }).catch(() => applySky(wx));
   loadWx();
-  // interactions (no dialogue: Regen talks with his body)
+  // interactions (no dialogue: Regen shows his mood with his body)
   const pet = () => {
     if (gBusy) return; g = gLoad(); g.lastPet = Date.now(); g.petTotal = (g.petTotal || 0) + 1; gSave(g); bars();
     if (state === 'weak') { gBusy = true; draw('lie', 'open', 'r-wiggle weak'); fx('💧', 1); setTimeout(() => { gBusy = false; rest(); }, 1400); return; }
-    if (state === 'grumpy' && --grumpLeft > 0) { gBusy = true; draw('sit', 'sad', 'r-shake'); setTimeout(() => { gBusy = false; rest(); }, 1200); return; }
+    if (state === 'dirty') { gBusy = true; draw('sit', 'sad', 'r-shake'); fx('💩', 1); setTimeout(() => { gBusy = false; rest(); }, 1300); return; }
+    if (state === 'grumpy' && --grumpLeft > 0) { gBusy = true; draw('sit', 'grumpy', 'r-shake'); setTimeout(() => { gBusy = false; rest(); }, 1200); return; }
     state = 'idle'; wrap.classList.remove('turned');
     let i; do { i = Math.floor(Math.random() * PET.length); } while (i === gLastPet); gLastPet = i;
-    const r = PET[i]; gBusy = true; draw(r.pose || 'sit', r.e, r.a + ' wagfast'); fx(r.fx);
+    const r = PET[i]; gBusy = true;
+    if (r.pose === 'run') move(r.e, r.a + ' wagfast', true); else draw(r.pose || 'sit', r.e, r.a + ' wagfast');
+    fx(r.fx);
     setTimeout(() => { gBusy = false; draw('sit', 'happy', 'wagfast'); setTimeout(() => { if (!gBusy) rest(); }, 1500); }, 1500);
   };
   pup.onclick = pet; $('#gPet').onclick = pet;
   $('#gFeed').onclick = () => {
     if (gBusy) return; g = gLoad(); if (!treatsLeft(g)) { toast(t('gNoTreat'), 3500); return; }
     if (g.free > 0) g.free--; else g.bonus--;
-    g.recentFeeds = H(g.lastFed) < 3 ? (g.recentFeeds || 0) + 1 : 1; g.lastFed = Date.now(); g.fedTotal = (g.fedTotal || 0) + 1; gSave(g);
-    state = 'idle'; grumpLeft = 0; gBusy = true; wrap.classList.remove('turned');
+    g.recentFeeds = H(g.lastFed) < 3 ? (g.recentFeeds || 0) + 1 : 1; g.lastFed = Date.now(); g.fedTotal = (g.fedTotal || 0) + 1;
+    if (!g.pendingPoo) g.pendingPoo = Date.now() + POO_H * 36e5; gSave(g);
+    const wasDirty = state === 'dirty'; state = wasDirty ? 'dirty' : 'idle'; grumpLeft = 0; gBusy = true; wrap.classList.remove('turned');
     draw('eat', 'eat', 'r-chomp wagfast'); fx('✨🦴✨', 5);
-    setTimeout(() => { draw('sit', 'happy', 'r-jump wagfast'); fx('❤️💛', 4); }, 1900);
+    setTimeout(() => { draw('sit', wasDirty ? 'open' : 'super', 'r-jump wagfast'); fx('❤️💛', 4); }, 1900);
     setTimeout(() => { gBusy = false; rest(); }, 3300); bars();
   };
-  // a living puppy: blinks and breathes all the time, and does small things on his own
+  // a living puppy: blinks, breathes and wags all the time, and does small things on his own
   const IDLE = [
     () => draw('sit', 'open', 'r-tilt'), () => draw('sit', 'open', 'r-look'), () => draw('sit', 'open', 'r-twitch'),
-    () => draw('sit', 'happy', 'wagfast'), () => draw('sit', 'open', 'r-sniff'), () => draw('sit', 'yawn', 'r-stretch'),
-    () => { draw('stand', 'open', 'r-walk'); fx('🐾', 1); }, () => { draw('lie', 'open', 'r-breathe'); },
+    () => draw('sit', 'happy', 'wagfast'), () => draw('sit', 'open', 'r-sniff'), () => draw('sit', 'sleep', 'r-stretch'),
+    () => { move('happy', 'r-walk'); setTimeout(() => { if (!gBusy) rest(); }, 3600); }, () => draw('lie', 'open', 'r-breathe'),
     () => { draw('sit', 'open', 'r-look'); const b = document.createElement('span'); b.className = 'fly'; b.textContent = '🦋'; $('#gFx').appendChild(b); setTimeout(() => b.remove(), 4000); }
   ];
   clearInterval(viewGarden._iv); clearInterval(viewGarden._sky);
-  const tick = () => { if (!$('#gPup')) { clearInterval(viewGarden._iv); return; } if (gBusy) return;
+  const tick = () => { if (!$('#gPup')) { clearInterval(viewGarden._iv); stopWalk(); return; }
+    const before = (g.poos || []).length; g = gLoad(); if (g.poos.length !== before) { poos(); if (g.poos.length > before && state !== 'weak') { state = 'dirty'; draw('sit', 'sad', 'r-sigh'); } }
+    if (gBusy || walkT) return;
     if (state === 'weak') { draw('lie', 'sad', 'r-breathe weak' + (Math.random() < .3 ? ' r-sigh' : '')); return; }
-    if (state === 'grumpy') { draw('sit', 'sad', Math.random() < .5 ? 'r-look' : 'r-twitch'); return; }
-    if (night && Math.random() < .55) { draw('lie', Math.random() < .8 ? 'sleep' : 'open', 'r-breathe sleeping'); return; }
+    if (state === 'grumpy') { draw('sit', 'grumpy', Math.random() < .5 ? 'r-look' : 'r-twitch'); return; }
+    if (state === 'dirty') { draw('sit', 'sad', Math.random() < .5 ? 'r-look' : 'r-sigh'); return; }
+    if (night && Math.random() < .55) { draw('sleep', 'sleep', 'r-breathe sleeping'); return; }
     IDLE[Math.floor(Math.random() * IDLE.length)](); bars(); };
   viewGarden._iv = setInterval(tick, 4200);
   viewGarden._sky = setInterval(() => { if (!$('#gScene')) { clearInterval(viewGarden._sky); return; } loadWx(); }, 60e3);
 }
 // header puppy: a hint dot when Regen needs attention
-function gardenDot() { const m = gMood(gLoad()); return m === 'weak' || m === 'grumpy' ? '<span class="gdot">!</span>' : ''; }
+function gardenDot() { const g = gLoad(); if (!g.pup) return '<span class="gdot">🐾</span>'; const m = gMood(g); return m === 'weak' || m === 'grumpy' || m === 'dirty' ? '<span class="gdot">!</span>' : ''; }
+
+/* ---------- First visit: adopt a puppy at the pet shop (pick colour, then a name) ---------- */
+function viewAdopt() {
+  const g0 = gLoad(); if (g0.pup && g0.pup.name) return viewGarden(); // adoption is a promise: colour and name can't be changed later
+  let color = '';
+  setHeader(t('adoptTitle'), true); setTab('home');
+  const shop = () => {
+    app.innerHTML = `<div class="shop"><div class="shopsign">🐾 ${t('adoptShop')} 🐾</div><div class="shelf"></div>
+      <div class="pups">${['white', 'black', 'brown'].map(c => `<button class="pupbox${c === color ? ' on' : ''}" data-c="${c}">${regenSvg('sit', c === color ? 'super' : 'open', c)}<span class="cushion"></span><b>${t('col_' + c)}</b></button>`).join('')}</div></div>
+      <div class="card" style="text-align:center"><b>${t('adoptHello')}</b><div class="muted">${t('adoptPick')}</div></div>
+      <button class="btn" id="adNext" ${color ? '' : 'disabled'}>${t('adoptThis')}</button>`;
+    app.querySelectorAll('.pupbox').forEach(b => b.onclick = () => { color = b.dataset.c; shop(); const el = app.querySelector(`.pupbox[data-c="${color}"]`); el.classList.add('r-jump'); });
+    $('#adNext').onclick = () => color && nameIt();
+  };
+  const nameIt = () => {
+    app.innerHTML = `<div class="shop small"><div class="pups one"><div class="pupbox on">${regenSvg('sit', 'super', color)}<span class="cushion"></span></div></div></div>
+      <div class="card"><label>${t('adoptName')}</label><input id="adName" maxlength="12" placeholder="${esc(t('adoptNamePh'))}"><div class="muted" style="margin-top:8px">🤝 ${t('adoptPromise')}</div></div>
+      <div class="row"><button class="btn sec" id="adBack" style="margin:0">‹ ${t('adoptBack')}</button><button class="btn" id="adDone" style="margin:0">${t('adoptDone')}</button></div>`;
+    $('#adName').focus();
+    $('#adBack').onclick = shop;
+    $('#adDone').onclick = () => {
+      const name = $('#adName').value.trim(); if (!name) return toast(t('adoptNeedName'));
+      const g = gLoad(); if (g.pup && g.pup.name) return viewGarden(); const first = true; g.pup = { color, name, adopted: Date.now() };
+      if (first) { g.lastFed = g.lastFed || Date.now(); g.lastPet = Date.now(); g.lastVisit = Date.now(); } // a new puppy starts happy
+      gSave(g); pupColor = color;
+      app.innerHTML = `<div class="shop small"><div class="pups one"><div class="pupbox on r-jump">${regenSvg('sit', 'super', color)}<span class="cushion"></span></div></div><div class="fx" id="gFx"></div></div>
+        <div class="card" style="text-align:center"><b>${tf('adoptWelcome', esc(name))}</b></div>`;
+      const box = $('#gFx'); ['💕', '🎉', '✨', '💖', '🐾'].forEach((c, i) => { const sp = document.createElement('span'); sp.textContent = c; sp.style.left = (25 + i * 12) + '%'; sp.style.animationDelay = i * .15 + 's'; box.appendChild(sp); });
+      setTimeout(() => { if (location.hash === '#garden') viewGarden(); }, 2200);
+    };
+  };
+  shop();
+}
 
 /* ---------- What's new (shown once after each update) ---------- */
 const CHANGES = {
+  '4.8.0': [['狗仔店：第一次入花園，可以揀白色、黑色或者啡色狗仔，再幫佢改名。揀咗就唔可以再改，係你對狗仔嘅承諾。',
+             '狗仔換咗新造型：跟返 App icon 嘅耳仔同樣貌，簡約線條風格，大頭短腳；行路同跑步會郁腳。',
+             '新增便便：餵完大約 3 個鐘，狗仔會喺花園屙便便（最多 3 堆）。撳便便清走佢，有便便嘅時候佢會唔開心。'],
+            ['Puppy shop: on your first visit to the garden, pick a white, black or brown puppy and give it a name. It can’t be changed later — it’s a promise to your puppy.',
+             'New puppy look: the app icon’s ears and face in a clean line style, big head and short legs; legs move when walking or running.',
+             'New: poo. About 3 hours after a meal your puppy poos in the garden (up to 3 piles). Tap to clean up — it’s unhappy while there’s poo around.']],
   '4.7.0': [['Regen 變成動畫風格：會眨眼、呼吸、側頭、郁耳仔、聞嘢、行來行去、追蝴蝶；夜晚會瞓覺。佢唔再講嘢，用身體表達心情。',
              '花園按 Calgary 時間分清晨、日頭、黃昏同夜晚（跟日出日落），加上即時天氣。',
              '汽水、能量飲品、樽裝水等改為比較每罐／每樽嘅價錢。',
