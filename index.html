@@ -165,6 +165,32 @@ h2{font-size:17px;margin:0 0 8px}
 .garden .fx .fly{position:absolute;left:-30px;top:120px;font-size:22px;animation:flyby 4s ease-in-out forwards}@keyframes flyby{25%{transform:translate(120px,-30px)}50%{transform:translate(200px,20px)}75%{transform:translate(290px,-20px)}100%{transform:translate(420px,-60px)}}
 .meter2{display:flex;align-items:center;gap:10px;margin:4px 0}.meter2 span{flex:0 0 72px;font-weight:700;font-size:14px}.meter2 .meter{flex:1;margin:0}
 .btn:disabled{opacity:.5}
+.garden .pupwrap{transform:translate(var(--gx,0px),var(--gy,0px)) scale(var(--gs,1));transform-origin:50% 100%}
+.garden .pupwrap.turned{transform:translate(var(--gx,0px),var(--gy,0px)) scale(var(--gs,1))}.garden .pflip{position:relative}.garden .pflip.right,.garden .pupwrap.turned .pflip{transform:scaleX(-1)}
+.garden .carry{position:absolute;pointer-events:none;z-index:3;transform:translate(-50%,-50%)}.garden .carry svg{width:100%;display:block}
+.garden .carry.mouth{left:50%;top:54%;width:17%}.garden .carry.mouth.runm{left:36%;top:47%}.garden .carry.rope{width:30%}.garden .carry.mouth.runm.rope{top:41%;left:33%}
+.garden .carry.chewing{left:40%;top:86%;width:30%;animation:chewtoy .6s ease-in-out infinite}
+@keyframes chewtoy{50%{transform:translate(-50%,-56%) rotate(-8deg)}}
+.garden .bowlbtn{position:absolute;right:18px;bottom:10px;width:62px;background:none;border:0;padding:0;z-index:3;cursor:pointer}.garden .bowlbtn svg{width:100%;display:block}
+.garden .ballfly{position:absolute;left:calc(50% + 30px);bottom:20px;width:34px;z-index:3;pointer-events:none}.garden .ballfly svg{width:100%;display:block}
+.garden .ropesvg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:3;overflow:visible}
+.garden .ropesvg .ro{fill:none;stroke:#15151a;stroke-width:14;stroke-linecap:round}.garden .ropesvg .ri{fill:none;stroke:#f2a65a;stroke-width:7;stroke-linecap:round;stroke-dasharray:7 5}
+.garden .ropeknot{position:absolute;width:40px;height:40px;transform:translate(-50%,-50%);border-radius:50%;background:#4fa3e0;border:4px solid #15151a;touch-action:none;cursor:grab;z-index:5;animation:knot 1.2s ease-in-out infinite}
+@keyframes knot{50%{box-shadow:0 0 0 8px rgba(79,163,224,.35)}}
+.garden .gtimer{position:absolute;top:44px;left:50%;transform:translateX(-50%);background:rgba(255,255,255,.88);color:#3b2a20;font-weight:800;font-size:13px;padding:4px 12px;border-radius:12px;z-index:4;white-space:nowrap}
+.garden .f2{left:32%;bottom:30px}
+.ghint{text-align:center;font-size:12px;color:var(--muted);margin:10px 8px 0;line-height:1.4}.ghint.credit{font-size:10.5px;opacity:.75;margin-top:4px}
+.gbtns{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.gbtns .btn{margin:0;padding:9px 2px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:21px;line-height:1.1}.gbtns .btn span{font-size:12px}
+.shopgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
+.shopitem{background:var(--bg);border:2px solid var(--line);border-radius:16px;padding:10px 4px;display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--text);font:inherit;cursor:pointer}
+.shopitem:disabled{opacity:.45}.shopitem .ic{height:44px;display:flex;align-items:center}.shopitem .ic svg{height:40px;width:auto;max-width:64px}.shopitem b{font-size:13px}.shopitem .price{font-weight:800;color:#b8860b;font-size:13px}
+.toyrow{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}.toyrow .ic svg{height:38px;width:56px}.toyrow .btn{margin:0}.toyrow.old b{color:var(--muted)}
+.r-chompl .hdi{animation:chomp .3s ease infinite}
+.r-pant .hdi{animation:pant .45s ease-in-out infinite}@keyframes pant{50%{transform:translateY(3px)}}
+.r-tug .rgAll{transform-origin:50% 92%;animation:tug .55s ease-in-out infinite}.r-tugfast .rgAll{animation-duration:.24s}
+@keyframes tug{0%,100%{transform:rotate(-5deg) translateX(-5px)}50%{transform:rotate(2deg) translateX(2px)}}
+
 .shop{position:relative;height:330px;border-radius:24px;overflow:hidden;margin:0 0 12px;border:2px solid var(--line);box-shadow:var(--shadow);background:linear-gradient(#ffe9c7 0 66%,#c9935f 66%,#b07a48)}
 .shop:before{content:'';position:absolute;inset:0 0 34% 0;background:repeating-linear-gradient(90deg,transparent 0 38px,rgba(255,255,255,.35) 38px 42px)}
 .shop.small{height:250px}.shop .shopsign{position:absolute;top:14px;left:50%;transform:translateX(-50%);background:#8a4a22;color:#fff4dc;font-weight:800;padding:6px 16px;border-radius:12px;border:3px solid #15151a;white-space:nowrap;font-size:15px}
@@ -230,7 +256,7 @@ tr.ended td{color:var(--muted)}tr.ended b{font-weight:600}
 
 <script>
 'use strict';
-const APP_VERSION = '4.8.0';
+const APP_VERSION = '4.9.0';
 const $ = s => document.querySelector(s);
 const app = $('#app');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -289,18 +315,27 @@ const I18N = {
   eachP:['每件','Each'], uAuto:['自動單位','Auto unit'], unitPref:['單位價顯示','Unit price display'],
   meas_w:['重量','weight'], meas_v:['容量','volume'], meas_pc:['件數','count'], meas_use:['次數','uses'],
   gFull:['飽肚','Full'], gJoy:['開心','Happy'], gPetBtn:['摸摸 Regen','Pet Regen'], gFeedBtn:['餵零食','Give a treat'],
-  gHint:['每日送 10 粒零食；每記錄一個價錢多 1 粒（每日最多多 10 粒）。','10 free treats a day; +1 for every price you log (up to 10 extra a day).'],
+  gHint:['🦴 每日 3 粒免費零食 · 🪙 記錄價錢賺金幣 · 💧 每 12 個鐘換水','🦴 3 free treats a day · 🪙 log a price = 1 coin · 💧 change water every 12 h'],
   gWxCredit:['天氣資料：Open-Meteo.com','Weather data: Open-Meteo.com'], gFeels:['體感','feels'],
   gWeak:['好肚餓…冇晒力…','So hungry… no energy…'], gWeakPet:['…（輕輕搖咗下尾）','…(a tiny tail wag)'], gRevive:['有力喇！多謝你救咗我！','Energy’s back! You saved me!'],
   gGrumpy:['哼！咁耐都唔嚟睇我…','Hmph! You haven’t visited for ages…'], gGrumpPet:['…唔好以為摸一下就算','…one pat won’t fix it'],
   gYawn:['呵～（伸懶腰）你返嚟喇？','Yawn~ (stretch) you’re back?'], gWelcome:['汪！我好掛住你！','Woof! I missed you!'], gHi:['汪！一齊玩呀！','Woof! Let’s play!'],
-  gNoTreat:['今日零食食晒喇～去記錄價錢就可以再賺！','No treats left today — log a price to earn more!'],
+  gNoTreat:['今日零食食晒喇～記錄價錢賺金幣，再去商店買！','No treats left — log prices to earn coins and buy more at the shop!'],
   gIdle1:['嗅嗅…今日邊度有特價？','Sniff sniff… any deals today?'], gIdle2:['陪我玩多陣啦','Stay and play a bit'], gIdle3:['我幫你睇住價錢㗎！','I’m watching prices for you!'],
   gPooHint:['💩 Regen 屙咗便便，撳一下清走佢，佢先會開心返！','💩 Regen pooped — tap it to clean up so he’s happy again!'],
   gRename:['改名／換狗仔顏色','Rename / change colour'], adoptTitle:['狗仔店','Puppy shop'], adoptShop:['格價狗狗仔店','PricePup Puppy Shop'],
   adoptHello:['歡迎嚟到狗仔店！','Welcome to the puppy shop!'], adoptPickAgain:['想換顏色？','Want a different colour?'], adoptPick:['揀一隻你鍾意嘅狗仔','Pick the puppy you like'], adoptThis:['就係佢！','This one!'],
   col_white:['白色','White'], col_black:['黑色','Black'], col_brown:['啡色','Brown'], adoptName:['幫你隻狗仔改個名','Give your puppy a name'], adoptNamePh:['例如 Regen','e.g. Regen'],
-  adoptBack:['返去揀','Back'], adoptDone:['完成','Done'], adoptNeedName:['請幫狗仔改個名','Please give your puppy a name'], adoptPromise:['揀咗同改咗名之後就唔可以再改，呢個係你對狗仔嘅承諾。','Once chosen and named, it can’t be changed — it’s your promise to your puppy.'],
+  adoptBack:['返去揀','Back'], adoptDone:['完成','Done'], adoptNeedName:['請幫狗仔改個名','Please give your puppy a name'], adoptPromise:['狗仔領養同改名之後，就唔可以再改。','Once your puppy is adopted and named, it can’t be changed.'],
+  gWater:['清水','Water'], gPetShort:['摸摸','Pet'], gFeedShort:['零食','Treat'], gWaterBtn:['換水','Water'], gToyBtn:['玩具','Toys'], gShopBtn:['商店','Shop'],
+  gWaterDirty:['💧 水開始污糟喇，記得幫 Regen 換水。','💧 The water is getting dirty — change it for Regen.'], gWaterBad:['💧 水太污糟，Regen 唔肯飲，佢好口渴！快啲換水。','💧 The water is too dirty — Regen won’t drink and is thirsty! Change it now.'],
+  gEating:['Regen 食緊','Regen is eating'], gChewing:['Regen 咬緊玩具','Regen is chewing'], gBusy:['等 Regen 做完先～','Wait till Regen is done~'], gBusyChew:['Regen 玩緊咬咬玩具，佢想自己玩一陣～','Regen is busy with the chew toy — let him play~'],
+  shopTitle:['花園商店','Garden shop'], shopHint:['每記錄一個價錢賺 1 個金幣（每日最多 20 個）。每件玩具可以玩 10 次。','Log a price to earn 1 coin (up to 20 a day). Each toy lasts 10 plays.'],
+  shop_treat1:['1 粒零食','1 treat'], shop_treat5:['5 粒零食','5 treats'], shop_ball:['波波','Ball'], shop_rope:['拔河繩','Tug rope'], shop_chew:['咬咬玩具','Chew toy'],
+  toyTitle:['玩具箱','Toy box'], toyOld:['舊咗又污糟，要買過新嘅','Old and dirty — time for a new one'], toyBin:['掉咗佢','Throw away'], toyPlay:['玩！','Play!'],
+  toyNone:['仲未有玩具，去商店買啦！','No toys yet — get one at the shop!'], gToyWeak:['Regen 太肚餓，冇力玩，先餵佢食嘢啦。','Regen is too hungry to play — give a treat first.'],
+  ropeHint:['㩒住繩尾粒藍波，向邊度拉都得！放手就 Regen 贏；快速大力一拉就你贏。','Hold the blue knot and pull any way! Let go and Regen wins; a quick strong yank and you win.'],
+  coinPlus:['🪙 +1 金幣！可以去花園商店買嘢俾 Regen','🪙 +1 coin! Spend it at the garden shop for Regen'],
   treatPlus:['🦴 +1 零食俾 Regen！','🦴 +1 treat for Regen!'],
   curTitle:['🏷️ 而家嘅特價同最新價錢','🏷️ Current deals & latest prices'], curHint:['傳單有效期內嘅特價，同近 7 日記錄嘅價錢，最抵排先','Valid flyer deals and prices logged in the last 7 days, cheapest first'],
   curNone:['而家冇有效特價，近 7 日亦冇人記錄價錢','No valid deals now and no prices logged in the last 7 days'], logged:['記錄','logged'],
@@ -335,8 +370,9 @@ const I18N = {
 const I18NF = {
   vLow:[(d,m,s)=>`汪！歷史新低！比之前最低（${m}，${s}）平 ${d}`,(d,m,s)=>`Woof! New all-time low — ${d} below the previous low (${m}, ${s})`],
   mixNote:[k=>`呢件產品嘅款式計法唔同，最平只比較按「${k}」計嘅款式。`,k=>`Variants here are measured differently; “lowest” only compares those priced per ${k}.`],
-  gTreatsLine:[(f,F,b,left)=>`🦴 今日免費零食 <b>${f}/${F}</b> · 獎勵零食 <b>${b}</b> · 今日仲可以賺 ${left} 粒`,(f,F,b,left)=>`🦴 Free today <b>${f}/${F}</b> · Earned <b>${b}</b> · ${left} more to earn today`],
+  gTreatsLine:[(f,F,b,c)=>`🦴 免費 <b>${f}/${F}</b> · 零食 <b>${b}</b> · 🪙 <b>${c}</b>`,(f,F,b,c)=>`🦴 Free <b>${f}/${F}</b> · Treats <b>${b}</b> · 🪙 <b>${c}</b>`],
   gTitle:[n=>`${n} 嘅花園`,n=>`${n}’s garden`], adoptWelcome:[n=>`🎉 歡迎 ${n} 返屋企！`,n=>`🎉 Welcome home, ${n}!`],
+  shopCoins:[n=>`你有 🪙 <b>${n}</b> 個金幣`,n=>`You have 🪙 <b>${n}</b> coins`], shopBought:[n=>`買咗 ${n}`,n=>`Bought ${n}`], toyLeft:[n=>`仲可以玩 ${n} 次`,n=>`${n} plays left`], toyWorn:[n=>`${n}玩咗 10 次，舊咗喇～要買過新嘅。`,n=>`The ${n} has been played 10 times and is worn out — buy a new one.`],
   scanGuess:[n=>`狗狗估係「${n}」，下面係呢類產品嘅價錢。`,n=>`The pup thinks it’s “${n}” — prices for this item are below.`],
   vEq:[(s,dt)=>`同歷史最低一樣（${s}，${dt}）`,(s,dt)=>`Same as the all-time low (${s}, ${dt})`],
   vHigh:[(d,p,m,s,dt)=>`比歷史最低 ${m}（${s}，${dt}）貴 ${d}（+${p}%）`,(d,p,m,s,dt)=>`${d} (+${p}%) above the all-time low of ${m} (${s}, ${dt})`],
@@ -1161,7 +1197,7 @@ async function viewAdd(id, preVid) {
                 sale: $('#aSale').checked, note: $('#aNote').value.trim(), src: 'app', by: fbUser ? fbUser.uid : '', ts: Date.now() };
     const v = verdict(await getOne('items', id), o, sum);
     await save('obs', o);
-    if (earnTreat()) setTimeout(() => toast(withName(t('treatPlus')), 2200), 3300);
+    if (earnCoin()) setTimeout(() => toast(withName(t('coinPlus')), 2200), 3300);
     if (o.store) lsSet('lastStore', o.store);
     sessionStorage.removeItem('pp_pending');
     toast(v.cls === 'good' ? t('savedLow') : v.cls === 'eq' ? t('savedEq') : t('saved'), 3200);
@@ -1341,37 +1377,74 @@ function showGuide(i) {
   m.querySelector('#gNext').onclick = () => last ? done() : showGuide(i + 1);
 }
 
-/* ---------- Puppy garden: Regen (pet, feed, mood, live Calgary weather + day/night) ---------- */
-const FREE_TREATS = 10, BONUS_CAP = 10;
+/* ---------- Puppy garden (pet, feed, water, toys, coins, poo, live Calgary weather + day/night) ---------- */
+const FREE_TREATS = 3, COIN_CAP = 20;           // 3 free treats a day; logging a price earns 1 coin (max 20 a day)
 const GKEY = 'garden';
 const H = ms => (Date.now() - (ms || 0)) / 36e5;
 function gLoad() { let g = {}; try { g = JSON.parse(lsGet(GKEY) || '{}'); } catch (e) {} return gPoo(gDay(g)); }
-function gDay(g) { if (g.day !== today()) { g.day = today(); g.free = FREE_TREATS; g.bonusToday = 0; } g.bonus = g.bonus || 0; return g; }
+function gDay(g) {
+  if (g.day !== today()) { g.day = today(); g.free = FREE_TREATS; g.coinsToday = 0; }
+  if (g.free > FREE_TREATS) g.free = FREE_TREATS;   // older versions gave 10 a day
+  g.bonus = g.bonus || 0; g.coins = g.coins || 0; g.toys = g.toys || [];
+  if (g.pup && !g.waterAt) g.waterAt = Date.now();
+  return g;
+}
 function gSave(g) { g.updated = Date.now(); lsSet(GKEY, JSON.stringify(g)); if (syncOn()) fb.F.setDoc(favRef(), { garden: g }, { merge: true }).catch(() => {}); }
 async function gSync() { // newest copy wins (phone vs cloud)
   let g = gLoad();
   if (syncOn()) { try { const s = await fb.F.getDoc(favRef()); const r = s.exists() && s.data().garden; if (r && (r.updated || 0) > (g.updated || 0)) { g = gPoo(gDay({ ...r })); lsSet(GKEY, JSON.stringify(g)); } } catch (e) {} }
   return g;
 }
-function earnTreat() { const g = gLoad(); if (g.bonusToday >= BONUS_CAP) return false; g.bonus++; g.bonusToday++; gSave(g); return true; }
+function earnCoin() { const g = gLoad(); if ((g.coinsToday || 0) >= COIN_CAP) return false; g.coins++; g.coinsToday = (g.coinsToday || 0) + 1; gSave(g); return true; }
 const treatsLeft = g => (g.free || 0) + (g.bonus || 0);
+// water gets dirtier over time: level 0 (fresh) .. 5; at level 4+ (12 h) the puppy won't drink and gets thirsty
+const waterLevel = g => Math.min(5, Math.floor(H(g.waterAt) / 3));
 function gMood(g) {
   if (!g.lastFed || H(g.lastFed) >= 12) return 'weak';
-  if (Math.min(H(g.lastFed), H(g.lastPet)) >= 6) return 'grumpy';
+  if (waterLevel(g) >= 4) return 'thirsty';
   if ((g.poos || []).length) return 'dirty';
+  if (Math.min(H(g.lastFed), H(g.lastPet)) >= 6) return 'grumpy';
   if (!g.lastVisit || H(g.lastVisit) * 60 >= 10) return 'waking';
   return 'idle';
 }
 const clamp = x => Math.max(0, Math.min(100, Math.round(x)));
 const fullness = g => g.lastFed ? clamp((100 - H(g.lastFed) / 12 * 100) * Math.min(1, (g.recentFeeds || 1) / 3)) : 0; // 3 treats = full
-const joy = g => clamp(100 - Math.min(H(g.lastFed), H(g.lastPet)) / 6 * 100 - (g.poos || []).length * 25);
+const joy = g => clamp(100 - Math.min(H(g.lastFed), H(g.lastPet)) / 6 * 100 - (g.poos || []).length * 25 - (waterLevel(g) >= 4 ? 25 : 0));
+const waterPct = g => clamp(100 - H(g.waterAt) / 12 * 100);
 
-// poo: about 3 hours after a meal Regen poos once (max 3 piles); piles stay until the user cleans them
+// poo: about 3 hours after a meal the puppy poos once (max 3 piles); piles stay until the user cleans them
 const POO_H = 3, POO_MAX = 3;
 function gPoo(g) {
   g.poos = g.poos || [];
-  if (g.pendingPoo && Date.now() >= g.pendingPoo) { if (g.poos.length < POO_MAX) g.poos.push({ x: [8, 22, 66, 80, 88][Math.floor(Math.random() * 5)] + Math.round(Math.random() * 4), t: g.pendingPoo }); g.pendingPoo = 0; }
+  if (g.pendingPoo && Date.now() >= g.pendingPoo) { if (g.poos.length < POO_MAX) g.poos.push({ x: [6, 16, 26, 60, 66][Math.floor(Math.random() * 5)] + Math.round(Math.random() * 4), t: g.pendingPoo }); g.pendingPoo = 0; }
   return g;
+}
+// shop and toys (each toy lasts 10 plays)
+const TOY_LIFE = 10;
+const SHOP = [
+  { id: 'treat1', kind: 'treat', n: 1, price: 1 }, { id: 'treat5', kind: 'treat', n: 5, price: 4 },
+  { id: 'ball', kind: 'toy', price: 5 }, { id: 'rope', kind: 'toy', price: 8 }, { id: 'chew', kind: 'toy', price: 6 }
+];
+// ---------- item drawings (same line style as the puppy) ----------
+const INK = '#15151a';
+const toySvg = (type, old) => {
+  const f = old ? 'filter="url(#oldtoy)"' : '';
+  const defs = old ? '<defs><filter id="oldtoy"><feColorMatrix type="saturate" values=".15"/></filter></defs>' : '';
+  if (type === 'ball') return `<svg viewBox="0 0 60 60" class="toy" aria-hidden="true">${defs}<g ${f}><circle cx="30" cy="30" r="24" fill="#ff5a4a" stroke="${INK}" stroke-width="5"/><path d="M8 26 q22 10 44 0" stroke="${INK}" stroke-width="4" fill="#fff4dc"/><path d="M8 26 q22 10 44 0 q-22 -6 -44 0z" fill="#fff4dc"/><circle cx="22" cy="18" r="4" fill="#fff" opacity=".7"/></g></svg>`;
+  if (type === 'rope') return `<svg viewBox="0 0 80 40" class="toy" aria-hidden="true">${defs}<g ${f}><path d="M16 20 h48" stroke="${INK}" stroke-width="14" stroke-linecap="round"/><path d="M16 20 h48" stroke="#f2a65a" stroke-width="7" stroke-linecap="round" stroke-dasharray="6 5"/><circle cx="12" cy="20" r="10" fill="#4fa3e0" stroke="${INK}" stroke-width="4"/><circle cx="68" cy="20" r="10" fill="#4fa3e0" stroke="${INK}" stroke-width="4"/></g></svg>`;
+  return `<svg viewBox="0 0 80 40" class="toy" aria-hidden="true">${defs}<g ${f}>${boneSvg(80, 40, '#7cc9a0')}<path d="M30 14 v12M40 14 v12M50 14 v12" stroke="#4f9e78" stroke-width="3" stroke-linecap="round"/></g></svg>`;
+};
+// a bone: four round knobs joined by a bar (outline first, then the fill on top so no inner lines show)
+function boneSvg(w, h, fill) { const r = h * .22, x1 = r + 4, x2 = w - r - 4, y1 = h / 2 - r * .8, y2 = h / 2 + r * .8, bar = `<rect x="${x1}" y="${h / 2 - r * .75}" width="${x2 - x1}" height="${r * 1.5}"/>`, knobs = [[x1, y1], [x1, y2], [x2, y1], [x2, y2]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="${r}"/>`).join('');
+  return `<g fill="${fill}" stroke="${INK}" stroke-width="7">${bar}${knobs}</g><g fill="${fill}">${bar}${knobs}</g>`; }
+const treatSvg = () => `<svg viewBox="0 0 60 40" class="toy" aria-hidden="true">${boneSvg(60, 40, '#e9b872')}</svg>`;
+const WATER_COL = ['#6fc8ff', '#8ccbd6', '#a5c69a', '#b4ad74', '#927d4a', '#6e5733'];
+function waterSvg(level) {
+  const specks = Array.from({ length: level * 2 }, (_, i) => `<circle cx="${16 + (i * 13) % 30}" cy="${17 + (i % 3)}" r="${1.4 + (i % 2)}" fill="#4a3a22" opacity=".8"/>`).join('');
+  const leaf = level >= 3 ? `<path d="M34 15 q6 -6 10 0 q-6 4 -10 0z" fill="#6a8a3a" stroke="${INK}" stroke-width="1.5"/>` : '';
+  return `<svg viewBox="0 0 60 34" class="waterbowl" aria-hidden="true"><path d="M4 14 h52 l-6 16 h-40z" fill="#4f8fd6" stroke="${INK}" stroke-width="4" stroke-linejoin="round"/>
+    <ellipse cx="30" cy="14" rx="26" ry="6" fill="${WATER_COL[level]}" stroke="${INK}" stroke-width="3"/>${specks}${leaf}
+    ${level === 0 ? '<path d="M14 12 q5 -2 10 0" stroke="#fff" stroke-width="2" fill="none" opacity=".8"/>' : ''}</svg>`;
 }
 // ---------- Style B: clean line art (bold rounded lines, flat colours, simple dot eyes) ----------
 const PUP_COLORS = {
@@ -1385,7 +1458,7 @@ function regenB(pose, expr, color) {
   const ink = '#15151a', fur = pc.fur, ear = pc.ear, face = pc.face, W = 6;
   const L = (d, f = 'none', w = W) => `<path d="${d}" fill="${f}" stroke="${ink}" stroke-width="${w}" stroke-linejoin="round" stroke-linecap="round"/>`;
   const eye = (x, y) => {
-    if (expr === 'happy' || expr === 'super' || expr === 'eat') return L(`M${x - 8} ${y + 2} q8 -10 16 0`, 'none', 5);
+    if (expr === 'happy' || expr === 'super' || expr === 'eat' || expr === 'tug') return L(`M${x - 8} ${y + 2} q8 -10 16 0`, 'none', 5);
     if (expr === 'sleep') return L(`M${x - 8} ${y} q8 7 16 0`, 'none', 5);
     if (expr === 'grumpy') return L(`M${x - 8} ${y} h16`, 'none', 5);
     return `<g class="eye"><circle cx="${x}" cy="${y}" r="7" fill="${ink}"/><circle cx="${x + 2.5}" cy="${y - 2.5}" r="2.4" fill="#fff"/></g>` + (expr === 'sad' ? `<path d="M${x} ${y + 11} q-3 6 0 9 q3 -3 0 -9z" fill="#8fd0ff"/>` : '');
@@ -1395,6 +1468,8 @@ function regenB(pose, expr, color) {
     happy: L('M106 122 q7 7 14 0 q7 7 14 0', 'none', 4.5) + `<path d="M113 127 q7 14 14 0 z" fill="#ff7a59" stroke="${ink}" stroke-width="3.5" stroke-linejoin="round"/>`,
     super: L('M104 121 q8 8 16 0 q8 8 16 0', 'none', 4.5) + `<path d="M112 127 q8 16 16 0 z" fill="#ff7a59" stroke="${ink}" stroke-width="3.5" stroke-linejoin="round"/>`,
     eat: `<ellipse cx="120" cy="127" rx="7" ry="5" fill="${ink}"/>`,
+    thirsty: L('M106 122 q7 7 14 0 q7 7 14 0', 'none', 4.5) + `<path d="M112 126 q8 30 16 0 z" fill="#ff7a59" stroke="${ink}" stroke-width="3.5" stroke-linejoin="round"/><path d="M120 130 v12" stroke="#d9583d" stroke-width="2.5" stroke-linecap="round"/>`,
+    tug: L('M106 124 q14 5 28 0', 'none', 5) + `<path d="M110 124 l3 5 l3 -4 l4 5 l4 -5 l3 4 l3 -5" fill="#fff" stroke="${ink}" stroke-width="2" stroke-linejoin="round"/>`,
     sad: L('M110 130 q10 -8 20 0', 'none', 4.5), sleep: L('M114 126 q6 3 12 0', 'none', 4), grumpy: L('M110 128 h20', 'none', 4.5)
   }[expr];
   const head = (tx = 0, ty = 0, rot = 0, s = 1) => `<g class="hd" transform="translate(${tx} ${ty}) rotate(${rot} 120 100) translate(120 100) scale(${s}) translate(-120 -100)"><g class="hdi">
@@ -1406,17 +1481,18 @@ function regenB(pose, expr, color) {
     ${eye(96, 94)}${eye(144, 94)}
     <ellipse cx="84" cy="114" rx="8" ry="5" fill="#ff8fa3" opacity=".5"/><ellipse cx="156" cy="114" rx="8" ry="5" fill="#ff8fa3" opacity=".5"/>
     <path d="M111 108 q9 -6 18 0 q-2 8 -9 9 q-7 -1 -9 -9z" fill="${ink}"/><circle cx="116" cy="108" r="2" fill="#fff" opacity=".8"/>
-    ${expr === 'sad' ? L('M86 78 l12 -4M154 78 l-12 -4', 'none', 4.5) : ''}${mouth}
+    ${expr === 'sad' || expr === 'thirsty' ? L('M86 78 l12 -4M154 78 l-12 -4', 'none', 4.5) : ''}${expr === 'thirsty' ? '<path d="M170 66 q-7 11 0 15 q7 -4 0 -15z" fill="#8fd0ff" stroke="#15151a" stroke-width="2.5"/>' : ''}${mouth}
     ${L('M90 140 q30 12 60 0', 'none', 12)}<path d="M90 140 q30 12 60 0" stroke="#2f6fdc" stroke-width="6" fill="none" stroke-linecap="round"/>
     <circle cx="120" cy="155" r="8.5" fill="#2fa36b" stroke="${ink}" stroke-width="4"/><circle cx="120" cy="157.5" r="2.6" fill="#e9fff2"/><circle cx="116.3" cy="153" r="1.4" fill="#e9fff2"/><circle cx="120" cy="151.5" r="1.4" fill="#e9fff2"/><circle cx="123.7" cy="153" r="1.4" fill="#e9fff2"/></g></g>`;
   const tail = d => `<g class="tail">${L(d, 'none', 14)}<path d="${d}" stroke="${fur}" stroke-width="6" fill="none" stroke-linecap="round"/></g>`;
   const shadow = `<ellipse cx="120" cy="222" rx="60" ry="6" fill="rgba(60,40,20,.14)"/>`;
   let body = '', hd = head();
-  if (pose === 'sit' || pose === 'eat') {
+  if (pose === 'sit' || pose === 'eat' || pose === 'drink') {
     body = shadow + tail('M152 196 C174 194 180 176 174 160') +
       L('M90 150 C82 170 80 196 84 216 L156 216 C160 196 158 170 150 150', fur) +
       L('M106 176 L106 214', 'none', 5) + L('M134 176 L134 214', 'none', 5) + L('M84 216 h72', 'none', 6);
-    if (pose === 'eat') { body += L('M84 204 h72 l-8 16 h-56z', '#ff7a59', 5); hd = head(0, 38, 12, .92); }
+    if (pose === 'eat') { body += L('M84 204 h72 l-8 16 h-56z', '#ff7a59', 5) + '<path d="M96 203 q6 -7 12 0 M116 202 q6 -7 12 0 M134 203 q6 -6 10 0" fill="#e9b872" stroke="#15151a" stroke-width="3"/>'; hd = head(0, 38, 12, .92); }
+    if (pose === 'drink') { body += L('M84 204 h72 l-8 16 h-56z', '#4f8fd6', 5) + '<ellipse cx="120" cy="204" rx="33" ry="3.5" fill="#6fc8ff"/>'; hd = head(0, 38, 12, .92); }
   } else if (pose === 'run' || pose === 'run2') {
     // base: the version Silver picked (big head front-left, round body behind, chunky legs); body 10% bigger + a proper neck
     const big = x => `<g transform="translate(148 166) scale(1.1) translate(-148 -166)">${x}</g>`;
@@ -1490,6 +1566,8 @@ const PET = [
   { a: 'r-wiggle', e: 'happy', fx: '🎵🎶' }, { a: 'r-bow', e: 'open', fx: '🎾' }, { a: 'r-tilt', e: 'open', fx: '💗' },
   { a: 'r-zoom', e: 'super', fx: '💨✨', pose: 'run' }, { a: 'r-jump', e: 'happy', fx: '💖🌟' }
 ];
+const EAT_MS = 60e3, CHEW_MS = 30 * 60e3;
+const mmss = ms => { const s = Math.max(0, Math.ceil(ms / 1000)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
 async function viewGarden() {
   let g = await gSync();
   if (!g.pup || !g.pup.name) return viewAdopt();
@@ -1506,42 +1584,93 @@ async function viewGarden() {
       <svg class="tree" viewBox="0 0 100 140" aria-hidden="true"><rect x="44" y="80" width="12" height="58" rx="4" fill="#7a4a22" stroke="#15151a" stroke-width="3"/><circle cx="50" cy="60" r="34" fill="#4f9e4a" stroke="#15151a" stroke-width="3"/><circle cx="30" cy="70" r="22" fill="#5cb055" stroke="#15151a" stroke-width="3"/><circle cx="70" cy="68" r="24" fill="#56a84f" stroke="#15151a" stroke-width="3"/><circle cx="50" cy="40" r="22" fill="#6cc064" stroke="#15151a" stroke-width="3"/></svg>
       <svg class="house" viewBox="0 0 110 100" aria-hidden="true"><path d="M6 44 L55 6 L104 44" fill="none" stroke="#15151a" stroke-width="14" stroke-linejoin="round" stroke-linecap="round"/><path d="M6 44 L55 6 L104 44" fill="none" stroke="#c2553a" stroke-width="8" stroke-linejoin="round" stroke-linecap="round"/><path d="M16 42 L55 12 L94 42 V96 H16 Z" fill="#f0c27c" stroke="#15151a" stroke-width="4" stroke-linejoin="round"/><path d="M40 96 V70 a15 15 0 0 1 30 0 V96 Z" fill="#4a2f1c" stroke="#15151a" stroke-width="3"/><rect x="34" y="46" width="42" height="13" rx="4" fill="#fff4dc" stroke="#15151a" stroke-width="2.5"/><text x="55" y="56" font-size="${g.pup.name.length > 7 ? 7 : 10}" font-weight="800" text-anchor="middle" fill="#8a4a22" font-family="Arial">${esc(g.pup.name.toUpperCase().slice(0, 10))}</text></svg>
       <div id="gPoos"></div>
-      <div class="pupwrap" id="gWrap"><div class="pup" id="gPup"></div></div>
+      <button class="bowlbtn" id="gBowl" aria-label="water"></button>
+      <div class="pupwrap" id="gWrap"><div class="pflip" id="gFlip"><div class="pup" id="gPup"></div><div class="carry" id="gCarry"></div></div></div>
+      <div class="ballfly hidden" id="gBall">${toySvg('ball')}</div>
+      <svg class="ropesvg hidden" id="gRope" aria-hidden="true"><path class="ro" id="gRopeO"/><path class="ri" id="gRopeI"/></svg><b class="ropeknot hidden" id="gKnot"></b>
+      <div class="gtimer hidden" id="gTimer"></div>
       <div class="fx" id="gFx"></div>
     </div>
     <div class="card"><div class="meter2"><span>🍖 ${t('gFull')}</span><div class="meter"><i id="mFull"></i></div></div>
       <div class="meter2"><span>💛 ${t('gJoy')}</span><div class="meter"><i id="mJoy"></i></div></div>
-      <div class="muted" id="gTreats" style="margin-top:8px"></div><div class="muted hidden" id="gPooHint" style="margin-top:4px">${withName(t('gPooHint'))}</div></div>
-    <div class="row"><button class="btn sec" id="gPet" style="margin:0">🤚 ${withName(t('gPetBtn'))}</button><button class="btn" id="gFeed" style="margin:0">🦴 ${t('gFeedBtn')}</button></div>
-    <div class="muted" style="text-align:center;margin:12px 0">${t('gHint')}</div>
-    <div class="muted" style="text-align:center;font-size:12px">${t('gWxCredit')}</div>`;
-  const pup = $('#gPup'), wrap = $('#gWrap');
-  let state = mood0, grumpLeft = 2, night = false, walkT = null;
+      <div class="meter2"><span>💧 ${t('gWater')}</span><div class="meter"><i id="mWater"></i></div></div>
+      <div class="muted" id="gTreats" style="margin-top:8px"></div>
+      <div class="muted hidden" id="gPooHint" style="margin-top:4px">${withName(t('gPooHint'))}</div>
+      <div class="muted hidden" id="gWaterHint" style="margin-top:4px"></div></div>
+    <div class="gbtns">
+      <button class="btn sec" id="gPet">🤚<span>${t('gPetShort')}</span></button>
+      <button class="btn" id="gFeed">🦴<span>${t('gFeedShort')}</span></button>
+      <button class="btn sec" id="gWaterBtn">💧<span>${t('gWaterBtn')}</span></button>
+      <button class="btn sec" id="gToyBtn">🎾<span>${t('gToyBtn')}</span></button>
+      <button class="btn sec" id="gShopBtn">🛒<span>${t('gShopBtn')}</span></button>
+    </div>
+    <div class="ghint">${t('gHint')}</div><div class="ghint credit">${t('gWxCredit')}</div>`;
+  const pup = $('#gPup'), wrap = $('#gWrap'), carry = $('#gCarry');
+  let state = mood0, grumpLeft = 2, night = false, walkT = null, timerT = null, play = null;
+  const vid = viewGarden._vid = (viewGarden._vid || 0) + 1; gBusy = false; // a fresh visit cancels anything left over from the last one
+  const alive = () => viewGarden._vid === vid && !!$('#gPup');
   const stopWalk = () => { clearInterval(walkT); walkT = null; };
-  const draw = (p, e, anim) => { if (p !== 'walk' && p !== 'run') stopWalk(); pup.innerHTML = regenSvg(p, e); pup.className = 'pup' + (anim ? ' ' + anim : ''); wrap.classList.toggle('turned', state === 'grumpy'); };
+  const draw = (p, e, anim) => { if (p !== 'walk' && p !== 'run') stopWalk(); pup.innerHTML = regenSvg(p, e); pup.className = 'pup' + (anim ? ' ' + anim : ''); wrap.classList.toggle('turned', state === 'grumpy' && !play); };
   // walking / running: swap leg frames like a flip book
-  const move = (e, anim, fast) => { stopWalk(); let f = 0; draw(fast ? 'run' : 'walk', e, anim); walkT = setInterval(() => { if (!$('#gPup')) return stopWalk(); f ^= 1; pup.innerHTML = regenSvg(f ? 'run' : 'walk', e); }, fast ? 140 : 260); };
+  const move = (e, anim, fast) => { stopWalk(); let f = 0; draw(fast ? 'run' : 'walk', e, anim); walkT = setInterval(() => { if (!alive()) return stopWalk(); f ^= 1; pup.innerHTML = regenSvg(f ? 'run' : 'walk', e); }, fast ? 140 : 260); };
+  // where the puppy stands in the garden: x/y offset (px), size, facing right?
+  const place = (x, y, s, ms, right) => { wrap.style.transition = `transform ${ms || 0}ms linear`; wrap.style.setProperty('--gx', x + 'px'); wrap.style.setProperty('--gy', y + 'px'); wrap.style.setProperty('--gs', s); $('#gFlip').classList.toggle('right', !!right); };
+  const later = (ms, fn) => setTimeout(() => { if (alive()) fn(); }, ms);
   const fx = (chars, n = 6, left) => { const box = $('#gFx'); if (!box) return; const cs = [...chars].filter(c => c.trim()); cs.forEach((c, i) => { for (let k = 0; k < Math.ceil(n / cs.length); k++) { const s = document.createElement('span'); s.textContent = c; s.style.left = (left != null ? left - 4 + Math.random() * 8 : 38 + Math.random() * 26) + '%'; s.style.animationDelay = (i * .12 + k * .25) + 's'; s.style.fontSize = (16 + Math.random() * 14) + 'px'; box.appendChild(s); setTimeout(() => s.remove(), 2600); } }); };
-  const bars = () => { g = gLoad(); const f = fullness(g), j = joy(g); $('#mFull').style.width = f + '%'; $('#mJoy').style.width = j + '%';
-    $('#mFull').style.background = f < 25 ? 'var(--bad)' : 'var(--good)'; $('#mJoy').style.background = j < 25 ? 'var(--bad)' : '#e8a020';
-    $('#gTreats').innerHTML = tf('gTreatsLine', g.free || 0, FREE_TREATS, g.bonus || 0, BONUS_CAP - (g.bonusToday || 0)); $('#gFeed').disabled = !treatsLeft(g); };
+  const timer = (label, until, done) => { clearInterval(timerT); const el = $('#gTimer'); el.classList.remove('hidden');
+    const upd = () => { if (!alive()) return clearInterval(timerT); const left = until - Date.now(); if (left <= 0) { clearInterval(timerT); el.classList.add('hidden'); done && done(); return; } el.textContent = label + ' ' + mmss(left); };
+    upd(); timerT = setInterval(upd, 1000); };
+  const stopTimer = () => { clearInterval(timerT); $('#gTimer').classList.add('hidden'); };
+  const bars = () => { g = gLoad(); const f = fullness(g), j = joy(g), w = waterPct(g), lv = waterLevel(g);
+    $('#mFull').style.width = f + '%'; $('#mJoy').style.width = j + '%'; $('#mWater').style.width = w + '%';
+    $('#mFull').style.background = f < 25 ? 'var(--bad)' : 'var(--good)'; $('#mJoy').style.background = j < 25 ? 'var(--bad)' : '#e8a020'; $('#mWater').style.background = lv >= 4 ? 'var(--bad)' : '#3d9be0';
+    $('#gTreats').innerHTML = tf('gTreatsLine', g.free || 0, FREE_TREATS, g.bonus || 0, g.coins || 0);
+    $('#gBowl').innerHTML = waterSvg(lv);
+    const wh = $('#gWaterHint'); wh.classList.toggle('hidden', lv < 3); wh.textContent = withName(t(lv >= 4 ? 'gWaterBad' : 'gWaterDirty')); };
   const poos = () => { g = gLoad(); const box = $('#gPoos'); if (!box) return; $('#gPooHint').classList.toggle('hidden', !g.poos.length);
     box.innerHTML = g.poos.map((p, i) => `<button class="poobtn" data-i="${i}" style="left:${p.x}%" aria-label="poo">${pooSvg()}</button>`).join('');
     box.querySelectorAll('.poobtn').forEach(b => b.onclick = e => { e.stopPropagation(); const i = +b.dataset.i, x = g.poos[i].x; g = gLoad(); g.poos.splice(i, 1); g.lastPet = Date.now(); gSave(g);
       fx('✨🧹✨', 4, x); poos(); bars();
-      if (!g.poos.length && state === 'dirty') { state = 'idle'; gBusy = true; draw('sit', 'super', 'r-jump wagfast'); fx('💖✨', 4); setTimeout(() => { gBusy = false; rest(); }, 1500); } }); };
+      if (!g.poos.length && state === 'dirty') { state = 'idle'; if (!gBusy) { gBusy = true; draw('sit', 'super', 'r-jump wagfast'); fx('💖✨', 4); later(1500, () => { gBusy = false; rest(); }); } } }); };
+  const chewing = () => (gLoad().chewUntil || 0) > Date.now();
   const rest = () => { // resting look for the current state
+    carry.innerHTML = '';
+    if (chewing()) { draw('lie', 'eat', 'r-chompl wagfast'); carry.className = 'carry chewing'; carry.innerHTML = toySvg('chew'); return; }
+    carry.className = 'carry';
     if (state === 'weak') draw('lie', 'sad', 'r-breathe weak');
+    else if (state === 'thirsty') draw('sit', 'thirsty', 'r-pant');
     else if (state === 'grumpy') draw('sit', 'grumpy', '');
     else if (state === 'dirty') draw('sit', 'sad', '');
     else if (night && Math.random() < .6) draw('sleep', 'sleep', 'r-breathe sleeping');
     else draw('sit', 'open', ''); };
-  // arrival
-  if (mood0 === 'weak') draw('lie', 'sad', 'r-breathe weak');
+  const recheck = () => { const m = gMood(gLoad()); if (m === 'weak' || m === 'thirsty' || m === 'dirty') state = m; else if (state !== 'grumpy') state = 'idle'; };
+  // ---- eating: takes about a minute ----
+  const eat = until => {
+    gBusy = true; draw('eat', 'eat', 'r-chompl wagfast'); fx('✨🦴✨', 5);
+    later(until - Date.now(), () => { recheck(); draw('sit', state === 'idle' ? 'super' : 'open', 'r-jump wagfast'); fx('❤️💛', 4); later(1500, () => { gBusy = false; rest(); }); });
+  };
+  // ---- chewing toy: plays by himself for half an hour ----
+  const chew = until => { stopTimer(); gBusy = false; rest(); timer('🦴 ' + withName(t('gChewing')), until, () => { carry.innerHTML = ''; draw('sit', 'super', 'r-jump wagfast'); fx('💖✨', 4); later(1500, rest); }); };
+  // ---- arrival ----
+  place(0, 0, 1, 0, false);
+  const eatUntil = g.eatUntil || 0, chewUntil = g.chewUntil || 0;
+  if (eatUntil > Date.now()) eat(eatUntil);
+  else if (chewUntil > Date.now()) chew(chewUntil);
+  else if (mood0 === 'weak') draw('lie', 'sad', 'r-breathe weak');
+  else if (mood0 === 'thirsty') { draw('sit', 'thirsty', 'r-pant'); fx('💧', 2); }
   else if (mood0 === 'grumpy') draw('sit', 'grumpy', '');
   else if (mood0 === 'dirty') draw('sit', 'sad', 'r-sigh');
-  else if (mood0 === 'waking') { gBusy = true; draw('sleep', 'sleep', 'r-breathe sleeping'); setTimeout(() => draw('lie', 'sleep', 'r-stretch'), 1700); setTimeout(() => draw('lie', 'open', ''), 2600);
-    setTimeout(() => { state = 'idle'; draw('sit', 'super', 'r-wiggle wagfast'); fx('💕', 3); }, 3400); setTimeout(() => { gBusy = false; rest(); }, 4900); }
+  else if (mood0 === 'waking') { // asleep next to his house: wakes up slowly, then walks over to you
+    gBusy = true; place(-118, -46, .5, 0, false); draw('sleep', 'sleep', 'r-breathe sleeping');
+    later(2600, () => draw('sleep', 'sleep', 'r-twitch'));
+    later(3500, () => draw('lie', 'sleep', 'r-stretch'));
+    later(4500, () => draw('lie', 'open', 'r-look'));
+    later(5300, () => draw('sit', 'open', 'r-tilt'));
+    later(6000, () => { draw('sit', 'super', 'r-wiggle wagfast'); fx('❗', 1, 22); });
+    later(6600, () => { move('happy', 'wagfast'); place(0, 0, 1, 2600, true); });
+    later(9200, () => { state = 'idle'; place(0, 0, 1, 0, false); draw('sit', 'super', 'r-jump wagfast'); fx('💕💖', 4); });
+    later(10200, () => { gBusy = false; rest(); });
+  }
   else draw('sit', 'happy', 'r-wiggle wagfast');
   bars(); poos();
   const applySky = w => { const sc = $('#gScene'); if (!sc) return; const cls = sky(w); night = /night/.test(cls); sc.className = 'garden ' + cls;
@@ -1551,42 +1680,155 @@ async function viewGarden() {
   let wx = null; applySky(null);
   const loadWx = () => calgaryWeather().then(w => { wx = w; applySky(w); }).catch(() => applySky(wx));
   loadWx();
-  // interactions (no dialogue: Regen shows his mood with his body)
+  const busyToast = () => toast(withName(t(chewing() ? 'gBusyChew' : 'gBusy')), 2200);
+  // ---- interactions (no dialogue: the puppy shows his mood with his body) ----
   const pet = () => {
+    if (play && play.pet) return play.pet();
     if (gBusy) return; g = gLoad(); g.lastPet = Date.now(); g.petTotal = (g.petTotal || 0) + 1; gSave(g); bars();
-    if (state === 'weak') { gBusy = true; draw('lie', 'open', 'r-wiggle weak'); fx('💧', 1); setTimeout(() => { gBusy = false; rest(); }, 1400); return; }
-    if (state === 'dirty') { gBusy = true; draw('sit', 'sad', 'r-shake'); fx('💩', 1); setTimeout(() => { gBusy = false; rest(); }, 1300); return; }
-    if (state === 'grumpy' && --grumpLeft > 0) { gBusy = true; draw('sit', 'grumpy', 'r-shake'); setTimeout(() => { gBusy = false; rest(); }, 1200); return; }
+    if (chewing()) { fx('💕', 2); pup.classList.add('r-wiggle'); return; }
+    if (state === 'weak') { gBusy = true; draw('lie', 'open', 'r-wiggle weak'); fx('💧', 1); later(1400, () => { gBusy = false; rest(); }); return; }
+    if (state === 'thirsty') { gBusy = true; draw('sit', 'thirsty', 'r-wiggle'); fx('💧', 2); later(1400, () => { gBusy = false; rest(); }); return; }
+    if (state === 'dirty') { gBusy = true; draw('sit', 'sad', 'r-shake'); fx('💩', 1); later(1300, () => { gBusy = false; rest(); }); return; }
+    if (state === 'grumpy' && --grumpLeft > 0) { gBusy = true; draw('sit', 'grumpy', 'r-shake'); later(1200, () => { gBusy = false; rest(); }); return; }
     state = 'idle'; wrap.classList.remove('turned');
     let i; do { i = Math.floor(Math.random() * PET.length); } while (i === gLastPet); gLastPet = i;
     const r = PET[i]; gBusy = true;
     if (r.pose === 'run') move(r.e, r.a + ' wagfast', true); else draw(r.pose || 'sit', r.e, r.a + ' wagfast');
     fx(r.fx);
-    setTimeout(() => { gBusy = false; draw('sit', 'happy', 'wagfast'); setTimeout(() => { if (!gBusy) rest(); }, 1500); }, 1500);
+    later(1500, () => { gBusy = false; draw('sit', 'happy', 'wagfast'); later(1500, () => { if (!gBusy) rest(); }); });
   };
   pup.onclick = pet; $('#gPet').onclick = pet;
   $('#gFeed').onclick = () => {
-    if (gBusy) return; g = gLoad(); if (!treatsLeft(g)) { toast(t('gNoTreat'), 3500); return; }
+    if (gBusy || play || chewing()) return busyToast(); g = gLoad(); if (!treatsLeft(g)) { toast(t('gNoTreat'), 3500); return; }
     if (g.free > 0) g.free--; else g.bonus--;
     g.recentFeeds = H(g.lastFed) < 3 ? (g.recentFeeds || 0) + 1 : 1; g.lastFed = Date.now(); g.fedTotal = (g.fedTotal || 0) + 1;
+    g.eatUntil = Date.now() + EAT_MS;
     if (!g.pendingPoo) g.pendingPoo = Date.now() + POO_H * 36e5; gSave(g);
-    const wasDirty = state === 'dirty'; state = wasDirty ? 'dirty' : 'idle'; grumpLeft = 0; gBusy = true; wrap.classList.remove('turned');
-    draw('eat', 'eat', 'r-chomp wagfast'); fx('✨🦴✨', 5);
-    setTimeout(() => { draw('sit', wasDirty ? 'open' : 'super', 'r-jump wagfast'); fx('❤️💛', 4); }, 1900);
-    setTimeout(() => { gBusy = false; rest(); }, 3300); bars();
+    if (state === 'weak' || state === 'grumpy') state = 'idle'; grumpLeft = 0; wrap.classList.remove('turned');
+    bars(); eat(g.eatUntil);
   };
-  // a living puppy: blinks, breathes and wags all the time, and does small things on his own
+  // ---- water: change it any time; he drinks fresh water happily ----
+  const changeWater = () => {
+    g = gLoad(); const was = waterLevel(g); g.waterAt = Date.now(); gSave(g); bars(); fx('💦✨', 4, 76);
+    if (gBusy || play || chewing()) return;
+    gBusy = true; draw('sit', 'open', 'r-look');
+    later(800, () => { draw('drink', 'eat', 'r-chompl wagfast'); fx('💧', 3); });
+    later(3800, () => { recheck(); draw('sit', was >= 4 ? 'super' : 'happy', was >= 4 ? 'r-jump wagfast' : 'wagfast'); fx(was >= 4 ? '💙💖💙' : '💙', 3); });
+    later(5200, () => { gBusy = false; rest(); });
+  };
+  $('#gWaterBtn').onclick = changeWater; $('#gBowl').onclick = changeWater;
+  // ---- shop: spend coins on treats and toys ----
+  const shopName = it => t('shop_' + it.id);
+  const shopIcon = it => it.kind === 'treat' ? treatSvg() : toySvg(it.id);
+  const openShop = () => {
+    g = gLoad();
+    const m = showSheet(`<h2 style="margin-top:0">🛒 ${t('shopTitle')}</h2><div class="muted">${tf('shopCoins', g.coins || 0)}</div>
+      <div class="shopgrid">${SHOP.map(it => `<button class="shopitem" data-id="${it.id}" ${g.coins >= it.price ? '' : 'disabled'}><span class="ic">${shopIcon(it)}</span><b>${shopName(it)}</b><span class="price">🪙 ${it.price}</span></button>`).join('')}</div>
+      <div class="muted" style="margin-top:10px">${t('shopHint')}</div><button class="btn sec" id="shopClose">${t('close')}</button>`);
+    m.querySelector('#shopClose').onclick = closeSheet;
+    m.querySelectorAll('.shopitem').forEach(b => b.onclick = () => {
+      const it = SHOP.find(x => x.id === b.dataset.id); g = gLoad(); if ((g.coins || 0) < it.price) return;
+      g.coins -= it.price; if (it.kind === 'treat') g.bonus += it.n; else g.toys.push({ type: it.id, uses: 0, t: Date.now() });
+      gSave(g); bars(); toast('✅ ' + tf('shopBought', shopName(it)), 2000); openShop();
+    });
+  };
+  $('#gShopBtn').onclick = openShop;
+  // ---- toys: each lasts 10 plays, then it's old and dirty ----
+  const openToys = () => {
+    if (gBusy || play) return busyToast();
+    g = gLoad();
+    const list = g.toys.map((y, i) => { const old = y.uses >= TOY_LIFE;
+      return `<div class="toyrow${old ? ' old' : ''}"><span class="ic">${toySvg(y.type, old)}</span><div style="flex:1"><b>${t('shop_' + y.type)}</b><div class="muted">${old ? t('toyOld') : tf('toyLeft', TOY_LIFE - y.uses)}</div></div>
+        ${old ? `<button class="btn sec small" data-bin="${i}">${t('toyBin')}</button>` : `<button class="btn small" data-play="${i}">${t('toyPlay')}</button>`}</div>`; }).join('');
+    const m = showSheet(`<h2 style="margin-top:0">🎾 ${t('toyTitle')}</h2>${list || `<div class="muted" style="margin:12px 0">${t('toyNone')}</div>`}
+      <div class="row" style="margin-top:12px"><button class="btn sec" id="toyClose" style="margin:0">${t('close')}</button><button class="btn" id="toyShop" style="margin:0">🛒 ${t('gShopBtn')}</button></div>`);
+    m.querySelector('#toyClose').onclick = closeSheet; m.querySelector('#toyShop').onclick = openShop;
+    m.querySelectorAll('[data-bin]').forEach(b => b.onclick = () => { g = gLoad(); g.toys.splice(+b.dataset.bin, 1); gSave(g); openToys(); });
+    m.querySelectorAll('[data-play]').forEach(b => b.onclick = () => {
+      const i = +b.dataset.play; closeSheet();
+      if (state === 'weak') { toast(withName(t('gToyWeak')), 2500); return; }
+      if (chewing()) return busyToast();
+      g = gLoad(); const y = g.toys[i]; if (!y || y.uses >= TOY_LIFE) return;
+      y.uses++; g.lastPet = Date.now(); g.playTotal = (g.playTotal || 0) + 1; if (y.type === 'chew') g.chewUntil = Date.now() + CHEW_MS; gSave(g);
+      const worn = y.uses >= TOY_LIFE; if (state === 'grumpy') state = 'idle'; wrap.classList.remove('turned');
+      const end = () => { play = null; recheck(); bars(); if (worn) later(800, () => toast(withName(tf('toyWorn', t('shop_' + y.type))), 3500)); };
+      if (y.type === 'ball') playBall(end); else if (y.type === 'rope') playRope(end); else { chew(g.chewUntil); end(); }
+    });
+  };
+  $('#gToyBtn').onclick = openToys;
+  // ball: thrown far away, he runs off (gets small), catches it and brings it back
+  const playBall = end => {
+    play = {}; gBusy = true; stopTimer(); const ball = $('#gBall');
+    draw('sit', 'super', 'r-wiggle wagfast');
+    ball.className = 'ballfly'; ball.style.transition = 'none'; ball.style.transform = 'translate(0,0) scale(1)';
+    later(700, () => { ball.style.transition = 'transform 1s cubic-bezier(.2,.7,.4,1)'; ball.style.transform = 'translate(118px,-150px) scale(.45)'; });
+    later(1000, () => { move('super', 'wagfast', true); place(96, -66, .42, 1500, true); });
+    later(1700, () => { ball.style.transition = 'transform .5s ease-in'; ball.style.transform = 'translate(118px,-92px) scale(.4)'; });
+    later(2600, () => { ball.className = 'ballfly hidden'; carry.className = 'carry mouth'; carry.innerHTML = toySvg('ball'); draw('sit', 'happy', 'r-jump wagfast'); place(96, -66, .42, 0, false); });
+    later(3300, () => { carry.className = 'carry mouth runm'; move('happy', 'wagfast', true); place(0, 0, 1, 1500, false); });
+    later(4900, () => { carry.innerHTML = ''; carry.className = 'carry'; draw('sit', 'super', 'r-jump wagfast'); fx('🎾💖✨', 6);
+      ball.className = 'ballfly'; ball.style.transition = 'none'; ball.style.transform = 'translate(-20px,0) scale(.8)'; });
+    later(6600, () => { ball.className = 'ballfly hidden'; gBusy = false; end(); rest(); });
+  };
+  // rope: tug-of-war. The rope starts hanging straight down from his mouth; hold the knot and pull any way you like.
+  // Let go = he wins; a quick strong yank (or pulling far) = you win. Either way he's thrilled.
+  const playRope = end => {
+    gBusy = true; stopTimer(); const scene = $('#gScene'), rope = $('#gRope'), knot = $('#gKnot'), ro = $('#gRopeO'), ri = $('#gRopeI');
+    draw('sit', 'tug', 'r-tug wagfast'); place(0, 0, 1, 0, false);
+    const mouth = () => { const s = scene.getBoundingClientRect(), r = pup.getBoundingClientRect(); return [r.left - s.left + r.width * .5, r.top - s.top + r.height * (124 / 240)]; };
+    const SH = () => scene.clientHeight, SW = () => scene.clientWidth;
+    let [mx, my] = mouth(); const home = [mx, Math.min(SH() - 24, my + 84)];
+    let kx = home[0], ky = home[1], holding = false, done = false, grab = [0, 0], samples = [], raf = 0, jig = 0;
+    rope.classList.remove('hidden'); knot.classList.remove('hidden');
+    const drawRope = () => { [mx, my] = mouth(); const cx = (mx + kx) / 2, cy = (my + ky) / 2 + 14; const d = `M${mx} ${my} Q${cx} ${cy} ${kx} ${ky}`; ro.setAttribute('d', d); ri.setAttribute('d', d); knot.style.left = kx + 'px'; knot.style.top = ky + 'px'; };
+    const loop = () => { if (!alive() || done) return; jig++;
+      if (!holding) { const w = Math.sin(jig / 9) * 4; kx = home[0] + w * .6; ky = home[1] - Math.abs(w); } // he shakes the rope while waiting
+      const vx = kx - home[0], vy = ky - home[1], len = Math.hypot(vx, vy) || 1, pull = Math.min(26, len * .2);
+      place(holding ? vx / len * pull - vx / len * 6 * Math.abs(Math.sin(jig / 5)) : 0, holding ? Math.min(0, vy / len * pull * .4) : 0, 1, 120, false);
+      drawRope(); raf = requestAnimationFrame(loop); };
+    toast(t('ropeHint'), 3200); loop();
+    const finish = userWins => { if (done) return; done = true; cancelAnimationFrame(raf); clearTimeout(auto); holding = false;
+      knot.onpointerdown = knot.onpointermove = knot.onpointerup = knot.onpointercancel = null;
+      if (userWins) { // you yank it away: he tumbles, then bounces up thrilled
+        const vx = kx - home[0], vy = ky - home[1], len = Math.hypot(vx, vy) || 1; kx += vx / len * 200; ky += vy / len * 200;
+        knot.style.transition = 'left .4s ease-out, top .4s ease-out'; drawRope(); place(-vx / len * 14, 0, 1, 300, false); draw('lie', 'super', 'r-roll');
+        later(500, () => { rope.classList.add('hidden'); knot.classList.add('hidden'); knot.style.transition = ''; });
+        later(900, () => { draw('sit', 'super', 'r-jump wagfast'); place(0, 0, 1, 300, false); fx('💖✨🎉', 6); });
+        later(2800, () => { gBusy = false; end(); rest(); });
+      } else { // you let go: he wins the rope and runs a victory lap with it
+        rope.classList.add('hidden'); knot.classList.add('hidden'); carry.className = 'carry mouth rope'; carry.innerHTML = toySvg('rope'); draw('sit', 'super', 'r-shake wagfast'); place(0, 0, 1, 200, false);
+        later(900, () => { carry.className = 'carry mouth runm rope'; move('super', 'wagfast', true); place(-90, -10, .9, 900, false); });
+        later(1800, () => { place(90, -10, .9, 1400, true); });
+        later(3200, () => { place(0, 0, 1, 900, false); });
+        later(4100, () => { carry.innerHTML = ''; carry.className = 'carry'; draw('sit', 'super', 'r-jump wagfast'); fx('💖🏆✨', 6); });
+        later(5800, () => { gBusy = false; end(); rest(); });
+      } };
+    knot.onpointerdown = e => { e.preventDefault(); try { knot.setPointerCapture(e.pointerId); } catch (x) {} holding = true; grab = [e.clientX - kx, e.clientY - ky]; samples = []; draw('sit', 'tug', 'r-tug r-tugfast wagfast'); };
+    knot.onpointermove = e => { if (!holding || done) return;
+      kx = Math.max(16, Math.min(SW() - 16, e.clientX - grab[0])); ky = Math.max(16, Math.min(SH() - 12, e.clientY - grab[1]));
+      const now = performance.now(); samples.push([now, e.clientX, e.clientY]); samples = samples.filter(s => now - s[0] < 160);
+      const far = Math.hypot(kx - home[0], ky - home[1]);
+      if (samples.length > 1) { const a = samples[0], b = samples[samples.length - 1], v = Math.hypot(b[1] - a[1], b[2] - a[2]) / Math.max(1, b[0] - a[0]); if (v > 1.4 || far > 150) finish(true); } };
+    knot.onpointerup = knot.onpointercancel = () => { if (holding && !done) finish(false); };
+    play = { pet: () => {} };
+    const auto = setTimeout(() => { if (alive()) finish(false); }, 25e3);
+  };
+  // ---- a living puppy: blinks, breathes and wags all the time, and does small things on his own ----
   const IDLE = [
     () => draw('sit', 'open', 'r-tilt'), () => draw('sit', 'open', 'r-look'), () => draw('sit', 'open', 'r-twitch'),
     () => draw('sit', 'happy', 'wagfast'), () => draw('sit', 'open', 'r-sniff'), () => draw('sit', 'sleep', 'r-stretch'),
-    () => { move('happy', 'r-walk'); setTimeout(() => { if (!gBusy) rest(); }, 3600); }, () => draw('lie', 'open', 'r-breathe'),
+    () => { move('happy', 'r-walk'); later(3600, () => { if (!gBusy) rest(); }); }, () => draw('lie', 'open', 'r-breathe'),
     () => { draw('sit', 'open', 'r-look'); const b = document.createElement('span'); b.className = 'fly'; b.textContent = '🦋'; $('#gFx').appendChild(b); setTimeout(() => b.remove(), 4000); }
   ];
   clearInterval(viewGarden._iv); clearInterval(viewGarden._sky);
-  const tick = () => { if (!$('#gPup')) { clearInterval(viewGarden._iv); stopWalk(); return; }
-    const before = (g.poos || []).length; g = gLoad(); if (g.poos.length !== before) { poos(); if (g.poos.length > before && state !== 'weak') { state = 'dirty'; draw('sit', 'sad', 'r-sigh'); } }
-    if (gBusy || walkT) return;
+  const tick = () => { if (!alive()) { clearInterval(viewGarden._iv); stopWalk(); clearInterval(timerT); return; }
+    const before = (g.poos || []).length, lv0 = waterLevel(g); g = gLoad(); if (g.poos.length !== before) poos(); if (waterLevel(g) !== lv0) bars();
+    if (gBusy || walkT || play) return;
+    if (chewing()) return;
+    if (g.poos.length > before && state !== 'weak') { state = 'dirty'; draw('sit', 'sad', 'r-sigh'); return; }
+    if (state !== 'weak' && waterLevel(g) >= 4 && state !== 'thirsty') state = 'thirsty';
     if (state === 'weak') { draw('lie', 'sad', 'r-breathe weak' + (Math.random() < .3 ? ' r-sigh' : '')); return; }
+    if (state === 'thirsty') { if (Math.random() < .4) { draw('sit', 'sad', 'r-sniff'); fx('💧', 1, 76); } else draw('sit', 'thirsty', 'r-pant'); return; }
     if (state === 'grumpy') { draw('sit', 'grumpy', Math.random() < .5 ? 'r-look' : 'r-twitch'); return; }
     if (state === 'dirty') { draw('sit', 'sad', Math.random() < .5 ? 'r-look' : 'r-sigh'); return; }
     if (night && Math.random() < .55) { draw('sleep', 'sleep', 'r-breathe sleeping'); return; }
@@ -1594,8 +1836,8 @@ async function viewGarden() {
   viewGarden._iv = setInterval(tick, 4200);
   viewGarden._sky = setInterval(() => { if (!$('#gScene')) { clearInterval(viewGarden._sky); return; } loadWx(); }, 60e3);
 }
-// header puppy: a hint dot when Regen needs attention
-function gardenDot() { const g = gLoad(); if (!g.pup) return '<span class="gdot">🐾</span>'; const m = gMood(g); return m === 'weak' || m === 'grumpy' || m === 'dirty' ? '<span class="gdot">!</span>' : ''; }
+// header puppy: a hint dot when the puppy needs attention
+function gardenDot() { const g = gLoad(); if (!g.pup) return '<span class="gdot">🐾</span>'; const m = gMood(g); return m === 'weak' || m === 'grumpy' || m === 'dirty' || m === 'thirsty' ? '<span class="gdot">!</span>' : ''; }
 
 /* ---------- First visit: adopt a puppy at the pet shop (pick colour, then a name) ---------- */
 function viewAdopt() {
@@ -1612,7 +1854,7 @@ function viewAdopt() {
   };
   const nameIt = () => {
     app.innerHTML = `<div class="shop small"><div class="pups one"><div class="pupbox on">${regenSvg('sit', 'super', color)}<span class="cushion"></span></div></div></div>
-      <div class="card"><label>${t('adoptName')}</label><input id="adName" maxlength="12" placeholder="${esc(t('adoptNamePh'))}"><div class="muted" style="margin-top:8px">🤝 ${t('adoptPromise')}</div></div>
+      <div class="card"><label>${t('adoptName')}</label><input id="adName" maxlength="12" placeholder="${esc(t('adoptNamePh'))}"><div class="muted" style="margin-top:8px">${t('adoptPromise')}</div></div>
       <div class="row"><button class="btn sec" id="adBack" style="margin:0">‹ ${t('adoptBack')}</button><button class="btn" id="adDone" style="margin:0">${t('adoptDone')}</button></div>`;
     $('#adName').focus();
     $('#adBack').onclick = shop;
@@ -1632,10 +1874,18 @@ function viewAdopt() {
 
 /* ---------- What's new (shown once after each update) ---------- */
 const CHANGES = {
-  '4.8.0': [['狗仔店：第一次入花園，可以揀白色、黑色或者啡色狗仔，再幫佢改名。揀咗就唔可以再改，係你對狗仔嘅承諾。',
+  '4.9.0': [['新增金幣：每記錄一個價錢賺 1 個金幣，去花園商店買零食同玩具。每日免費零食改為 3 粒。',
+             '新增清水：水會慢慢變污糟（5 級），超過 12 個鐘冇換水，狗仔唔肯飲會口渴。隨時撳「換水」或者水兜換新水。',
+             '新增玩具（每件玩 10 次）：波波（狗仔跑去遠處咬返嚟）、拔河繩（㩒住繩尾向任何方向拉，同佢拔河）、咬咬玩具（佢自己玩半個鐘）。',
+             '狗仔食零食要大約 1 分鐘；入花園時佢會慢慢醒，再由屋仔行過嚟搵你。'],
+            ['New: coins. Earn 1 coin for each price you log and spend them at the garden shop on treats and toys. Free treats are now 3 a day.',
+             'New: water. It slowly gets dirty (5 levels); after 12 hours without a change your puppy won’t drink and gets thirsty. Tap “Water” or the bowl any time.',
+             'New toys (10 plays each): ball (he runs far to fetch it), tug rope (hold the rope end and pull any way for tug-of-war) and chew toy (he plays on his own for half an hour).',
+             'Eating a treat now takes about a minute, and when you arrive he wakes up slowly and walks over from his house.']],
+  '4.8.0': [['狗仔店：第一次入花園，可以揀白色、黑色或者啡色狗仔，再幫佢改名。揀咗就唔可以再改。',
              '狗仔換咗新造型：跟返 App icon 嘅耳仔同樣貌，簡約線條風格，大頭短腳；行路同跑步會郁腳。',
              '新增便便：餵完大約 3 個鐘，狗仔會喺花園屙便便（最多 3 堆）。撳便便清走佢，有便便嘅時候佢會唔開心。'],
-            ['Puppy shop: on your first visit to the garden, pick a white, black or brown puppy and give it a name. It can’t be changed later — it’s a promise to your puppy.',
+            ['Puppy shop: on your first visit to the garden, pick a white, black or brown puppy and give it a name. It can’t be changed later.',
              'New puppy look: the app icon’s ears and face in a clean line style, big head and short legs; legs move when walking or running.',
              'New: poo. About 3 hours after a meal your puppy poos in the garden (up to 3 piles). Tap to clean up — it’s unhappy while there’s poo around.']],
   '4.7.0': [['Regen 變成動畫風格：會眨眼、呼吸、側頭、郁耳仔、聞嘢、行來行去、追蝴蝶；夜晚會瞓覺。佢唔再講嘢，用身體表達心情。',
