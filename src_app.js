@@ -1,5 +1,5 @@
 'use strict';
-const APP_VERSION = '4.9.1';
+const APP_VERSION = '5.0.0';
 const $ = s => document.querySelector(s);
 const app = $('#app');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -79,6 +79,18 @@ const I18N = {
   toyNone:['仲未有玩具，去商店買啦！','No toys yet — get one at the shop!'], gToyWeak:['Regen 太肚餓，冇力玩，先餵佢食嘢啦。','Regen is too hungry to play — give a treat first.'],
   ropeHint:['㩒住繩尾粒藍波，向邊度拉都得！放手就 Regen 贏；快速大力一拉就你贏。','Hold the blue knot and pull any way! Let go and Regen wins; a quick strong yank and you win.'],
   ballHint:['👆 向上掃個波！愈快愈遠','👆 Swipe the ball up! Faster = farther'],
+  tabTrack:['Tracking','Tracking'], backCats:['All categories','All categories'], trackBtn:['Track','Track'], tracking:['Tracking','Tracking'],
+  trackOn:['🔔 Tracking — you’ll get an alert when it hits a 30-day low.','🔔 Tracking — you’ll get an alert when it hits a 30-day low.'], trackOff:['🔕 Stopped tracking','🔕 Stopped tracking'],
+  track30:['30-day low now','30-day low now'], trackNone:['Nothing tracked yet. Tap 🔕 Track on an item or product page.','Nothing tracked yet. Tap 🔕 Track on an item or product page.'],
+  trackAlertTitle:['🔔 30-day low!','🔔 30-day low!'], trackAlertHint:['These tracked prices are at their best of the last 30 days right now.','These tracked prices are at their best of the last 30 days right now.'],
+  noBarcode:['No barcode? Log a price','No barcode? Log a price'], scanSeeAll:['See all prices for this item','See all prices for this item'], scanTapInfo:['Details','Details'], scanDetails:['Scanned product','Scanned product'],
+  pdName:['Name','Name'], pdBrand:['Brand','Brand'], pdSize:['Size','Size'], pdBarcode:['Barcode','Barcode'], pdCats:['Type','Type'], pdOff:['View on Open Food Facts','View on Open Food Facts'],
+  updTitle:['New version available','New version available'], updBtn:['Update now','Update now'], updLater:['Later','Later'], updDoing:['Updating…','Updating…'],
+  notiTitle:['Notifications','Notifications'], notiHint:['Get a phone notification when your puppy needs you or a tracked price hits its 30-day low (while the app is open or in the background).','Get a phone notification when your puppy needs you or a tracked price hits its 30-day low (while the app is open or in the background).'],
+  notiOn:['Turn on notifications','Turn on notifications'], notiOnDone:['Notifications are on','Notifications are on'], notiTest:['Send a test','Send a test'], notiTestBody:['🐶 Woof! Notifications work.','🐶 Woof! Notifications work.'],
+  notiDenied:['Notifications are blocked. Allow them for this app in your phone’s settings.','Notifications are blocked. Allow them for this app in your phone’s settings.'],
+  notiNo:['Not available here. On iPhone, add the app to your Home Screen first, then open it from there.','Not available here. On iPhone, add the app to your Home Screen first, then open it from there.'],
+  needTap:['Tap to help','Tap to help'], gTapHint:['Tap the puppy to pet him','Tap the puppy to pet him'],
   coinPlus:['🪙 +1 金幣！可以去花園商店買嘢俾 Regen','🪙 +1 coin! Spend it at the garden shop for Regen'],
   treatPlus:['🦴 +1 零食俾 Regen！','🦴 +1 treat for Regen!'],
   curTitle:['🏷️ 而家嘅特價同最新價錢','🏷️ Current deals & latest prices'], curHint:['傳單有效期內嘅特價，同近 7 日記錄嘅價錢，最抵排先','Valid flyer deals and prices logged in the last 7 days, cheapest first'],
@@ -117,13 +129,20 @@ const I18NF = {
   gTreatsLine:[(f,F,b,c)=>`🦴 免費 <b>${f}/${F}</b> · 零食 <b>${b}</b> · 🪙 <b>${c}</b>`,(f,F,b,c)=>`🦴 Free <b>${f}/${F}</b> · Treats <b>${b}</b> · 🪙 <b>${c}</b>`],
   gTitle:[n=>`${n} 嘅花園`,n=>`${n}’s garden`], adoptWelcome:[n=>`🎉 歡迎 ${n} 返屋企！`,n=>`🎉 Welcome home, ${n}!`],
   shopCoins:[n=>`你有 🪙 <b>${n}</b> 個金幣`,n=>`You have 🪙 <b>${n}</b> coins`], shopBought:[n=>`買咗 ${n}`,n=>`Bought ${n}`], toyLeft:[n=>`仲可以玩 ${n} 次`,n=>`${n} plays left`], toyWorn:[n=>`${n}玩咗 10 次，舊咗喇～要買過新嘅。`,n=>`The ${n} has been played 10 times and is worn out — buy a new one.`],
-  scanGuess:[n=>`狗狗估係「${n}」，下面係呢類產品嘅價錢。`,n=>`The pup thinks it’s “${n}” — prices for this item are below.`],
+  gTreatsMini:[(f,F,b,c)=>`🦴 ${f}/${F}${b ? ' +' + b : ''} · 🪙 ${c}`,(f,F,b,c)=>`🦴 ${f}/${F}${b ? ' +' + b : ''} · 🪙 ${c}`],
+  bondUp:[(n,L)=>`💗 ${n}’s bond is now Lv ${L}!`,(n,L)=>`💗 ${n}’s bond is now Lv ${L}!`],
+  updBody:[(v,o)=>`Version ${v} is ready (you have ${o}).`,(v,o)=>`Version ${v} is ready (you have ${o}).`],
+  needTitle:[n=>`🐶 ${n} needs you`,n=>`🐶 ${n} needs you`], needWeak:[n=>`${n} is very hungry and weak!`,n=>`${n} is very hungry and weak!`],
+  needThirsty:[n=>`${n} is thirsty — the water is too dirty.`,n=>`${n} is thirsty — the water is too dirty.`], needDirty:[n=>`${n} pooped — please clean it up.`,n=>`${n} pooped — please clean it up.`],
+  needGrumpy:[n=>`${n} feels lonely. Come and play!`,n=>`${n} feels lonely. Come and play!`], needHungry:[n=>`${n} is getting hungry.`,n=>`${n} is getting hungry.`],
+  needWater:[n=>`${n}’s water is getting dirty.`,n=>`${n}’s water is getting dirty.`],
+  scanGuess:[n=>`狗狗估係「${n}」，下面係呢類產品嘅價錢。`,n=>`The pup thinks it belongs to “${n}”.`],
   vEq:[(s,dt)=>`同歷史最低一樣（${s}，${dt}）`,(s,dt)=>`Same as the all-time low (${s}, ${dt})`],
   vHigh:[(d,p,m,s,dt)=>`比歷史最低 ${m}（${s}，${dt}）貴 ${d}（+${p}%）`,(d,p,m,s,dt)=>`${d} (+${p}%) above the all-time low of ${m} (${s}, ${dt})`],
   itemsAt:[(n,pr)=>`${n} 件 ${pr}`,(n,pr)=>`${n} for ${pr}`], count:[(i,o)=>`${i} 件產品 · ${o} 筆價錢`,(i,o)=>`${i} items · ${o} prices`],
   ago:[d=>d<=0?'今日':d===1?'琴日':`${d} 日前`,d=>d<=0?'today':d===1?'yesterday':`${d} days ago`]
 };
-let LANG = lsGet('lang') || ((navigator.language || '').toLowerCase().startsWith('zh') ? 'zh' : 'en');
+let LANG = 'en'; // English only from 5.0
 const LI = () => LANG === 'zh' ? 0 : 1;
 const t = k => (I18N[k] || [k, k])[LI()];
 const tn = (k, n) => I18N[k][LI()](n);
@@ -131,7 +150,7 @@ const tf = (k, ...a) => I18NF[k][LI()](...a);
 const CATS = [['水果蔬菜','Produce'],['肉類','Meat'],['海鮮','Seafood'],['奶類蛋','Dairy & eggs'],['麵包','Bakery'],['米麵乾貨','Rice, noodles & pantry'],['調味醬料','Sauces & seasoning'],['早餐穀物','Breakfast'],['零食','Snacks'],['飲品','Drinks'],['急凍','Frozen'],['清潔用品','Household cleaning'],['個人護理','Personal care'],['其他','Other']];
 const catLabel = c => { const f = CATS.find(x => x[0] === c); return f ? f[LI()] : (c || ''); };
 const itemName = it => LANG === 'en' && it.en ? it.en : (it.name || it.en || t('unnamed'));
-const itemSub = it => LANG === 'en' ? (it.name && it.en ? it.name : '') : (it.en || '');
+const itemSub = it => ''; // English only: no second-language name
 function applyStatic() {
   document.documentElement.lang = LANG === 'zh' ? 'zh-Hant' : 'en';
   document.querySelectorAll('[data-t]').forEach(el => el.textContent = t(el.dataset.t));
@@ -338,7 +357,7 @@ function startListeners() {
         else await putOne(name, { ...ch.doc.data(), id: ch.doc.id });
         changed = true;
       }
-      if (changed) scheduleRerender();
+      if (changed) { scheduleRerender(); checkTrack(); }
     }, e => setSync('error', e.code)));
   }
 }
@@ -363,6 +382,8 @@ async function touchProfile(first) {
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') touchProfile(false); });
 function listenFavs() {
   unsubs.push(fb.F.onSnapshot(favRef(), snap => {
+    if (snap.exists() && snap.data().track && snap.data().track.join('|') !== [...TRACK].join('|')) { TRACK = new Set(snap.data().track); lsSet('track', JSON.stringify(snap.data().track)); scheduleRerender(); checkTrack(); }
+    else if (snap.exists() && !snap.data().track && TRACK.size) pushTrack();
     if (!snap.exists() || !snap.data().favs) { if (FAVS.size) pushFavs(); return; }
     const remote = snap.data().favs || [];
     if (remote.join('|') !== [...FAVS].join('|')) { FAVS = new Set(remote); lsSet('favs', JSON.stringify(remote)); scheduleRerender(); }
@@ -418,10 +439,10 @@ function normCode(raw) { const d = String(raw || '').replace(/\D/g, ''); return 
 async function lookupProduct(code) {
   for (const h of ['world.openfoodfacts.org', 'world.openproductsfacts.org', 'world.openbeautyfacts.org']) {
     try {
-      const r = await fetch(`https://${h}/api/v2/product/${code}.json?fields=product_name,product_name_en,brands,quantity,image_front_small_url,categories_tags`, { signal: AbortSignal.timeout ? AbortSignal.timeout(7000) : undefined });
+      const r = await fetch(`https://${h}/api/v2/product/${code}.json?fields=product_name,product_name_en,brands,quantity,image_front_small_url,image_front_url,categories_tags`, { signal: AbortSignal.timeout ? AbortSignal.timeout(7000) : undefined });
       if (!r.ok) continue;
       const j = await r.json();
-      if (j.status === 1 && j.product) { const p = j.product; return { name: p.product_name_en || p.product_name || '', brand: (p.brands || '').split(',')[0].trim(), quantity: p.quantity || '', image: p.image_front_small_url || '', cats: (p.categories_tags || []).map(c => c.replace(/^[a-z]{2}:/, '').replace(/-/g, ' ')).join(' ') }; }
+      if (j.status === 1 && j.product) { const p = j.product, cl = (p.categories_tags || []).map(c => c.replace(/^[a-z]{2}:/, '').replace(/-/g, ' ')); return { name: p.product_name_en || p.product_name || '', brand: (p.brands || '').split(',')[0].trim(), quantity: p.quantity || '', image: p.image_front_small_url || '', imageBig: p.image_front_url || '', cats: cl.join(' '), catsList: cl.filter(c => !/^(undefined|plant based)/.test(c)) }; }
     } catch (e) {}
   }
   return null;
@@ -502,6 +523,7 @@ function closeScanner() {
 }
 $('#torchBtn').onclick = async () => { if (!scanStream) return; torchOn = !torchOn; try { await scanStream.getVideoTracks()[0].applyConstraints({ advanced: [{ torch: torchOn }] }); } catch (e) {} };
 $('#closeScanBtn').onclick = () => { closeScanner(); if (location.hash === '#scan') location.hash = '#home'; };
+$('#noCodeBtn').onclick = () => { closeScanner(); location.hash = '#pick/'; };
 $('#manualGo').onclick = () => { const c = $('#manualCode').value; if (!normCode(c)) return toast(t('needCode')); const cb2 = scanCb || handleBarcode; closeScanner(); cb2(c); };
 $('#photoScanBtn').onclick = async () => {
   const det = await getDetector();
@@ -527,7 +549,7 @@ async function handleBarcode(raw) {
   const info = await lookupProduct(code);
   const sug = info ? matchItems(info, await getAll('items')) : [];
   sessionStorage.setItem('pp_pending', JSON.stringify({ code, info, sug: sug.slice(0, 5).map(x => x.it.id) }));
-  if (sug.length && sug[0].score >= 3) { scanCtx = { code, info, itemId: sug[0].it.id, alts: sug.slice(1, 4).map(x => x.it.id) }; location.hash = `#item/${encodeURIComponent(sug[0].it.id)}`; }
+  if (sug.length && sug[0].score >= 3 && sug[0].strong > 0) { scanCtx = { code, info, itemId: sug[0].it.id, alts: sug.slice(1, 4).map(x => x.it.id) }; location.hash = `#item/${encodeURIComponent(sug[0].it.id)}`; }
   else location.hash = `#pick/${code}`;
 }
 // guess the main item for a scanned product from its name, brand and categories
@@ -535,13 +557,15 @@ const STOPW = new Set(['the', 'and', 'or', 'with', 'de', 'la', 'le', 'du', 'des'
 const toks = str => (str || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').split(/[^a-z0-9一-鿿]+/)
   .filter(w => w.length > 1 && !STOPW.has(w) && !/^\d/.test(w)).map(w => w.replace(/ies$/, 'y').replace(/(?<=[a-z]{3})(es|s)$/, ''));
 function matchItems(info, items) {
-  const q = new Set(toks([info.name, info.brand, info.cats].join(' '))); if (!q.size) return [];
+  // the product's own name counts most, then brand; the (often messy) database categories only a little
+  const qn = new Set(toks(info.name)), qb = new Set(toks(info.brand)), qc = new Set(toks(info.cats)); if (!qn.size && !qb.size && !qc.size) return [];
   return items.map(it => {
     const nameT = new Set(toks([it.en, ...(it.aliases || [])].join(' ')));
-    let score = 0; nameT.forEach(w => { if (q.has(w)) score += 3; });
-    let best = 0;
-    for (const va of Object.values(it.variants || {})) { const vt = [...new Set(toks([va.brand, va.desc].join(' ')))]; if (!vt.length) continue; const h = vt.filter(w => q.has(w)).length; best = Math.max(best, h * 2 / Math.sqrt(vt.length)); }
-    return { it, score: score + best };
+    let score = 0, strong = 0; nameT.forEach(w => { if (qn.has(w)) { score += 4; strong++; } else if (qc.has(w)) score += 1; });
+    let best = 0, bs = 0;
+    for (const va of Object.values(it.variants || {})) { const vt = [...new Set(toks([va.brand, va.desc].join(' ')))]; if (!vt.length) continue; let h = 0, s2 = 0;
+      vt.forEach(w => { if (qn.has(w)) { h += 2; s2++; } else if (qb.has(w)) { h += 1.5; s2++; } else if (qc.has(w)) h += .3; }); const v = h / Math.sqrt(vt.length); if (v > best) { best = v; bs = s2; } }
+    return { it, score: score + best, strong: strong + bs };
   }).filter(x => x.score > 0).sort((a, b) => b.score - a.score).slice(0, 6);
 }
 
@@ -617,38 +641,50 @@ async function loadAll() {
 }
 
 let homeQ = '', homeView = lsGet('homeView') || '';
+if (!['fav', 'all', 'track'].includes(homeView) && !homeView.startsWith('cat:')) homeView = '';
 const catEmoji = c => itemEmoji({ cat: c });
 async function viewHome() {
   setHeader(t('appName')); setTab('home');
   const { items, by } = await loadAll();
   const list = items.map(it => ({ it, s: summarize(it, by[it.id] || []), n: (by[it.id] || []).length }));
   list.sort((a, b) => ((b.s && b.s.rows[0].o.date) || '').localeCompare((a.s && a.s.rows[0].o.date) || '') || itemName(a.it).localeCompare(itemName(b.it)));
+  const need = petNeed();
   app.innerHTML = `
-    <div class="hero">${dog('happy', 'tag', 'bounce')}<div class="bubble">${t('hello')}<small>${t('tagline')}</small></div></div>
-    <button class="btn sec" id="goLog">${t('logNoBarcode')}</button>
-    <div class="chips scroll" id="hView" style="margin:4px 0 10px">${[['fav', ''], ['all', t('allCats')], ...CATS.filter(c => items.some(i => i.cat === c[0])).map(c => [c[0], catEmoji(c[0]) + ' ' + c[LI()]])].map(([v, l]) => `<button type="button" class="chip" data-v="${esc(v)}">${esc(l)}</button>`).join('')}</div>
-    <input id="q" type="search" placeholder="${esc(t('search'))}" value="${esc(homeQ)}" style="margin:0 0 12px">
-    <div class="card" id="list"></div>`;
-  $('#goLog').onclick = () => location.hash = '#pick/';
+    ${need ? `<a class="hero need" href="#garden">${dog('sad', 'tear', 'bounce')}<div class="bubble">${esc(need.msg)}<small>${t('needTap')} ›</small></div></a>`
+      : `<div class="hero">${dog('happy', 'tag', 'bounce')}<div class="bubble">${t('hello')}<small>${t('tagline')}</small></div></div>`}
+    <div class="chips seg3" id="hView" style="margin:4px 0 10px"></div>
+    <div class="searchbox"><input id="q" type="search" placeholder="${esc(t('search'))}" value="${esc(homeQ)}" autocomplete="off"><button type="button" id="qClear" class="qclear${homeQ ? '' : ' hidden'}" aria-label="clear">✕</button></div>
+    <div id="list"></div>`;
   const hay = ({ it, s }) => [it.name, it.en, ...(it.aliases || []), catLabel(it.cat), ...Object.values(it.variants || {}).map(v => v.brand + ' ' + (v.desc || '')), s ? s.rows.map(r => r.o.store).join(' ') : ''].join(' ').toLowerCase();
+  const row = ({ it, s }) => { const b = s && (s.best || s.low);
+    return `<a class="item" href="#item/${encodeURIComponent(it.id)}">${thumb(itemPhoto(it), itemEmoji(it))}
+      <div class="main"><div class="name">${esc(itemName(it))}</div><div class="muted">${esc(catLabel(it.cat))}</div>
+      ${b ? `<div class="muted">${esc(b.o.store)}${b.o.sale && isCurrent(b.o) ? ` · <span class="tag">${t('sale')}</span>` : ''}</div>` : ''}</div>
+      <div class="price">${b ? fmtU(b.u) : '—'}<div class="muted">${s ? (s.best ? t('bestNow') : t('histLow')) : t('noPrice')}</div></div>${starBtn(it.id)}</a>`; };
+  const cats = CATS.filter(c => items.some(i => i.cat === c[0]));
   const render = () => {
-    homeQ = $('#q').value; const q = homeQ.trim().toLowerCase();
-    const view = homeView || (FAVS.size ? 'fav' : 'all');
-    $('#hView').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === view));
-    $('#hView [data-v=fav]').textContent = `${t('tabFav')} (${FAVS.size})`;
-    const rows = list.filter(x => (view === 'all' || (view === 'fav' ? FAVS.has(x.it.id) : x.it.cat === view)) && (!q || hay(x).includes(q)));
-    if (view === 'fav' && !rows.length && !q) { $('#list').innerHTML = `<div class="empty">${dog('sniff', 'glass')}<div class="muted">${t('noFav')}</div></div>`; return; }
-    $('#list').innerHTML = rows.length ? rows.slice(0, 300).map(({ it, s }) => {
-      const b = s && (s.best || s.low);
-      return `<a class="item" href="#item/${encodeURIComponent(it.id)}">${thumb(itemPhoto(it), itemEmoji(it))}
-        <div class="main"><div class="name">${esc(itemName(it))}</div><div class="muted">${esc([itemSub(it), catLabel(it.cat)].filter(Boolean).join(' · '))}</div>
-        ${b ? `<div class="muted">${esc(b.o.store)}${b.o.sale && isCurrent(b.o) ? ` · <span class="tag">${t('sale')}</span>` : ''}</div>` : ''}</div>
-        <div class="price">${b ? fmtU(b.u) : '—'}<div class="muted">${s ? (s.best ? t('bestNow') : t('histLow')) : t('noPrice')}</div></div>${starBtn(it.id)}</a>`;
-    }).join('') : `<div class="empty">${dog(list.length ? 'sad' : 'sleep', list.length ? '' : 'z')}<div class="muted">${list.length ? t('noMatch') : t('emptyList')}</div></div>`;
+    homeQ = $('#q').value; const q = homeQ.trim().toLowerCase(); $('#qClear').classList.toggle('hidden', !homeQ);
+    const view = homeView || (FAVS.size ? 'fav' : 'all'), top = view.startsWith('cat:') ? 'all' : view;
+    $('#hView').innerHTML = [['fav', `${t('tabFav')} (${FAVS.size})`], ['all', t('allCats')], ['track', `🔔 ${t('tabTrack')} (${TRACK.size})`]].map(([v, l]) => `<button type="button" class="chip${v === top ? ' on' : ''}" data-v="${v}">${esc(l)}</button>`).join('');
+    const box = $('#list');
+    if (q) { const rows = list.filter(x => hay(x).includes(q)); box.innerHTML = `<div class="card">${rows.length ? rows.slice(0, 300).map(row).join('') : `<div class="empty">${dog('sad')}<div class="muted">${t('noMatch')}</div></div>`}</div>`; return; }
+    if (view === 'track') { box.innerHTML = `<div class="card">${trackRows(items, by) || `<div class="empty">${dog('sniff', 'glass')}<div class="muted">${t('trackNone')}</div></div>`}</div>`; return; }
+    if (view === 'all') { // catalogue: pick a category first
+      box.innerHTML = list.length ? `<div class="catgrid">${cats.map(c => `<button type="button" class="catbox" data-cat="${esc(c[0])}"><span class="ce">${catEmoji(c[0])}</span><b>${esc(catLabel(c[0]))}</b><span class="muted">${items.filter(i => i.cat === c[0]).length}</span></button>`).join('')}</div>`
+        : `<div class="card empty">${dog('sleep', 'z')}<div class="muted">${t('emptyList')}</div></div>`; return; }
+    if (view.startsWith('cat:')) { const c = view.slice(4), rows = list.filter(x => x.it.cat === c);
+      box.innerHTML = `<button type="button" class="btn sec small" id="catBack" style="margin:0 0 8px">‹ ${t('backCats')}</button><div class="card"><h2>${catEmoji(c)} ${esc(catLabel(c))}</h2>${rows.map(row).join('') || `<div class="muted">${t('noMatch')}</div>`}</div>`;
+      $('#catBack').onclick = () => { homeView = 'all'; lsSet('homeView', homeView); render(); }; return; }
+    const rows = list.filter(x => FAVS.has(x.it.id));
+    box.innerHTML = `<div class="card">${rows.length ? rows.map(row).join('') : `<div class="empty">${dog('sniff', 'glass')}<div class="muted">${t('noFav')}</div></div>`}</div>`;
   };
   $('#q').oninput = render;
-  $('#hView').querySelectorAll('button').forEach(b => b.onclick = () => { homeView = b.dataset.v; lsSet('homeView', homeView); render(); });
-  $('#list').onclick = e => { const b = e.target.closest('[data-fav]'); if (!b) return; e.preventDefault(); e.stopPropagation(); toggleFav(b.dataset.fav); render(); };
+  $('#qClear').onclick = () => { $('#q').value = ''; render(); $('#q').focus(); };
+  $('#hView').onclick = e => { const b = e.target.closest('[data-v]'); if (!b) return; homeView = b.dataset.v; lsSet('homeView', homeView); render(); };
+  $('#list').onclick = e => {
+    const c = e.target.closest('[data-cat]'); if (c) { homeView = 'cat:' + c.dataset.cat; lsSet('homeView', homeView); render(); window.scrollTo(0, 0); return; }
+    const b = e.target.closest('[data-fav]'); if (b) { e.preventDefault(); e.stopPropagation(); toggleFav(b.dataset.fav); render(); return; }
+    const tr = e.target.closest('[data-track]'); if (tr) { e.preventDefault(); e.stopPropagation(); toggleTrack(tr.dataset.track); render(); } };
   render();
 }
 
@@ -671,32 +707,32 @@ async function viewItem(id) {
   app.innerHTML = `
     <div class="card"><div class="item" style="padding:0;border:0">${thumb(itemPhoto(it), itemEmoji(it))}<div class="main">
       <div class="name" style="white-space:normal">${esc(itemName(it))}</div>
-      <div class="muted">${esc([itemSub(it), catLabel(it.cat)].filter(Boolean).join(' · '))}</div></div><span id="favWrap">${starBtn(id, true)}</span></div></div>
-    ${sc ? `<div class="card scan">${thumb(sc.info && sc.info.image, '📷')}<div><b>${t('scanGot')}</b>${esc([sc.info && sc.info.brand, sc.info && sc.info.name, sc.info && sc.info.quantity].filter(Boolean).join(' ') || sc.code)}
+      <div class="muted">${esc([itemSub(it), catLabel(it.cat)].filter(Boolean).join(' · '))}</div></div><span id="favWrap" class="hbtns">${trackBtn(id)}${starBtn(id, true)}</span></div></div>
+    ${sc ? `<div class="card scan"><a href="javascript:void 0" class="scprod">${thumb(sc.info && sc.info.image, '📷')}</a><div><a href="javascript:void 0" class="scprod scname"><b>${t('scanGot')}</b>${esc([sc.info && sc.info.brand, sc.info && sc.info.name, sc.info && sc.info.quantity].filter(Boolean).join(' ') || sc.code)} <span class="scmore">${t('scanTapInfo')} ›</span></a>
       <div class="muted" style="margin:4px 0 8px">${tf('scanGuess', esc(itemName(it)))}</div>
       <div class="row" style="flex-wrap:wrap;gap:6px"><button class="btn small" id="scLog" style="margin:0">${t('scanLog')}</button><button class="btn sec small" id="scOther" style="margin:0">${t('scanOther')}</button></div>
       ${(sc.alts || []).length ? `<div class="chips" style="margin-top:6px">${(await Promise.all(sc.alts.map(a => getOne('items', a)))).filter(Boolean).map(a => `<button class="chip" data-alt="${esc(a.id)}">${esc(itemName(a))}</button>`).join('')}</div>` : ''}</div></div>` : ''}
     ${s ? `<div class="card"><div style="text-align:right;margin:-4px 0 4px">${unitChip()}</div><div class="row" style="align-items:flex-start">
-      <div><div class="muted">${t('histLow')}</div><div class="big-num">${fmtU(s.low.u)}</div>
-        <div class="muted">${t('eachP')} <b>${priceText(it, s.low.o)}</b> · ${esc(s.low.o.store)}</div><div class="muted">${esc(obsText(it, s.low.o))} · ${fmtDate(s.low.o.date)}</div></div>
-      ${s.best ? `<div><div class="muted">${t('bestNow')}</div><div class="big-num">${fmtU(s.best.u)}</div>
-        <div class="muted">${t('eachP')} <b>${priceText(it, s.best.o)}</b> · ${esc(s.best.o.store)}</div><div class="muted">${esc(obsText(it, s.best.o))} · ${tf('ago', daysAgo(s.best.o.date))}</div></div>` : ''}
+      <div><div class="muted">${t('histLow')}</div><div class="big-num">${priceText(it, s.low.o)}</div><div class="unitp">${fmtU(s.low.u)}</div>
+        <div class="muted">${esc(s.low.o.store)}</div><div class="muted">${esc(obsText(it, s.low.o))} · ${fmtDate(s.low.o.date)}</div></div>
+      ${s.best ? `<div><div class="muted">${t('bestNow')}</div><div class="big-num">${priceText(it, s.best.o)}</div><div class="unitp">${fmtU(s.best.u)}</div>
+        <div class="muted">${esc(s.best.o.store)}</div><div class="muted">${esc(obsText(it, s.best.o))} · ${tf('ago', daysAgo(s.best.o.date))}</div></div>` : ''}
     </div>${mixNote(it, obs, s)}</div>` : `<div class="card empty">${dog('sniff', 'glass')}<div class="muted">${t('noPrice')}</div></div>`}
-    <button class="btn" id="addPrice">${dog('normal', 'tag')}<span>${t('addPrice')}</span></button>
-    <div class="card"><h2>${t('curTitle')}</h2><div class="muted" style="margin-bottom:4px">${t('curHint')}</div>
+    ${sc ? `<button class="btn sec" id="scAll">${t('scanSeeAll')}</button>` : `<div class="card"><h2>${t('curTitle')}</h2><div class="muted" style="margin-bottom:4px">${t('curHint')}</div>
       ${cur.length ? cur.map((r, i) => { const va = (it.variants || {})[r.o.vid]; return `<a class="item${i >= 8 ? ' more hidden' : ''}" href="${r.o.vid && va ? `#variant/${encodeURIComponent(id)}/${encodeURIComponent(r.o.vid)}` : 'javascript:void 0'}">${thumb(variantPhoto(it, va), itemEmoji(it))}
         <div class="main"><div class="name">${esc(r.o.store)}${i === 0 && cur.length > 1 && r.u && s && r.u.key === s.key && isCurrent(r.o) ? `<span class="tag">🏆 ${t('cheapest')}</span>` : ''}${isUpcoming(r.o) ? `<span class="tag up">${fmtDate(r.o.date).slice(5)} ${t('starts')}</span>` : r.o.sale ? `<span class="tag">${t('sale')}</span>` : `<span class="tag off">${t('logged')}</span>`}</div>
         <div class="muted">${esc(obsText(it, r.o))}</div><div class="muted">${fmtDate(r.o.date)}${r.o.until ? '–' + fmtDate(r.o.until).slice(5) : ''}</div></div>
         <div class="price">${priceText(it, r.o)}<div class="muted">${r.u ? fmtU(r.u) : ''}${r.o.reg ? `<br>${t('reg')} ${money(r.o.reg)}` : ''}</div></div></a>`; }).join('') + moreBtn(cur.length, 8) : `<div class="muted">${t('curNone')}</div>`}</div>
     ${vstat.length ? `<div class="card"><h2>${t('variants')}</h2><div class="muted" style="margin-bottom:4px">${t('varHint')}</div>${vstat.map(({ vid, va, vo, vs, vb }, i) => `<a class="item${i >= 10 ? ' more hidden' : ''}" href="#variant/${encodeURIComponent(id)}/${encodeURIComponent(vid)}">${thumb(variantPhoto(it, va), itemEmoji(it))}<div class="main"><div>${esc(variantText(it, vid))}</div><div class="muted">${vo.length ? `${vo.length} ${t('records')}` : t('noPrice')}${va.barcode ? ' · ' + esc(va.barcode) : ''}</div></div><div class="price">${vb ? fmtU(vb.u) : vo.length ? priceText(it, vo[0]) : '—'}<div class="muted">${vs ? (vs.best ? t('bestNow') : t('histLow')) : vo.length ? fmtDate(vo[0].date) : ''}</div></div><span class="chev">›</span></a>`).join('') + moreBtn(vstat.length, 10)}</div>` : ''}
-    ${ls ? `<div class="card"><h2>🐾 ${vstat.length ? t('looseTitle') : t('byStore')}</h2>${boardHtml(it, ls)}</div>${chartSvg(ls.rows, ls.low.u.v, ls.low.u)}` : ''}`;
-  $('#addPrice').onclick = () => location.hash = `#add/${encodeURIComponent(id)}${sc ? '/new' : ''}`;
+    ${ls ? `<div class="card"><h2>🐾 ${vstat.length ? t('looseTitle') : t('byStore')}</h2>${boardHtml(it, ls)}</div>${chartSvg(ls.rows, ls.low.u.v, ls.low.u)}` : ''}`}`;
   bindUnitChip(() => viewItem(id));
   app.querySelectorAll('.showMore').forEach(b => b.onclick = () => { b.parentElement.querySelectorAll('.more').forEach(x => x.classList.remove('hidden')); b.remove(); });
-  $('#favWrap').onclick = e => { if (!e.target.closest('[data-fav]')) return; toggleFav(id); $('#favWrap').innerHTML = starBtn(id, true); };
+  $('#favWrap').onclick = e => { if (e.target.closest('[data-track]')) toggleTrack(id); else if (e.target.closest('[data-fav]')) toggleFav(id); else return; $('#favWrap').innerHTML = trackBtn(id) + starBtn(id, true); };
   if (sc) {
     $('#scLog').onclick = () => location.hash = `#add/${encodeURIComponent(id)}/new`;
     $('#scOther').onclick = () => location.hash = `#pick/${sc.code}`;
+    app.querySelectorAll('.scprod').forEach(a => a.onclick = () => showProduct(sc));
+    $('#scAll').onclick = () => { scanCtx = null; viewItem(id); };
     app.querySelectorAll('[data-alt]').forEach(b => b.onclick = () => { scanCtx = { ...sc, itemId: b.dataset.alt, alts: [id, ...sc.alts.filter(a => a !== b.dataset.alt)] }; location.hash = `#item/${encodeURIComponent(b.dataset.alt)}`; });
   }
 }
@@ -927,7 +963,7 @@ async function viewSettings() {
   const [items, obs] = await Promise.all([getAll('items'), getAll('obs')]);
   const flyer = latestFlyer(obs);
   app.innerHTML = `
-    <div class="card"><h2>🌐 ${t('lang')}</h2><div class="seg" id="sLang"><button data-l="zh" class="${LANG === 'zh' ? 'on' : ''}">繁體中文</button><button data-l="en" class="${LANG === 'en' ? 'on' : ''}">English</button></div></div>
+    <div class="card"><h2>🔔 ${t('notiTitle')}</h2><div class="muted">${t('notiHint')}</div><div style="margin-top:8px" id="notiBox"></div></div>
     <div class="card"><h2>☁️ ${t('syncTitle')}</h2><div class="muted">${t('syncDesc')}</div>
       <div style="margin:10px 0 4px;font-weight:700">${fbUser ? t('signedInAs') + esc(fbUser.email) + ' · ' : ''}<span id="syncStatus">${syncLabel()}</span></div>
       <div class="muted" id="lastSyncTxt">${lastSyncText()}</div>
@@ -940,7 +976,11 @@ async function viewSettings() {
     <button class="btn sec" id="sGuide">${t('guide')}</button>
     <div class="empty">${dog('sleep', 'z')}<div class="muted"><span class="brand" style="font-weight:800;font-size:16px">${LANG === 'zh' ? '格價狗 PricePup' : 'PricePup'}</span> v${APP_VERSION}<br>${t('credit')}</div></div>`;
   $('#sGuide').onclick = () => showGuide(0);
-  $('#sLang').querySelectorAll('button').forEach(b => b.onclick = () => { LANG = b.dataset.l; lsSet('lang', LANG); applyStatic(); setSync(syncState); viewSettings(); });
+  const notiUI = () => { const box = $('#notiBox'); if (!box) return; if (!notifySupported()) { box.innerHTML = `<div class="muted">${t('notiNo')}</div>`; return; }
+    const p = Notification.permission; box.innerHTML = p === 'granted' ? `<div><b>✅ ${t('notiOnDone')}</b></div><button class="btn sec small" id="notiTest" style="margin-top:6px">${t('notiTest')}</button>` : p === 'denied' ? `<div class="muted">${t('notiDenied')}</div>` : `<button class="btn small" id="notiAsk">${t('notiOn')}</button>`;
+    if ($('#notiAsk')) $('#notiAsk').onclick = async () => { await askNotify(); notiUI(); };
+    if ($('#notiTest')) $('#notiTest').onclick = () => notify('PricePup', t('notiTestBody'), 'test', '#settings'); };
+  notiUI();
   if ($('#sSignIn')) $('#sSignIn').onclick = signIn;
   if ($('#sSignOut')) $('#sSignOut').onclick = signOutSync;
   if ($('#usageBtn')) { $('#usageBtn').onclick = () => loadUsage(true); if (usageTok()) loadUsage(false); }
@@ -1016,12 +1056,12 @@ async function viewVariant(id, vid) {
   app.innerHTML = `
     <div class="card"><div class="item" style="padding:0;border:0">${thumb(variantPhoto(it, va), itemEmoji(it))}<div class="main">
       <div class="name" style="white-space:normal">${esc(variantText(it, vid))}</div>
-      <div class="muted"><a href="#item/${encodeURIComponent(id)}" style="color:inherit">${esc(itemName(it))}</a>${va.barcode ? ' · ' + esc(va.barcode) : ''}</div></div></div></div>
+      <div class="muted"><a href="#item/${encodeURIComponent(id)}" style="color:inherit">${esc(itemName(it))}</a>${va.barcode ? ' · ' + esc(va.barcode) : ''}</div></div><span id="vTrack">${trackBtn(id + '|' + vid)}</span></div></div>
     ${scanCtx && scanCtx.known && scanCtx.vid === vid ? `<div class="card scan"><div>${t('scanKnown')}</div></div>` : ''}
     <button class="btn" id="vAdd">${dog('normal', 'tag')}<span>${t('logThis')}</span></button>
     ${s ? `<div class="card"><div style="text-align:right;margin:-4px 0 4px">${unitChip()}</div><div class="row" style="align-items:flex-start">
-      <div><div class="muted">${t('histLow')}</div><div class="big-num">${fmtU(s.low.u)}</div><div class="muted">${t('eachP')} <b>${priceText(it, s.low.o)}</b></div><div class="muted">${esc(s.low.o.store)} · ${fmtDate(s.low.o.date)}</div></div>
-      ${s.best ? `<div><div class="muted">${t('bestNow')}</div><div class="big-num">${fmtU(s.best.u)}</div><div class="muted">${t('eachP')} <b>${priceText(it, s.best.o)}</b></div><div class="muted">${esc(s.best.o.store)} · ${tf('ago', daysAgo(s.best.o.date))}</div></div>` : ''}</div></div>
+      <div><div class="muted">${t('histLow')}</div><div class="big-num">${priceText(it, s.low.o)}</div><div class="unitp">${fmtU(s.low.u)}</div><div class="muted">${esc(s.low.o.store)} · ${fmtDate(s.low.o.date)}</div></div>
+      ${s.best ? `<div><div class="muted">${t('bestNow')}</div><div class="big-num">${priceText(it, s.best.o)}</div><div class="unitp">${fmtU(s.best.u)}</div><div class="muted">${esc(s.best.o.store)} · ${tf('ago', daysAgo(s.best.o.date))}</div></div>` : ''}</div></div>
     <div class="card"><h2>🏷️ ${t('curDeals')}</h2>${cur.length ? `<table>${cur.map(r => `<tr><td>${esc(r.o.store)}<div class="muted">${fmtDate(r.o.date)}${r.o.until ? '–' + fmtDate(r.o.until).slice(5) : ''}</div></td><td class="r">${priceText(it, r.o)}${r.o.reg ? `<div class="muted">${t('reg')} ${money(r.o.reg)}</div>` : ''}</td><td class="r"><b>${fmtU(r.u)}</b></td></tr>`).join('')}</table>` : `<div class="muted">${t('noCurDeal')}</div>`}</div>
     <div class="card"><h2>🐾 ${t('byStore')}</h2>${boardHtml(it, s)}</div>
     ${chartSvg(s.rows, s.low.u.v, s.low.u)}
@@ -1029,6 +1069,7 @@ async function viewVariant(id, vid) {
       ${s.rows.slice(0, 80).map(r => `<tr class="${isEnded(r.o) ? 'ended' : ''}"><td>${fmtDate(r.o.date)}<div class="muted">${esc(r.o.store)}${r.o.sale ? ' · ' + t('sale') : ''}${isEnded(r.o) ? ' · ' + t('ended') : ''}</div></td>
         <td class="r">${priceText(it, r.o)}<div class="muted">${fmtU(r.u)}</div></td></tr>`).join('')}</table></div>` : obs.length ? rawVariant(it, obs) : `<div class="card empty">${dog('sniff', 'glass')}<div class="muted">${t('noPrice')}</div></div>`}`;
   $('#vAdd').onclick = () => location.hash = `#add/${encodeURIComponent(id)}/${encodeURIComponent(vid)}`;
+  $('#vTrack').onclick = e => { if (!e.target.closest('[data-track]')) return; toggleTrack(id + '|' + vid); $('#vTrack').innerHTML = trackBtn(id + '|' + vid); };
   bindUnitChip(() => viewVariant(id, vid));
 }
 
@@ -1084,6 +1125,8 @@ function gDay(g) {
   g.bonus = g.bonus || 0; g.coins = g.coins || 0; g.toys = g.toys || [];
   if (g.pup && !g.waterAt) g.waterAt = Date.now();
   if (typeof isAdmin === 'function' && isAdmin()) g.coins = 99; // power user: always 99 coins for testing
+  if (g.joyV == null) { g.joyV = g.lastFed ? clamp(100 - Math.min(H(g.lastFed), H(g.lastPet)) / 6 * 100) : 60; g.joyAt = Date.now(); } // happiness now builds up slowly
+  g.xp = g.xp || 0; if (!g.xpLog || g.xpLog.day !== today()) g.xpLog = { day: today() };
   return g;
 }
 function gSave(g) { g.updated = Date.now(); lsSet(GKEY, JSON.stringify(g)); if (syncOn()) fb.F.setDoc(favRef(), { garden: g }, { merge: true }).catch(() => {}); }
@@ -1107,13 +1150,21 @@ function gMood(g) {
   if (!g.lastFed || H(g.lastFed) >= 12) return 'weak';
   if (waterLevel(g) >= 4) return 'thirsty';
   if ((g.poos || []).length) return 'dirty';
-  if (Math.min(H(g.lastFed), H(g.lastPet)) >= 6) return 'grumpy';
+  if (baseJoy(g) < 15) return 'grumpy';
   if (!g.lastVisit || H(g.lastVisit) * 60 >= 10) return 'waking';
   return 'idle';
 }
 const clamp = x => Math.max(0, Math.min(100, Math.round(x)));
 const fullness = g => g.lastFed ? clamp((100 - H(g.lastFed) / 12 * 100) * Math.min(1, (g.recentFeeds || 1) / 3)) : 0; // 3 treats = full
-const joy = g => clamp(100 - Math.min(H(g.lastFed), H(g.lastPet)) / 6 * 100 - (g.poos || []).length * 25 - (waterLevel(g) >= 4 ? 25 : 0));
+// happiness: a stored level that fades about 12 points an hour; care adds a little at a time
+const JOY_DECAY = 12;
+const baseJoy = g => clamp((g.joyV == null ? 60 : g.joyV) - H(g.joyAt) * JOY_DECAY);
+const joy = g => clamp(baseJoy(g) - (g.poos || []).length * 20 - (waterLevel(g) >= 4 ? 20 : 0));
+function addJoy(g, n) { g.joyV = Math.min(100, baseJoy(g) + n); g.joyAt = Date.now(); }
+// bond (affection) level: earned by daily care; each kind of care has a daily cap
+const XP = { visit: [5, 5], feed: [3, 9], water: [2, 4], toy: [4, 16], pet: [1, 10], poo: [2, 6] };
+function addXp(g, kind) { const [n, cap] = XP[kind] || [0, 0]; const used = g.xpLog[kind] || 0; if (used >= cap) return false; const before = bondOf(g).L; g.xpLog[kind] = used + n; g.xp = (g.xp || 0) + n; return bondOf(g).L > before; }
+function bondOf(g) { let x = g.xp || 0, L = 1, need = 40; while (x >= need) { x -= need; L++; need += 20; } return { L, cur: x, need }; }
 const waterPct = g => clamp(100 - H(g.waterAt) / 12 * 100);
 
 // poo: about 3 hours after a meal the puppy poos once (max 3 piles); piles stay until the user cleans them
@@ -1197,10 +1248,10 @@ function regenB(pose, expr, color) {
       L('M90 150 C82 170 80 196 84 216 L156 216 C160 196 158 170 150 150', fur) +
       L('M106 176 L106 214', 'none', 5) + L('M134 176 L134 214', 'none', 5) + L('M84 216 h72', 'none', 6);
     if (pose === 'eatup') { body += L('M84 204 h72 l-8 16 h-56z', '#ff7a59', 5) + FOOD; hd = head(0, 38, 12, .92); }
-  } else if (pose === 'eat' || pose === 'drink') { // head down in the bowl: we see his back and the top of his head
+  } else if (pose === 'eat' || pose === 'drink' || pose === 'nose') { // head down in the bowl: we see his back and the top of his head
     body = shadow + tail('M156 170 C178 160 184 140 176 124') + L('M74 214 C70 160 94 118 120 118 C146 118 170 160 166 214 Z', fur) + L('M88 196 L86 218', 'none', 8) + L('M152 196 L154 218', 'none', 8);
     hd = head(0, 76, 0, .8);
-    front = pose === 'eat' ? FOOD2 + L('M74 198 h92 l-11 24 h-70z', '#ff7a59', 5) : `<ellipse cx="120" cy="199" rx="44" ry="5" fill="#6fc8ff" stroke="${ink}" stroke-width="3"/>` + L('M74 198 h92 l-11 24 h-70z', '#4f8fd6', 5);
+    front = pose === 'nose' ? '' : pose === 'eat' ? FOOD2 + L('M74 198 h92 l-11 24 h-70z', '#ff7a59', 5) : `<ellipse cx="120" cy="199" rx="44" ry="5" fill="#6fc8ff" stroke="${ink}" stroke-width="3"/>` + L('M74 198 h92 l-11 24 h-70z', '#4f8fd6', 5);
   } else if (pose === 'run' || pose === 'run2') {
     // base: the version Silver picked (big head front-left, round body behind, chunky legs); body 10% bigger + a proper neck
     const big = x => `<g transform="translate(148 166) scale(1.1) translate(-148 -166)">${x}</g>`;
@@ -1282,13 +1333,21 @@ async function viewGarden() {
   pupColor = g.pup.color || 'black'; setAppIcon(pupColor);
   setHeader(tf('gTitle', g.pup.name), true); setTab('home');
   const mood0 = gMood(g);
-  g.lastVisit = Date.now(); gSave(g);
+  g.lastVisit = Date.now(); const lvUpVisit = addXp(g, 'visit'); gSave(g);
   app.innerHTML = `
-    <div class="garden day clear" id="gScene">
-      <div class="sky"><div class="stars">${Array.from({ length: 26 }, () => `<i style="left:${(Math.random() * 100).toFixed(1)}%;top:${(Math.random() * 45).toFixed(1)}%;animation-delay:${(Math.random() * 3).toFixed(1)}s"></i>`).join('')}</div>
+    <div class="garden big day clear" id="gScene">
+      <div class="sky"><div class="stars">${Array.from({ length: 30 }, () => `<i style="left:${(Math.random() * 100).toFixed(1)}%;top:${(Math.random() * 45).toFixed(1)}%;animation-delay:${(Math.random() * 3).toFixed(1)}s"></i>`).join('')}</div>
         <div class="sun"></div><div class="moon"></div><div class="cloud c1"></div><div class="cloud c2"></div><div class="cloud c3"></div><div class="fall"></div></div>
       <div class="wx" id="gWx">📍 Calgary</div>
-      <div class="hill h1"></div><div class="hill h2"></div><div class="ground"><i class="fl f1">🌼</i><i class="fl f2">🌷</i><i class="fl f3">🌼</i></div>
+      <div class="gneed hidden" id="gNeed"></div>
+      <div class="gstats" id="gStats">
+        <div class="gs"><span>🍖</span><i><b id="mFull"></b></i></div>
+        <div class="gs"><span>💛</span><i><b id="mJoy"></b></i></div>
+        <div class="gs"><span>💧</span><i><b id="mWater"></b></i></div>
+        <div class="gs"><span>💗</span><i><b id="mBond"></b></i><em id="gLv"></em></div>
+        <div class="gsline" id="gTreats"></div>
+      </div>
+      <div class="hill h1"></div><div class="hill h2"></div><div class="ground"><i class="fl f1">🌼</i><i class="fl f2">🌷</i><i class="fl f3">🌼</i><i class="fl f4">🌱</i><i class="fl f5">🌼</i></div>
       <svg class="tree" viewBox="0 0 100 140" aria-hidden="true"><rect x="44" y="80" width="12" height="58" rx="4" fill="#7a4a22" stroke="#15151a" stroke-width="3"/><circle cx="50" cy="60" r="34" fill="#4f9e4a" stroke="#15151a" stroke-width="3"/><circle cx="30" cy="70" r="22" fill="#5cb055" stroke="#15151a" stroke-width="3"/><circle cx="70" cy="68" r="24" fill="#56a84f" stroke="#15151a" stroke-width="3"/><circle cx="50" cy="40" r="22" fill="#6cc064" stroke="#15151a" stroke-width="3"/></svg>
       <svg class="house" viewBox="0 0 110 100" aria-hidden="true"><path d="M6 44 L55 6 L104 44" fill="none" stroke="#15151a" stroke-width="14" stroke-linejoin="round" stroke-linecap="round"/><path d="M6 44 L55 6 L104 44" fill="none" stroke="#c2553a" stroke-width="8" stroke-linejoin="round" stroke-linecap="round"/><path d="M16 42 L55 12 L94 42 V96 H16 Z" fill="#f0c27c" stroke="#15151a" stroke-width="4" stroke-linejoin="round"/><path d="M40 96 V70 a15 15 0 0 1 30 0 V96 Z" fill="#4a2f1c" stroke="#15151a" stroke-width="3"/><rect x="34" y="46" width="42" height="13" rx="4" fill="#fff4dc" stroke="#15151a" stroke-width="2.5"/><text x="55" y="56" font-size="${g.pup.name.length > 7 ? 7 : 10}" font-weight="800" text-anchor="middle" fill="#8a4a22" font-family="Arial">${esc(g.pup.name.toUpperCase().slice(0, 10))}</text></svg>
       <div id="gPoos"></div>
@@ -1299,48 +1358,62 @@ async function viewGarden() {
       <div class="gtimer hidden" id="gTimer"></div>
       <div class="fx" id="gFx"></div>
     </div>
-    <div class="card"><div class="meter2"><span>🍖 ${t('gFull')}</span><div class="meter"><i id="mFull"></i></div></div>
-      <div class="meter2"><span>💛 ${t('gJoy')}</span><div class="meter"><i id="mJoy"></i></div></div>
-      <div class="meter2"><span>💧 ${t('gWater')}</span><div class="meter"><i id="mWater"></i></div></div>
-      <div class="muted" id="gTreats" style="margin-top:8px"></div>
-      <div class="muted hidden" id="gPooHint" style="margin-top:4px">${withName(t('gPooHint'))}</div>
-      <div class="muted hidden" id="gWaterHint" style="margin-top:4px"></div></div>
-    <div class="gbtns">
-      <button class="btn sec" id="gPet">🤚<span>${t('gPetShort')}</span></button>
+    <div class="gbtns four">
       <button class="btn" id="gFeed">🦴<span>${t('gFeedShort')}</span></button>
       <button class="btn sec" id="gWaterBtn">💧<span>${t('gWaterBtn')}</span></button>
       <button class="btn sec" id="gToyBtn">🎾<span>${t('gToyBtn')}</span></button>
       <button class="btn sec" id="gShopBtn">🛒<span>${t('gShopBtn')}</span></button>
     </div>
-    <div class="ghint">${cn(t('gHint'))}</div><div class="ghint credit">${t('gWxCredit')}</div>`;
+    <div class="ghint credit">${t('gTapHint')} · ${t('gWxCredit')}</div>`;
   const pup = $('#gPup'), wrap = $('#gWrap'), carry = $('#gCarry');
-  let state = mood0, grumpLeft = 2, night = false, walkT = null, timerT = null, play = null;
+  let state = mood0, grumpLeft = 2, night = false, walkT = null, timerT = null, play = null, pos = { x: 0, y: 0 }, eatPause = 0, petTimes = [], roaming = false, roamTok = 0;
   const vid = viewGarden._vid = (viewGarden._vid || 0) + 1; gBusy = false; // a fresh visit cancels anything left over from the last one
   const alive = () => viewGarden._vid === vid && !!$('#gPup');
   const stopWalk = () => { clearInterval(walkT); walkT = null; };
   const draw = (p, e, anim) => { if (p !== 'walk' && p !== 'run') stopWalk(); pup.innerHTML = regenSvg(p, e); pup.className = 'pup' + (anim ? ' ' + anim : ''); wrap.classList.toggle('turned', state === 'grumpy' && !play); };
   // walking / running: swap leg frames like a flip book
   const move = (e, anim, fast) => { stopWalk(); let f = 0; draw(fast ? 'run' : 'walk', e, anim); walkT = setInterval(() => { if (!alive()) return stopWalk(); f ^= 1; pup.innerHTML = regenSvg(f ? 'run' : 'walk', e); }, fast ? 140 : 260); };
-  // where the puppy stands in the garden: x/y offset (px), size, facing right?
-  const place = (x, y, s, ms, right) => { wrap.style.transition = `transform ${ms || 0}ms linear`; wrap.style.setProperty('--gx', x + 'px'); wrap.style.setProperty('--gy', y + 'px'); wrap.style.setProperty('--gs', s); $('#gFlip').classList.toggle('right', !!right); };
+  // where the puppy stands: x/y offset from his front spot (px), size, facing right?
+  const place = (x, y, s, ms, right) => { pos = { x, y }; wrap.style.transition = `transform ${ms || 0}ms linear`; wrap.style.setProperty('--gx', x + 'px'); wrap.style.setProperty('--gy', y + 'px'); wrap.style.setProperty('--gs', s); $('#gFlip').classList.toggle('right', !!right); };
   const later = (ms, fn) => setTimeout(() => { if (alive()) fn(); }, ms);
-  const fx = (chars, n = 6, left) => { const box = $('#gFx'); if (!box) return; const cs = [...chars].filter(c => c.trim()); cs.forEach((c, i) => { for (let k = 0; k < Math.ceil(n / cs.length); k++) { const s = document.createElement('span'); s.textContent = c; s.style.left = (left != null ? left - 4 + Math.random() * 8 : 38 + Math.random() * 26) + '%'; s.style.animationDelay = (i * .12 + k * .25) + 's'; s.style.fontSize = (16 + Math.random() * 14) + 'px'; box.appendChild(s); setTimeout(() => s.remove(), 2600); } }); };
+  // garden geometry: the lawn runs from the hills (far, small) to the front (near, full size)
+  const geo = () => { const sc = $('#gScene'), W = sc.clientWidth, SH = sc.clientHeight, gt = sc.querySelector('.ground').offsetTop; return { W, SH, homeX: W / 2 + 10, homeY: SH - 4, HZ: gt + 16 }; };
+  const depth = (y, G = geo()) => .42 + .58 * Math.max(0, Math.min(1, (y - G.HZ) / (G.homeY - G.HZ)));
+  const atHome = () => Math.abs(pos.x) < 4 && Math.abs(pos.y) < 4;
+  // walk (or run) to a spot on the lawn given in garden coordinates (where his feet go)
+  const goTo = (sx, sy, cb, fast, e) => { const G = geo(), x = sx - G.homeX, y = sy - G.homeY, d = Math.hypot(x - pos.x, y - pos.y);
+    if (d < 6) { place(x, y, depth(sy, G), 0, false); cb && cb(); return; }
+    const ms = Math.max(500, d / (fast ? .3 : .1)), right = x > pos.x, tok = roamTok; move(e || 'happy', 'wagfast', fast); place(x, y, depth(sy, G), ms, right);
+    later(ms, () => { if (tok !== roamTok) return; place(x, y, depth(sy, G), 0, false); cb && cb(); }); return ms; };
+  // stop whatever he's doing on his own (wandering, napping) right where he is, so you can play with him straight away
+  const cancelRoam = () => { if (!roaming) return; roaming = false; roamTok++; stopWalk();
+    const m = getComputedStyle(wrap).transform, v = m && m.startsWith('matrix(') ? m.slice(7, -1).split(',').map(Number) : null;
+    if (v) place(v[4], v[5], v[0], 0, $('#gFlip').classList.contains('right')); draw('sit', 'open', ''); };
+  const roam = fn => { roaming = true; fn(() => { roaming = false; }); };
+  const comeHome = (cb, fast) => { if (atHome()) { place(0, 0, 1, 0, false); cb(); return; } const G = geo(); gBusy = true; goTo(G.homeX, G.homeY, cb, fast !== false); };
+  const fx = (chars, n = 6, left) => { const box = $('#gFx'); if (!box) return; const G = geo(), px = left != null ? left : (G.homeX + pos.x) / G.W * 100, bottom = Math.max(60, (G.SH - (G.homeY + pos.y)) + 150 * depth(G.homeY + pos.y, G));
+    const cs = [...chars].filter(c => c.trim()); cs.forEach((c, i) => { for (let k = 0; k < Math.ceil(n / cs.length); k++) { const s = document.createElement('span'); s.textContent = c; s.style.left = (px - 10 + Math.random() * 20) + '%'; s.style.bottom = bottom + 'px'; s.style.animationDelay = (i * .12 + k * .25) + 's'; s.style.fontSize = (16 + Math.random() * 14) + 'px'; box.appendChild(s); setTimeout(() => s.remove(), 2600); } }); };
   const timer = (label, until, done) => { clearInterval(timerT); const el = $('#gTimer'); el.classList.remove('hidden');
     const upd = () => { if (!alive()) return clearInterval(timerT); const left = until - Date.now(); if (left <= 0) { clearInterval(timerT); el.classList.add('hidden'); done && done(); return; } el.textContent = label + ' ' + mmss(left); };
     upd(); timerT = setInterval(upd, 1000); };
   const stopTimer = () => { clearInterval(timerT); $('#gTimer').classList.add('hidden'); };
-  const bars = () => { g = gLoad(); const f = fullness(g), j = joy(g), w = waterPct(g), lv = waterLevel(g);
-    $('#mFull').style.width = f + '%'; $('#mJoy').style.width = j + '%'; $('#mWater').style.width = w + '%';
-    $('#mFull').style.background = f < 25 ? 'var(--bad)' : 'var(--good)'; $('#mJoy').style.background = j < 25 ? 'var(--bad)' : '#e8a020'; $('#mWater').style.background = lv >= 4 ? 'var(--bad)' : '#3d9be0';
-    $('#gTreats').innerHTML = cn(tf('gTreatsLine', g.free || 0, FREE_TREATS, g.bonus || 0, g.coins || 0));
+  const bars = () => { g = gLoad(); const f = fullness(g), j = joy(g), w = waterPct(g), lv = waterLevel(g), b = bondOf(g);
+    const set = (id, v, bad, col) => { const el = $('#' + id); el.style.width = v + '%'; el.style.background = bad ? 'var(--bad)' : col; };
+    set('mFull', f, f < 25, 'var(--good)'); set('mJoy', j, j < 25, '#e8a020'); set('mWater', w, lv >= 4, '#3d9be0'); set('mBond', Math.round(b.cur / b.need * 100), false, '#ff6f91');
+    $('#gLv').textContent = 'Lv ' + b.L;
+    $('#gTreats').innerHTML = cn(tf('gTreatsMini', g.free || 0, FREE_TREATS, g.bonus || 0, g.coins || 0));
     $('#gBowl').innerHTML = waterSvg(lv);
-    const wh = $('#gWaterHint'); wh.classList.toggle('hidden', lv < 3); wh.textContent = withName(t(lv >= 4 ? 'gWaterBad' : 'gWaterDirty')); };
-  const poos = () => { g = gLoad(); const box = $('#gPoos'); if (!box) return; $('#gPooHint').classList.toggle('hidden', !g.poos.length);
+    const need = lv >= 4 ? t('gWaterBad') : g.poos.length ? t('gPooHint') : lv >= 3 ? t('gWaterDirty') : '';
+    const ne = $('#gNeed'); ne.classList.toggle('hidden', !need); ne.textContent = withName(need); };
+  const bondUp = () => { const b = bondOf(gLoad()); toast(tf('bondUp', pupName(), b.L), 3200); fx('💗✨💗', 6); };
+  const care = (kind, joyN) => { g = gLoad(); if (joyN) addJoy(g, joyN); const up = addXp(g, kind); gSave(g); bars(); if (up) later(600, bondUp); };
+  const poos = () => { g = gLoad(); const box = $('#gPoos'); if (!box) return;
     box.innerHTML = g.poos.map((p, i) => `<button class="poobtn" data-i="${i}" style="left:${p.x}%" aria-label="poo">${pooSvg()}</button>`).join('');
-    box.querySelectorAll('.poobtn').forEach(b => b.onclick = e => { e.stopPropagation(); const i = +b.dataset.i, x = g.poos[i].x; g = gLoad(); g.poos.splice(i, 1); g.lastPet = Date.now(); gSave(g);
-      fx('✨🧹✨', 4, x); poos(); bars();
+    box.querySelectorAll('.poobtn').forEach(b => b.onclick = e => { e.stopPropagation(); const i = +b.dataset.i, x = g.poos[i].x; g = gLoad(); g.poos.splice(i, 1); gSave(g);
+      fx('✨🧹✨', 4, x); care('poo', 4); poos();
       if (!g.poos.length && state === 'dirty') { state = 'idle'; if (!gBusy) { gBusy = true; draw('sit', 'super', 'r-jump wagfast'); fx('💖✨', 4); later(1500, () => { gBusy = false; rest(); }); } } }); };
   const chewing = () => (gLoad().chewUntil || 0) > Date.now();
+  const eating = () => (gLoad().eatUntil || 0) > Date.now();
   const rest = () => { // resting look for the current state
     carry.innerHTML = '';
     if (chewing()) { draw('lie', 'eat', 'r-chompl wagfast'); carry.className = 'carry chewing'; carry.innerHTML = toySvg('chew'); return; }
@@ -1351,19 +1424,18 @@ async function viewGarden() {
     else if (state === 'dirty') draw('sit', 'sad', '');
     else if (night && Math.random() < .6) draw('sleep', 'sleep', 'r-breathe sleeping');
     else draw('sit', 'open', ''); };
-  const recheck = () => { const m = gMood(gLoad()); if (m === 'weak' || m === 'thirsty' || m === 'dirty') state = m; else if (state !== 'grumpy') state = 'idle'; };
-  // ---- eating: takes about a minute ----
-  const EAT_MOVES = [['eat', 'eatdown', 'r-chompl'], ['eat', 'eatdown', 'r-nudge'], ['eat', 'eatdown', 'r-dig'], ['eat', 'eatdown', 'r-chompl r-tailfast'], ['eatup', 'eat', 'r-chompl']];
+  const recheck = () => { const m = gMood(gLoad()); if (m === 'weak' || m === 'thirsty' || m === 'dirty' || m === 'grumpy') state = m; else state = 'idle'; };
+  // ---- eating: takes about a minute; head down in the bowl, with different moves ----
+  const EAT_MOVES = [['eat', 'eatdown', 'r-chompl'], ['eat', 'eatdown', 'r-nudge'], ['eat', 'eatdown', 'r-dig'], ['eat', 'eatdown', 'r-chompl'], ['eatup', 'eat', 'r-chompl']];
   const eat = until => {
     gBusy = true; draw('eat', 'eatdown', 'r-chompl wagfast'); fx('✨🦴✨', 5);
-    let last = 0; const mv = () => { if (!alive() || Date.now() >= until) return;
+    let last = 0; const mv = () => { if (!alive() || Date.now() >= until) return; if (Date.now() < eatPause) return later(eatPause - Date.now() + 50, mv);
       let i; do { i = Math.floor(Math.random() * EAT_MOVES.length); } while (i === last); last = i; const m = EAT_MOVES[i];
-      draw(m[0], m[1], m[2] + ' wagfast'); if (Math.random() < .35) fx(m[0] === 'eatup' ? '💕' : '✨', 2, 50);
+      draw(m[0], m[1], m[2] + ' wagfast'); if (Math.random() < .35) fx(m[0] === 'eatup' ? '💕' : '✨', 2);
       later(m[0] === 'eatup' ? 1600 : 2400 + Math.random() * 1600, mv); };
     later(2600, mv);
-    later(until - Date.now(), () => { recheck(); draw('sit', state === 'idle' ? 'super' : 'open', 'r-jump wagfast'); fx('❤️💛', 4); later(1500, () => { gBusy = false; rest(); }); });
+    later(until - Date.now(), () => { const wait = Math.max(0, eatPause - Date.now()); later(wait, () => { recheck(); draw('sit', state === 'idle' ? 'super' : 'open', 'r-jump wagfast'); fx('❤️💛', 4); later(1500, () => { gBusy = false; rest(); }); }); });
   };
-
   // ---- chewing toy: plays by himself for half an hour ----
   const chew = until => { stopTimer(); gBusy = false; rest(); timer('🦴 ' + withName(t('gChewing')), until, () => { carry.innerHTML = ''; draw('sit', 'super', 'r-jump wagfast'); fx('💖✨', 4); later(1500, rest); }); };
   // ---- arrival ----
@@ -1376,60 +1448,69 @@ async function viewGarden() {
   else if (mood0 === 'grumpy') draw('sit', 'grumpy', '');
   else if (mood0 === 'dirty') draw('sit', 'sad', 'r-sigh');
   else if (mood0 === 'waking') { // asleep next to his house: wakes up slowly, then walks over to you
-    gBusy = true; place(-118, -46, .5, 0, false); draw('sleep', 'sleep', 'r-breathe sleeping');
+    gBusy = true; const G = geo(), hx = 64, hy = G.HZ + 14; place(hx - G.homeX, hy - G.homeY, depth(hy, G), 0, false); draw('sleep', 'sleep', 'r-breathe sleeping');
     later(2600, () => draw('sleep', 'sleep', 'r-twitch'));
     later(3500, () => draw('lie', 'sleep', 'r-stretch'));
     later(4500, () => draw('lie', 'open', 'r-look'));
     later(5300, () => draw('sit', 'open', 'r-tilt'));
-    later(6000, () => { draw('sit', 'super', 'r-wiggle wagfast'); fx('❗', 1, 22); });
+    later(6000, () => { draw('sit', 'super', 'r-wiggle wagfast'); fx('❗', 1); });
     later(6600, () => { move('happy', 'wagfast'); place(0, 0, 1, 2600, true); });
     later(9200, () => { state = 'idle'; place(0, 0, 1, 0, false); draw('sit', 'super', 'r-jump wagfast'); fx('💕💖', 4); });
     later(10200, () => { gBusy = false; rest(); });
   }
   else draw('sit', 'happy', 'r-wiggle wagfast');
-  bars(); poos();
-  const applySky = w => { const sc = $('#gScene'); if (!sc) return; const cls = sky(w); night = /night/.test(cls); sc.className = 'garden ' + cls;
-    if (w) { const x = WX[w.weather_code] || ['🌡️', '', '']; $('#gWx').textContent = `📍 Calgary · ${calgaryNow().slice(11)} · ${x[0]} ${Math.round(w.temperature_2m)}°C ${x[LANG === 'zh' ? 1 : 2]} · ${t('gFeels')} ${Math.round(w.apparent_temperature)}°C`; }
-    else $('#gWx').textContent = `📍 Calgary · ${calgaryNow().slice(11)}`;
-    const fall = sc.querySelector('.fall'); fall.innerHTML = /rain|storm|snow/.test(cls) ? Array.from({ length: 40 }, () => `<i style="left:${Math.random() * 100}%;animation-delay:${(Math.random() * 2).toFixed(2)}s;animation-duration:${(/snow/.test(cls) ? 3 + Math.random() * 3 : .7 + Math.random() * .5).toFixed(2)}s"></i>`).join('') : ''; };
+  bars(); poos(); if (lvUpVisit) later(1200, bondUp);
+  const applySky = w => { const sc = $('#gScene'); if (!sc) return; const cls = sky(w); night = /night/.test(cls); sc.className = 'garden big ' + cls;
+    if (w) { const x = WX[w.weather_code] || ['🌡️', '', '']; $('#gWx').textContent = `${x[0]} ${Math.round(w.temperature_2m)}°C · ${calgaryNow().slice(11)}`; $('#gWx').title = `Calgary · ${x[2]} · ${t('gFeels')} ${Math.round(w.apparent_temperature)}°C`; }
+    else $('#gWx').textContent = `📍 ${calgaryNow().slice(11)}`;
+    const fall = sc.querySelector('.fall'); fall.innerHTML = /rain|storm|snow/.test(cls) ? Array.from({ length: 50 }, () => `<i style="left:${Math.random() * 100}%;animation-delay:${(Math.random() * 2).toFixed(2)}s;animation-duration:${(/snow/.test(cls) ? 3 + Math.random() * 3 : .7 + Math.random() * .5).toFixed(2)}s"></i>`).join('') : ''; };
   let wx = null; applySky(null);
   const loadWx = () => calgaryWeather().then(w => { wx = w; applySky(w); }).catch(() => applySky(wx));
   loadWx();
+  $('#gWx').onclick = () => { if ($('#gWx').title) toast($('#gWx').title, 2600); };
   const busyToast = () => toast(withName(t(chewing() ? 'gBusyChew' : 'gBusy')), 2200);
-  // ---- interactions (no dialogue: the puppy shows his mood with his body) ----
+  // ---- touching the puppy (no dialogue: he shows his mood with his body) ----
   const pet = () => {
     if (play && play.pet) return play.pet();
-    if (gBusy) return; g = gLoad(); g.lastPet = Date.now(); g.petTotal = (g.petTotal || 0) + 1; gSave(g); bars();
-    if (chewing()) { fx('💕', 2); pup.classList.add('r-wiggle'); return; }
+    cancelRoam(); const now = Date.now(); petTimes = petTimes.filter(x => now - x < 10 * 60e3); petTimes.push(now);
+    const joyN = petTimes.length <= 5 ? 2 : 0; // only the first few pets in 10 minutes cheer him up
+    if (eating() && gBusy) { // stops eating for a moment to enjoy the touch, then goes back to the bowl
+      if (now < eatPause) return; eatPause = now + 1700; care('pet', joyN); draw('eatup', 'happy', 'r-wiggle wagfast'); fx('💕', 2);
+      later(1700, () => { if (eating()) draw('eat', 'eatdown', 'r-chompl wagfast'); }); return; }
+    if (chewing()) { care('pet', joyN); draw('lie', 'happy', 'r-wiggle wagfast'); fx('💕', 2); later(1700, () => { if (!gBusy && !play) rest(); }); return; }
+    if (gBusy) return; care('pet', joyN);
     if (state === 'weak') { gBusy = true; draw('lie', 'open', 'r-wiggle weak'); fx('💧', 1); later(1400, () => { gBusy = false; rest(); }); return; }
     if (state === 'thirsty') { gBusy = true; draw('sit', 'thirsty', 'r-wiggle'); fx('💧', 2); later(1400, () => { gBusy = false; rest(); }); return; }
     if (state === 'dirty') { gBusy = true; draw('sit', 'sad', 'r-shake'); fx('💩', 1); later(1300, () => { gBusy = false; rest(); }); return; }
     if (state === 'grumpy' && --grumpLeft > 0) { gBusy = true; draw('sit', 'grumpy', 'r-shake'); later(1200, () => { gBusy = false; rest(); }); return; }
-    state = 'idle'; wrap.classList.remove('turned');
+    if (state === 'grumpy') state = 'idle'; wrap.classList.remove('turned');
     let i; do { i = Math.floor(Math.random() * PET.length); } while (i === gLastPet); gLastPet = i;
     const r = PET[i]; gBusy = true;
     if (r.pose === 'run') move(r.e, r.a + ' wagfast', true); else draw(r.pose || 'sit', r.e, r.a + ' wagfast');
     fx(r.fx);
-    later(1500, () => { gBusy = false; draw('sit', 'happy', 'wagfast'); later(1500, () => { if (!gBusy) rest(); }); });
+    later(1500, () => { draw('sit', 'happy', 'wagfast');
+      if (!atHome() && Math.random() < .4) later(600, () => comeHome(() => { gBusy = false; draw('sit', 'super', 'r-wiggle wagfast'); }, false)); // sometimes he trots over to you
+      else later(1200, () => { gBusy = false; rest(); }); });
   };
-  pup.onclick = pet; $('#gPet').onclick = pet;
+  pup.onclick = pet;
   $('#gFeed').onclick = () => {
-    if (gBusy || play || chewing()) return busyToast(); g = gLoad(); if (!treatsLeft(g)) { toast(t('gNoTreat'), 3500); return; }
+    cancelRoam(); if (gBusy || play || chewing()) return busyToast(); g = gLoad(); if (!treatsLeft(g)) { toast(t('gNoTreat'), 3500); return; }
     if (g.free > 0) g.free--; else g.bonus--;
     g.recentFeeds = H(g.lastFed) < 3 ? (g.recentFeeds || 0) + 1 : 1; g.lastFed = Date.now(); g.fedTotal = (g.fedTotal || 0) + 1;
-    g.eatUntil = Date.now() + EAT_MS;
-    if (!g.pendingPoo) g.pendingPoo = Date.now() + POO_H * 36e5; gSave(g);
+    g.eatUntil = Date.now() + EAT_MS + (atHome() ? 0 : 4000);
+    if (!g.pendingPoo) g.pendingPoo = Date.now() + POO_H * 36e5; gSave(g); care('feed', 6);
     if (state === 'weak' || state === 'grumpy') state = 'idle'; grumpLeft = 0; wrap.classList.remove('turned');
-    bars(); eat(g.eatUntil);
+    comeHome(() => eat(gLoad().eatUntil));
   };
-  // ---- water: change it any time; he drinks fresh water happily ----
+  // ---- water: change it any time; he trots over and drinks fresh water happily ----
   const changeWater = () => {
-    g = gLoad(); const was = waterLevel(g); g.waterAt = Date.now(); gSave(g); bars(); fx('💦✨', 4, 76);
-    if (gBusy || play || chewing()) return;
-    gBusy = true; draw('sit', 'open', 'r-look');
-    later(800, () => { draw('drink', 'eatdown', 'r-dig wagfast'); fx('💧', 3); });
-    later(3800, () => { recheck(); draw('sit', was >= 4 ? 'super' : 'happy', was >= 4 ? 'r-jump wagfast' : 'wagfast'); fx(was >= 4 ? '💙💖💙' : '💙', 3); });
-    later(5200, () => { gBusy = false; rest(); });
+    g = gLoad(); const was = waterLevel(g); g.waterAt = Date.now(); gSave(g); fx('💦✨', 4, 86); care('water', was >= 1 ? 3 : 0);
+    cancelRoam(); if (gBusy || play || chewing()) return;
+    gBusy = true;
+    comeHome(() => { draw('sit', 'open', 'r-look');
+      later(800, () => { draw('drink', 'eatdown', 'r-dig wagfast'); fx('💧', 3); });
+      later(3800, () => { recheck(); draw('sit', was >= 4 ? 'super' : 'happy', was >= 4 ? 'r-jump wagfast' : 'wagfast'); fx(was >= 4 ? '💙💖💙' : '💙', 3); });
+      later(5200, () => { gBusy = false; rest(); }); });
   };
   $('#gWaterBtn').onclick = changeWater; $('#gBowl').onclick = changeWater;
   // ---- shop: spend coins on treats and toys ----
@@ -1450,7 +1531,7 @@ async function viewGarden() {
   $('#gShopBtn').onclick = openShop;
   // ---- toys: each lasts 10 plays, then it's old and dirty ----
   const openToys = () => {
-    if (gBusy || play) return busyToast();
+    cancelRoam(); if (gBusy || play) return busyToast();
     g = gLoad();
     const list = g.toys.map((y, i) => { const old = y.uses >= TOY_LIFE;
       return `<div class="toyrow${old ? ' old' : ''}"><span class="ic">${toySvg(y.type, old)}</span><div style="flex:1"><b>${t('shop_' + y.type)}</b><div class="muted">${old ? t('toyOld') : tf('toyLeft', TOY_LIFE - y.uses)}</div></div>
@@ -1464,19 +1545,18 @@ async function viewGarden() {
       if (state === 'weak') { toast(withName(t('gToyWeak')), 2500); return; }
       if (chewing()) return busyToast();
       g = gLoad(); const y = g.toys[i]; if (!y || y.uses >= TOY_LIFE) return;
-      y.uses++; g.lastPet = Date.now(); g.playTotal = (g.playTotal || 0) + 1; if (y.type === 'chew') g.chewUntil = Date.now() + CHEW_MS; gSave(g);
+      y.uses++; g.playTotal = (g.playTotal || 0) + 1; if (y.type === 'chew') g.chewUntil = Date.now() + CHEW_MS; gSave(g); care('toy', 10);
       const worn = y.uses >= TOY_LIFE; if (state === 'grumpy') state = 'idle'; wrap.classList.remove('turned');
       const end = () => { play = null; recheck(); bars(); if (worn) later(800, () => toast(withName(tf('toyWorn', t('shop_' + y.type))), 3500)); };
-      if (y.type === 'ball') playBall(end); else if (y.type === 'rope') playRope(end); else { chew(g.chewUntil); end(); }
+      play = { pet: () => {} };
+      if (y.type === 'ball') comeHome(() => playBall(end)); else if (y.type === 'rope') comeHome(() => playRope(end)); else { play = null; chew(g.chewUntil); end(); }
     });
   };
   $('#gToyBtn').onclick = openToys;
-  // ball: thrown far away, he runs off (gets small), catches it and brings it back
+  // ball: the ball appears at the bottom of the screen; swipe it up to throw. He runs off (gets smaller), catches it and brings it back
   const playBall = end => {
     play = { pet: () => {} }; gBusy = true; stopTimer();
-    const scene = $('#gScene'), ball = $('#gBall'), hand = $('#gHand'), W = scene.clientWidth, SH = scene.clientHeight;
-    const homeX = W / 2 + 10, homeY = SH - 2, HZ = SH - 165;            // horizon: the far edge of the lawn
-    const depth = y => .32 + .68 * Math.max(0, Math.min(1, (y - HZ) / (homeY - HZ)));
+    const scene = $('#gScene'), ball = $('#gBall'), hand = $('#gHand'), G = geo(), { W, homeX, homeY, HZ } = G;
     window.scrollTo({ top: 0, behavior: 'smooth' });
     draw('sit', 'super', 'r-wiggle wagfast'); hand.classList.remove('hidden'); hand.style.cssText = ''; $('#gTip').classList.remove('hidden');
     let samples = [], down = false, start = null;
@@ -1493,21 +1573,21 @@ async function viewGarden() {
       const reach = Math.max(.08, Math.min(1, (sp - .3) / 2.4)), ly = homeY - 12 - reach * (homeY - 12 - HZ);
       const lx = Math.max(20, Math.min(W - 20, W / 2 + dx / Math.max(.35, up) * (homeY - ly + 120) * .55));
       const r0 = hand.getBoundingClientRect(), sr = scene.getBoundingClientRect(), x0 = r0.left + r0.width / 2, y0 = r0.top + r0.height / 2;
-      const x1 = sr.left + lx, y1 = sr.top + ly - 12, w0 = r0.width, w1 = 34 * depth(ly), T = 650 + reach * 650, arc = 80 + reach * 140, t0 = performance.now();
+      const x1 = sr.left + lx, y1 = sr.top + ly - 12, w0 = r0.width, w1 = 34 * depth(ly, G), T = 650 + reach * 650, arc = 80 + reach * 160, t0 = performance.now();
       hand.style.transition = 'none'; hand.style.transform = 'none'; hand.style.left = x0 + 'px'; hand.style.top = y0 + 'px'; hand.style.bottom = 'auto'; hand.style.marginLeft = (-w0 / 2) + 'px'; hand.style.marginTop = (-w0 / 2) + 'px';
       const fly = now => { if (!alive()) return; const k = Math.min(1, (now - t0) / T), e = 1 - Math.pow(1 - k, 2), w = w0 + (w1 - w0) * e;
         hand.style.left = (x0 + (x1 - x0) * e) + 'px'; hand.style.top = (y0 + (y1 - y0) * e - arc * Math.sin(Math.PI * k)) + 'px'; hand.style.width = w + 'px'; hand.style.marginLeft = hand.style.marginTop = (-w / 2) + 'px';
         hand.style.transform = `rotate(${k * 540}deg)`;
         if (k < 1) requestAnimationFrame(fly); else land(lx, ly, w1, T); };
       requestAnimationFrame(fly);
-      later(T * .35, () => { const right = lx > homeX; move('super', 'wagfast', true); place(lx - homeX + (right ? -14 : 14) * depth(ly), ly - homeY, depth(ly), 500 + Math.abs(ly - homeY) * 5 + Math.abs(lx - homeX) * 2, right); });
+      later(T * .35, () => { const right = lx > homeX; move('super', 'wagfast', true); place(lx - homeX + (right ? -14 : 14) * depth(ly, G), ly - homeY, depth(ly, G), 500 + Math.abs(ly - homeY) * 4 + Math.abs(lx - homeX) * 2, right); });
     };
     const land = (lx, ly, w, T) => {
       hand.classList.add('hidden'); hand.style.cssText = '';
       ball.className = 'ballfly'; ball.style.cssText = `left:${lx - w / 2}px;top:${ly - w}px;width:${w}px;bottom:auto;transform:none`;
-      const runMs = 500 + Math.abs(ly - homeY) * 5 + Math.abs(lx - homeX) * 2, wait = Math.max(250, runMs - T * .65);
+      const runMs = 500 + Math.abs(ly - homeY) * 4 + Math.abs(lx - homeX) * 2, wait = Math.max(250, runMs - T * .65);
       later(wait, () => { // got it!
-        ball.className = 'ballfly hidden'; carry.className = 'carry mouth'; carry.innerHTML = toySvg('ball'); draw('sit', 'happy', 'r-jump wagfast'); place(lx - homeX, ly - homeY, depth(ly), 0, false);
+        ball.className = 'ballfly hidden'; carry.className = 'carry mouth'; carry.innerHTML = toySvg('ball'); draw('sit', 'happy', 'r-jump wagfast'); place(lx - homeX, ly - homeY, depth(ly, G), 0, false);
         later(700, () => { carry.className = 'carry mouth runm'; move('happy', 'wagfast', true); place(0, 0, 1, runMs, lx < homeX); });
         later(700 + runMs, () => { carry.innerHTML = ''; carry.className = 'carry'; place(0, 0, 1, 0, false); draw('sit', 'super', 'r-jump wagfast'); fx('🎾💖✨', 6);
           ball.className = 'ballfly'; ball.style.cssText = ''; });
@@ -1515,70 +1595,78 @@ async function viewGarden() {
       });
     };
   };
-
-  // rope: tug-of-war. The rope starts hanging straight down from his mouth; hold the knot and pull any way you like.
-  // Let go = he wins; a quick strong yank (or pulling far) = you win. Either way he's thrilled.
+  // rope: tug-of-war. The rope hangs straight down from his mouth; hold the knot and pull any way you like —
+  // even out of the garden, anywhere on the screen. Let go = he wins; a quick strong yank (or pulling far) = you win.
   const playRope = end => {
-    gBusy = true; stopTimer(); const scene = $('#gScene'), rope = $('#gRope'), knot = $('#gKnot'), ro = $('#gRopeO'), ri = $('#gRopeI');
+    gBusy = true; stopTimer(); const rope = $('#gRope'), knot = $('#gKnot'), ro = $('#gRopeO'), ri = $('#gRopeI');
     draw('sit', 'tug', 'r-tug wagfast'); place(0, 0, 1, 0, false);
-    const mouth = () => { const s = scene.getBoundingClientRect(), r = pup.getBoundingClientRect(); return [r.left - s.left + r.width * .5, r.top - s.top + r.height * (124 / 240)]; };
-    const SH = () => scene.clientHeight, SW = () => scene.clientWidth;
-    let [mx, my] = mouth(); const home = [mx, Math.min(SH() - 24, my + 84)];
+    const mouth = () => { const r = pup.getBoundingClientRect(); return [r.left + r.width * .5, r.top + r.height * (124 / 240)]; };
+    const VW = () => innerWidth, VH = () => innerHeight;
+    let [mx, my] = mouth(); const home = [mx, Math.min(VH() - 24, my + 84)];
     let kx = home[0], ky = home[1], holding = false, done = false, grab = [0, 0], samples = [], raf = 0, jig = 0;
     rope.classList.remove('hidden'); knot.classList.remove('hidden');
     const drawRope = () => { [mx, my] = mouth(); const cx = (mx + kx) / 2, cy = (my + ky) / 2 + 14; const d = `M${mx} ${my} Q${cx} ${cy} ${kx} ${ky}`; ro.setAttribute('d', d); ri.setAttribute('d', d); knot.style.left = kx + 'px'; knot.style.top = ky + 'px'; };
     const loop = () => { if (!alive() || done) return; jig++;
       if (!holding) { const w = Math.sin(jig / 9) * 4; kx = home[0] + w * .6; ky = home[1] - Math.abs(w); } // he shakes the rope while waiting
-      const vx = kx - home[0], vy = ky - home[1], len = Math.hypot(vx, vy) || 1, pull = Math.min(26, len * .2);
+      const vx = kx - home[0], vy = ky - home[1], len = Math.hypot(vx, vy) || 1, pull = Math.min(30, len * .15);
       place(holding ? vx / len * pull - vx / len * 6 * Math.abs(Math.sin(jig / 5)) : 0, holding ? Math.min(0, vy / len * pull * .4) : 0, 1, 120, false);
       drawRope(); raf = requestAnimationFrame(loop); };
     toast(t('ropeHint'), 3200); loop();
     const finish = userWins => { if (done) return; done = true; cancelAnimationFrame(raf); clearTimeout(auto); holding = false;
       knot.onpointerdown = knot.onpointermove = knot.onpointerup = knot.onpointercancel = null;
       if (userWins) { // you yank it away: he tumbles, then bounces up thrilled
-        const vx = kx - home[0], vy = ky - home[1], len = Math.hypot(vx, vy) || 1; kx += vx / len * 200; ky += vy / len * 200;
+        const vx = kx - home[0], vy = ky - home[1], len = Math.hypot(vx, vy) || 1; kx += vx / len * 260; ky += vy / len * 260;
         knot.style.transition = 'left .4s ease-out, top .4s ease-out'; drawRope(); place(-vx / len * 14, 0, 1, 300, false); draw('lie', 'super', 'r-roll');
         later(500, () => { rope.classList.add('hidden'); knot.classList.add('hidden'); knot.style.transition = ''; });
         later(900, () => { draw('sit', 'super', 'r-jump wagfast'); place(0, 0, 1, 300, false); fx('💖✨🎉', 6); });
         later(2800, () => { gBusy = false; end(); rest(); });
       } else { // you let go: he wins the rope and runs a victory lap with it
         rope.classList.add('hidden'); knot.classList.add('hidden'); carry.className = 'carry mouth rope'; carry.innerHTML = toySvg('rope'); draw('sit', 'super', 'r-shake wagfast'); place(0, 0, 1, 200, false);
-        later(900, () => { carry.className = 'carry mouth runm rope'; move('super', 'wagfast', true); place(-90, -10, .9, 900, false); });
-        later(1800, () => { place(90, -10, .9, 1400, true); });
+        later(900, () => { carry.className = 'carry mouth runm rope'; move('super', 'wagfast', true); place(-90, -30, .85, 900, false); });
+        later(1800, () => { place(90, -30, .85, 1400, true); });
         later(3200, () => { place(0, 0, 1, 900, false); });
         later(4100, () => { carry.innerHTML = ''; carry.className = 'carry'; draw('sit', 'super', 'r-jump wagfast'); fx('💖🏆✨', 6); });
         later(5800, () => { gBusy = false; end(); rest(); });
       } };
     knot.onpointerdown = e => { e.preventDefault(); try { knot.setPointerCapture(e.pointerId); } catch (x) {} holding = true; grab = [e.clientX - kx, e.clientY - ky]; samples = []; draw('sit', 'tug', 'r-tug r-tugfast wagfast'); };
     knot.onpointermove = e => { if (!holding || done) return;
-      kx = Math.max(16, Math.min(SW() - 16, e.clientX - grab[0])); ky = Math.max(16, Math.min(SH() - 12, e.clientY - grab[1]));
+      kx = Math.max(16, Math.min(VW() - 16, e.clientX - grab[0])); ky = Math.max(16, Math.min(VH() - 16, e.clientY - grab[1]));
       const now = performance.now(); samples.push([now, e.clientX, e.clientY]); samples = samples.filter(s => now - s[0] < 160);
       const far = Math.hypot(kx - home[0], ky - home[1]);
-      if (samples.length > 1) { const a = samples[0], b = samples[samples.length - 1], v = Math.hypot(b[1] - a[1], b[2] - a[2]) / Math.max(1, b[0] - a[0]); if (v > 1.4 || far > 150) finish(true); } };
+      if (samples.length > 1) { const a = samples[0], b = samples[samples.length - 1], v = Math.hypot(b[1] - a[1], b[2] - a[2]) / Math.max(1, b[0] - a[0]); if (v > 1.5 || far > 240) finish(true); } };
     knot.onpointerup = knot.onpointercancel = () => { if (holding && !done) finish(false); };
     play = { pet: () => {} };
     const auto = setTimeout(() => { if (alive()) finish(false); }, 25e3);
   };
-  // ---- a living puppy: blinks, breathes and wags all the time, and does small things on his own ----
-  const IDLE = [
-    () => draw('sit', 'open', 'r-tilt'), () => draw('sit', 'open', 'r-look'), () => draw('sit', 'open', 'r-twitch'),
-    () => draw('sit', 'happy', 'wagfast'), () => draw('sit', 'open', 'r-sniff'), () => draw('sit', 'sleep', 'r-stretch'),
-    () => { move('happy', 'r-walk'); later(3600, () => { if (!gBusy) rest(); }); }, () => draw('lie', 'open', 'r-breathe'),
-    () => { draw('sit', 'open', 'r-look'); const b = document.createElement('span'); b.className = 'fly'; b.textContent = '🦋'; $('#gFx').appendChild(b); setTimeout(() => b.remove(), 4000); }
+  // ---- a living puppy: he wanders around the lawn and does all sorts of things on his own ----
+  const spot = () => { const G = geo(); return [G.W * (.12 + Math.random() * .76), G.HZ + 8 + Math.random() * (G.homeY - G.HZ - 8)]; };
+  const butterfly = () => { const b = document.createElement('span'); b.className = 'fly'; b.textContent = '🦋'; $('#gFx').appendChild(b); setTimeout(() => b.remove(), 4000); };
+  const ACTS = [
+    () => draw('sit', 'open', 'r-tilt'), () => draw('sit', 'open', 'r-look'), () => draw('sit', 'sleep', 'r-twitch'),
+    () => draw('sit', 'happy', 'wagfast'), () => draw('nose', 'eatdown', 'r-dig wagfast'), () => draw('nose', 'eatdown', 'r-sniff'),
+    () => draw('sit', 'sleep', 'r-stretch'), () => draw('lie', 'open', 'r-breathe'), () => draw('lie', 'happy', 'r-roll'),
+    () => draw('sit', 'super', 'r-spin wagfast'), () => { draw('sit', 'super', 'r-jump wagfast'); fx('🎵', 2); },
+    () => { draw('sit', 'open', 'r-look'); butterfly(); },
+    () => roam(done => { draw('lie', 'sleep', 'r-breathe sleeping'); const tok = roamTok; later(7000, () => { if (tok !== roamTok) return; done(); draw('sit', 'sleep', 'r-stretch'); }); }),
+    () => roam(done => { const [x1, y1] = spot(); goTo(x1, y1, () => { const [x2, y2] = spot(); goTo(x2, y2, () => { done(); draw('sit', 'super', 'r-wiggle wagfast'); fx('💨', 2); }, true, 'super'); }, true, 'super'); }) // zoomies
   ];
+  const wander = () => roam(done => { const [x, y] = spot(); goTo(x, y, () => { done(); ACTS[Math.floor(Math.random() * ACTS.length)](); }, false); });
   clearInterval(viewGarden._iv); clearInterval(viewGarden._sky);
   const tick = () => { if (!alive()) { clearInterval(viewGarden._iv); stopWalk(); clearInterval(timerT); return; }
     const before = (g.poos || []).length, lv0 = waterLevel(g); g = gLoad(); if (g.poos.length !== before) poos(); if (waterLevel(g) !== lv0) bars();
-    if (gBusy || walkT || play) return;
+    if (gBusy || walkT || play || roaming) return;
     if (chewing()) return;
     if (g.poos.length > before && state !== 'weak') { state = 'dirty'; draw('sit', 'sad', 'r-sigh'); return; }
     if (state !== 'weak' && waterLevel(g) >= 4 && state !== 'thirsty') state = 'thirsty';
     if (state === 'weak') { draw('lie', 'sad', 'r-breathe weak' + (Math.random() < .3 ? ' r-sigh' : '')); return; }
-    if (state === 'thirsty') { if (Math.random() < .4) { draw('sit', 'sad', 'r-sniff'); fx('💧', 1, 76); } else draw('sit', 'thirsty', 'r-pant'); return; }
+    if (state === 'thirsty') { // goes to sniff the dirty bowl, then sits by it panting
+      if (Math.random() < .35) { const G = geo(); roam(done => goTo(G.W - 74, G.SH - 10, () => { draw('nose', 'eatdown', 'r-sniff'); const tok = roamTok; later(1400, () => { if (tok !== roamTok) return; done(); draw('sit', 'sad', 'r-shake'); fx('💧', 1); }); }, false, 'sad')); }
+      else draw('sit', 'thirsty', 'r-pant'); return; }
     if (state === 'grumpy') { draw('sit', 'grumpy', Math.random() < .5 ? 'r-look' : 'r-twitch'); return; }
     if (state === 'dirty') { draw('sit', 'sad', Math.random() < .5 ? 'r-look' : 'r-sigh'); return; }
-    if (night && Math.random() < .55) { draw('sleep', 'sleep', 'r-breathe sleeping'); return; }
-    IDLE[Math.floor(Math.random() * IDLE.length)](); bars(); };
+    if (night && Math.random() < .5) { if (Math.random() < .3) { const G = geo(); roam(done => goTo(64, G.HZ + 14, () => { done(); draw('sleep', 'sleep', 'r-breathe sleeping'); }, false)); } else draw('sleep', 'sleep', 'r-breathe sleeping'); return; }
+    if (Math.random() < .5) wander(); else ACTS[Math.floor(Math.random() * ACTS.length)]();
+    bars(); };
   viewGarden._iv = setInterval(tick, 4200);
   viewGarden._sky = setInterval(() => { if (!$('#gScene')) { clearInterval(viewGarden._sky); return; } loadWx(); }, 60e3);
 }
@@ -1618,8 +1706,120 @@ function viewAdopt() {
   shop();
 }
 
+/* ---------- Price tracking: alert when a tracked item or product hits its 30-day low ---------- */
+let TRACK = new Set((() => { try { return JSON.parse(lsGet('track') || '[]'); } catch (e) { return []; } })());
+function pushTrack() { lsSet('track', JSON.stringify([...TRACK])); if (syncOn()) fb.F.setDoc(favRef(), { track: [...TRACK], updated: Date.now() }, { merge: true }).catch(() => {}); }
+function toggleTrack(k) { if (TRACK.has(k)) TRACK.delete(k); else TRACK.add(k); pushTrack(); toast(t(TRACK.has(k) ? 'trackOn' : 'trackOff'), 2600);
+  if (TRACK.has(k)) { askNotify(); checkTrack(true); } return TRACK.has(k); }
+const trackBtn = k => `<button class="trackbtn${TRACK.has(k) ? ' on' : ''}" data-track="${esc(k)}" aria-label="${esc(t('trackBtn'))}" aria-pressed="${TRACK.has(k)}">${TRACK.has(k) ? '🔔' : '🔕'}<span>${t(TRACK.has(k) ? 'tracking' : 'trackBtn')}</span></button>`;
+// is something on sale / just logged right now at (or below) the best price of the last 30 days?
+function trackStatus(it, obs, vid) {
+  const mine = vid ? obs.filter(o => o.vid === vid) : obs; const s = summarize(it, mine); if (!s || !s.best) return { s };
+  const live = s.rows.filter(r => r.u.key === s.best.u.key && (r.o.src === 'flyer' ? isCurrent(r.o) : daysAgo(r.o.date) <= 7 && !isEnded(r.o)));
+  const hit = live.filter(r => r.u.v <= s.best.u.v * 1.002).sort((a, b) => a.u.v - b.u.v)[0];
+  return { s, hit };
+}
+function trackRows(items, by) {
+  const map = Object.fromEntries(items.map(i => [i.id, i]));
+  return [...TRACK].map(k => { const [id, vid] = k.split('|'), it = map[id]; if (!it || (vid && !(it.variants || {})[vid])) return '';
+    const st = trackStatus(it, by[id] || [], vid), b = st.hit || (st.s && (st.s.best || st.s.low)), va = vid ? it.variants[vid] : null;
+    return `<a class="item" href="${vid ? `#variant/${encodeURIComponent(id)}/${encodeURIComponent(vid)}` : `#item/${encodeURIComponent(id)}`}">${thumb(vid ? variantPhoto(it, va) : itemPhoto(it), itemEmoji(it))}
+      <div class="main"><div class="name">${esc(vid ? variantText(it, vid) : itemName(it))}</div><div class="muted">${esc(vid ? itemName(it) : catLabel(it.cat))}</div>
+      ${st.hit ? `<div><span class="tag hot">🔥 ${t('track30')}</span> <span class="muted">${esc(st.hit.o.store)}</span></div>` : b ? `<div class="muted">${esc(b.o.store)}</div>` : ''}</div>
+      <div class="price">${b ? fmtU(b.u) : '—'}<div class="muted">${st.hit ? priceText(it, st.hit.o) : b ? t('bestNow') : t('noPrice')}</div></div>${trackBtn(k)}</a>`; }).join('');
+}
+let trackT = null;
+async function checkTrack(now) {
+  clearTimeout(trackT); trackT = setTimeout(async () => {
+    if (!TRACK.size) return; const { items, by } = await loadAll(); const map = Object.fromEntries(items.map(i => [i.id, i]));
+    let seen = {}; try { seen = JSON.parse(lsGet('trackSeen') || '{}'); } catch (e) {}
+    const hits = [];
+    for (const k of TRACK) { const [id, vid] = k.split('|'), it = map[id]; if (!it) continue; const st = trackStatus(it, by[id] || [], vid);
+      if (st.hit && seen[k] !== st.hit.o.id) { seen[k] = st.hit.o.id; hits.push({ k, it, vid, r: st.hit }); } }
+    lsSet('trackSeen', JSON.stringify(seen)); if (!hits.length) return;
+    const line = h => `${h.vid ? variantText(h.it, h.vid) : itemName(h.it)}: ${priceText(h.it, h.r.o)} (${fmtU(h.r.u)}) @ ${h.r.o.store}`;
+    notify(t('trackAlertTitle'), hits.map(line).join('\n'), 'track', hits.length === 1 ? (hits[0].vid ? `#variant/${encodeURIComponent(hits[0].it.id)}/${encodeURIComponent(hits[0].vid)}` : `#item/${encodeURIComponent(hits[0].it.id)}`) : '#home');
+    const m = showSheet(`<h2 style="margin-top:0">${t('trackAlertTitle')}</h2><div class="muted" style="margin-bottom:8px">${t('trackAlertHint')}</div>
+      ${hits.map(h => `<a class="item" href="${h.vid ? `#variant/${encodeURIComponent(h.it.id)}/${encodeURIComponent(h.vid)}` : `#item/${encodeURIComponent(h.it.id)}`}">${thumb(h.vid ? variantPhoto(h.it, h.it.variants[h.vid]) : itemPhoto(h.it), itemEmoji(h.it))}<div class="main"><div class="name">${esc(h.vid ? variantText(h.it, h.vid) : itemName(h.it))}</div><div class="muted">${esc(h.r.o.store)} · ${esc(obsText(h.it, h.r.o))}</div></div><div class="price">${priceText(h.it, h.r.o)}<div class="muted">${fmtU(h.r.u)}</div></div></a>`).join('')}
+      <button class="btn" id="taOk">${t('gotIt')}</button>`);
+    m.querySelector('#taOk').onclick = closeSheet; m.querySelectorAll('a.item').forEach(a => a.addEventListener('click', closeSheet));
+  }, now ? 300 : 1500);
+}
+
+/* ---------- Notifications: phone notification when allowed (app open or in the background), otherwise in-app ---------- */
+const notifyOK = () => 'Notification' in window && Notification.permission === 'granted';
+const notifySupported = () => 'Notification' in window && 'serviceWorker' in navigator;
+async function askNotify() { if (!notifySupported() || Notification.permission !== 'default') return Notification && Notification.permission; try { return await Notification.requestPermission(); } catch (e) { return 'denied'; } }
+async function notify(title, body, tag, url) {
+  if (!notifyOK()) return false;
+  try { const reg = await navigator.serviceWorker.getRegistration(); const icon = (document.querySelector('link[rel="icon"]') || {}).href || 'icon-192.png';
+    if (reg) { await reg.showNotification(title, { body, tag, icon, badge: icon, data: { url: url || '#home' } }); return true; }
+    new Notification(title, { body, tag, icon }); return true; } catch (e) { return false; }
+}
+// what the puppy needs right now (null if he's fine)
+function petNeed() { const g = gLoad(); if (!g.pup) return null; const m = gMood(g), n = g.pup.name;
+  const k = m === 'weak' ? 'needWeak' : m === 'thirsty' ? 'needThirsty' : m === 'dirty' ? 'needDirty' : m === 'grumpy' ? 'needGrumpy' : fullness(g) < 20 ? 'needHungry' : waterLevel(g) >= 3 ? 'needWater' : '';
+  return k ? { k, msg: tf(k, n) } : null; }
+function checkPet() { const need = petNeed(); if (!need || location.hash === '#garden') return;
+  let at = {}; try { at = JSON.parse(lsGet('notiAt') || '{}'); } catch (e) {}
+  if (Date.now() - (at[need.k] || 0) < 3 * 36e5) return; at[need.k] = Date.now(); lsSet('notiAt', JSON.stringify(at));
+  notify(tf('needTitle', gLoad().pup.name), need.msg, 'pet', '#garden'); }
+setInterval(checkPet, 10 * 60e3);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') checkPet(); else { checkVersion(); checkTrack(); } });
+navigator.serviceWorker && navigator.serviceWorker.addEventListener && navigator.serviceWorker.addEventListener('message', e => { if (e.data && e.data.url) location.hash = e.data.url; });
+
+/* ---------- Version check: make sure everyone is on the latest app ---------- */
+let verAsked = '';
+async function checkVersion() {
+  try { const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' }); if (!r.ok) return; const v = (await r.json()).v;
+    const vnum = x => (x || '0').split('.').map(Number).reduce((s, y) => s * 1000 + y, 0);
+    if (!v || vnum(v) <= vnum(APP_VERSION) || verAsked === v) return; verAsked = v;
+    const m = showSheet(`<div style="text-align:center">${dog('happy', 'party', 'bounce')}</div><h2 style="text-align:center">${t('updTitle')}</h2>
+      <div class="muted" style="text-align:center;margin-bottom:12px">${tf('updBody', v, APP_VERSION)}</div>
+      <button class="btn" id="updGo">${t('updBtn')}</button><button class="btn sec" id="updLater">${t('updLater')}</button>`);
+    m.querySelector('#updLater').onclick = closeSheet;
+    m.querySelector('#updGo').onclick = async () => { m.querySelector('#updGo').disabled = true; m.querySelector('#updGo').textContent = t('updDoing');
+      try { for (const reg of await navigator.serviceWorker.getRegistrations()) await reg.unregister(); for (const k of await caches.keys()) if (/pricepup/.test(k)) await caches.delete(k); } catch (e) {}
+      location.reload(); };
+  } catch (e) {}
+}
+
+/* ---------- Scanned product details ---------- */
+function showProduct(sc) {
+  const i = sc.info || {};
+  const cats = (i.cats || '').split(' ').length ? (i.catsList || []) : [];
+  const m = showSheet(`<h2 style="margin-top:0">${t('scanDetails')}</h2>
+    ${i.image ? `<div style="text-align:center"><img src="${esc(i.imageBig || i.image)}" alt="" style="max-width:60%;max-height:220px;border-radius:12px"></div>` : ''}
+    <table class="kv">
+      ${i.name ? `<tr><td>${t('pdName')}</td><td><b>${esc(i.name)}</b></td></tr>` : ''}
+      ${i.brand ? `<tr><td>${t('pdBrand')}</td><td>${esc(i.brand)}</td></tr>` : ''}
+      ${i.quantity ? `<tr><td>${t('pdSize')}</td><td>${esc(i.quantity)}</td></tr>` : ''}
+      <tr><td>${t('pdBarcode')}</td><td>${esc(sc.code)}</td></tr>
+      ${(i.catsList || []).length ? `<tr><td>${t('pdCats')}</td><td>${esc(i.catsList.slice(0, 5).join(', '))}</td></tr>` : ''}
+    </table>
+    <a class="btn sec" target="_blank" rel="noopener" href="https://world.openfoodfacts.org/product/${encodeURIComponent(sc.code)}" style="text-align:center;text-decoration:none">${t('pdOff')}</a>
+    <button class="btn" id="pdClose">${t('close')}</button>`);
+  m.querySelector('#pdClose').onclick = closeSheet;
+}
+
 /* ---------- What's new (shown once after each update) ---------- */
 const CHANGES = {
+  '5.0.0': [['Bigger garden: the puppy wanders around the lawn and does lots of things on his own. Stats are now in the top-right corner of the garden.',
+             'Touch the puppy to pet him (no Pet button). He stops eating or chewing for a moment to enjoy it, then carries on.',
+             'Happiness now builds up slowly, and there’s a new Bond level 💗 you earn by caring for your puppy every day.',
+             'Tug rope: pull the rope anywhere on the screen, even outside the garden.',
+             'Price tracking 🔔: track an item or product and get an alert when it hits its 30-day low. See them all under Tracking.',
+             'Home: Favourites / All (browse by category) / Tracking; ✕ clears the search. Log a price without a barcode from the Scan screen.',
+             'Scanning: better guesses, tap the scanned product for details, and only the item summary is shown.',
+             'Notifications for your puppy and price alerts (turn on in Settings), version check on open, English only.'],
+            ['Bigger garden: the puppy wanders around the lawn and does lots of things on his own. Stats are now in the top-right corner of the garden.',
+             'Touch the puppy to pet him (no Pet button). He stops eating or chewing for a moment to enjoy it, then carries on.',
+             'Happiness now builds up slowly, and there’s a new Bond level 💗 you earn by caring for your puppy every day.',
+             'Tug rope: pull the rope anywhere on the screen, even outside the garden.',
+             'Price tracking 🔔: track an item or product and get an alert when it hits its 30-day low. See them all under Tracking.',
+             'Home: Favourites / All (browse by category) / Tracking; ✕ clears the search. Log a price without a barcode from the Scan screen.',
+             'Scanning: better guesses, tap the scanned product for details, and only the item summary is shown.',
+             'Notifications for your puppy and price alerts (turn on in Settings), version check on open, English only.']],
   '4.9.1': [['掟波：撳個波之後，波會出現喺畫面底部，用手指向上掃出去。方向跟你手指，掃得愈快丟得愈遠。',
              '狗仔食嘢會低頭埋落碗度食，仲會有唔同動作。',
              '金幣改為金色。',
@@ -1712,4 +1912,5 @@ window.addEventListener('hashchange', () => route());
   updInstall();
   if (!lsGet('guided')) { lsSet('seenVer', APP_VERSION); setTimeout(() => showGuide(0), 600); }
   else setTimeout(showWhatsNew, 800);
+  setTimeout(checkVersion, 2500); checkTrack(); setTimeout(checkPet, 4000);
 })();
