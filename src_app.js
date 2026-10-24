@@ -1,5 +1,5 @@
 'use strict';
-const APP_VERSION = '5.1.0';
+const APP_VERSION = '5.1.1';
 const $ = s => document.querySelector(s);
 const app = $('#app');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -428,21 +428,37 @@ function scheduleRerender() {
   clearTimeout(rerenderT);
   rerenderT = setTimeout(() => { const r = location.hash.slice(1).split('/')[0]; if (['', 'home', 'item', 'deals'].includes(r)) route(true); }, 300);
 }
-function startListeners() {
-  for (const name of ['items', 'obs']) {
-    unsubs.push(fb.F.onSnapshot(col(name), { includeMetadataChanges: true }, async snap => {
-      // set the badge in arrival order (the async loop below can finish after a newer snapshot)
-      setSync(snap.metadata.fromCache ? 'offline' : snap.metadata.hasPendingWrites ? 'syncing' : 'synced');
-      if (!snap.metadata.fromCache) lsSet('lastSync', String(Date.now()));
-      let changed = false;
-      for (const ch of snap.docChanges()) {
-        if (ch.type === 'removed') await delOne(name, ch.doc.id);
-        else await putOne(name, { ...ch.doc.data(), id: ch.doc.id });
-        changed = true;
-      }
-      if (changed) { scheduleRerender(); checkTrack(); }
-    }, e => setSync('error', e.code)));
+// Incremental sync (5.1.1): each phone keeps the whole database in IndexedDB and only downloads what changed since its
+// last sync (every write stamps `updated`). One full download on the first sync and then once a week, which also drops
+// rows deleted on the server. This keeps Firestore reads far below the free plan's 50,000 a day.
+const SYNC_MARGIN = 10 * 60e3, FULL_EVERY = 7 * 864e5;
+const putMany = (s, arr) => new Promise((res, rej) => { const tx = db.transaction(s, 'readwrite'), st = tx.objectStore(s); arr.forEach(v => st.put(v)); tx.oncomplete = res; tx.onerror = () => rej(tx.error); });
+const delMany = (s, ids) => new Promise((res, rej) => { const tx = db.transaction(s, 'readwrite'), st = tx.objectStore(s); ids.forEach(k => st.delete(k)); tx.oncomplete = res; tx.onerror = () => rej(tx.error); });
+function startListeners() { const who = fbUser && fbUser.uid; for (const name of ['items', 'obs']) syncCollection(name, who); }
+async function syncCollection(name, who) {
+  const F = fb.F, kS = 'since_' + name, kF = 'full_' + name;
+  let since = +lsGet(kS) || 0;
+  if (!since || Date.now() - (+lsGet(kF) || 0) > FULL_EVERY) {
+    try {
+      setSync('syncing');
+      const snap = await F.getDocsFromServer(col(name)), rows = snap.docs.map(d => ({ ...d.data(), id: d.id })), keep = new Set(rows.map(r => r.id));
+      await putMany(name, rows); await delMany(name, (await getAll(name)).map(r => r.id).filter(id => !keep.has(id)));
+      since = Math.max(0, ...rows.map(r => r.updated || 0)) || Date.now();
+      lsSet(kS, String(since)); lsSet(kF, String(Date.now())); lsSet('lastSync', String(Date.now())); scheduleRerender(); checkTrack();
+    } catch (e) { console.warn('full sync', name, e.code); if (!since) since = 1; }
   }
+  if (!fbUser || fbUser.uid !== who) return; // signed out meanwhile
+  const q = F.query(col(name), F.where('updated', '>', Math.max(0, since - SYNC_MARGIN)));
+  unsubs.push(F.onSnapshot(q, { includeMetadataChanges: true }, async snap => {
+    // set the badge in arrival order (the async loop below can finish after a newer snapshot)
+    setSync(snap.metadata.fromCache ? 'offline' : snap.metadata.hasPendingWrites ? 'syncing' : 'synced');
+    if (!snap.metadata.fromCache) lsSet('lastSync', String(Date.now()));
+    const ch = snap.docChanges(); if (!ch.length) return;
+    const gone = ch.filter(c => c.type === 'removed').map(c => c.doc.id), rows = ch.filter(c => c.type !== 'removed').map(c => ({ ...c.doc.data(), id: c.doc.id }));
+    if (rows.length) await putMany(name, rows); if (gone.length) await delMany(name, gone);
+    const mx = Math.max(+lsGet(kS) || 0, ...rows.filter(r => !snap.metadata.hasPendingWrites).map(r => r.updated || 0)); lsSet(kS, String(mx));
+    scheduleRerender(); checkTrack();
+  }, e => setSync('error', e.code)));
 }
 function stopListeners() { unsubs.forEach(u => u()); unsubs = []; }
 
@@ -1933,6 +1949,8 @@ function showProduct(sc) {
 
 /* ---------- What's new (shown once after each update) ---------- */
 const CHANGES = {
+  '5.1.1': [['Faster, lighter syncing: the app now downloads only prices that changed since your last visit.'],
+            ['Faster, lighter syncing: the app now downloads only prices that changed since your last visit.']],
   '5.1.0': [['New catalogue: 15 departments with aisles, like Superstore and Walmart. Tap All, pick a department, then an aisle.',
              'Six more stores in the weekly flyers: Calgary Co-op, No Frills, Wholesale Club, H Mart, Shoppers Drug Mart and London Drugs.',
              'Scanning remembers products: PricePup checks its own barcode list first, then Open Food Facts and UPCitemdb. If nobody knows a barcode, you can add the product yourself.',
