@@ -4,7 +4,11 @@ import json, urllib.request, concurrent.futures as cf, sys, os, datetime
 OUT = sys.argv[1] if len(sys.argv) > 1 else os.path.dirname(os.path.abspath(__file__))
 POSTAL = 'T2X0M4'
 MERCHANTS = {'Real Canadian Superstore': 'Superstore', 'Sobeys': 'Sobeys', 'Save-On-Foods': 'Save-On-Foods',
-             'T&T Supermarket': 'T&T', 'Costco': 'Costco', 'FreshCo': 'FreshCo', 'Safeway': 'Safeway', 'Walmart': 'Walmart'}
+             'T&T Supermarket': 'T&T', 'Costco': 'Costco', 'FreshCo': 'FreshCo', 'Safeway': 'Safeway', 'Walmart': 'Walmart',
+             # added in 5.1 (2026-10-24)
+             'Calgary Co-op': 'Co-op', 'No Frills': 'No Frills', 'Wholesale Club and Club Entrepôt': 'Wholesale Club', 'H Mart': 'H Mart',
+             'Shoppers Drug Mart': 'Shoppers', 'London Drugs': 'London Drugs'}
+CATS_OK = {'Groceries', 'Pharmacy'}  # Shoppers and London Drugs are listed under Pharmacy
 def get(u):
     err = None
     for _ in range(3):
@@ -20,7 +24,7 @@ LOOKAHEAD = int(os.environ.get('LOOKAHEAD', '2'))
 d0 = datetime.date.today()
 tomorrow = (d0 + datetime.timedelta(days=1)).isoformat()
 horizon = (d0 + datetime.timedelta(days=LOOKAHEAD)).isoformat()
-pick = [f for f in fl if f['merchant'] in MERCHANTS and 'Groceries' in (f.get('categories') or [])
+pick = [f for f in fl if f['merchant'] in MERCHANTS and CATS_OK & set(f.get('categories') or [])
         and f['valid_to'][:10] >= tomorrow and f['valid_from'][:10] <= horizon]
 for f in pick: print('flyer', f['id'], f['merchant'], f['valid_from'][:10], f['valid_to'][:10], f.get('name'))
 items = []

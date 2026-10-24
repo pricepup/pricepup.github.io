@@ -73,3 +73,28 @@ OVR.update({
 })
 OVR['plant-milk'] = (r'almond (beverage|milk|breeze)|\boat (beverage|milk)|soy (drink|beverage|milk)|earth.s own|\bsilk\b|plant[- ]based beverage|barista|soy drink', r'creamer|yogurt|wax|kurta|blend|wand|formula')
 MOVE_BEFORE = {'energy-drink': 'tea'}
+
+# ---------- 5.1 (2026-10-24): pharmacies (Shoppers, London Drugs) and H Mart sell lots of non-food ----------
+SKIP_EXTRA += r"|\b(micellar|cleansing oil|toner|bath bombs?|bath set|coffret|mug|nicorette|lozenges|freeze spray|nasal|prostate|milk thistle|breville|espresso machine|dry shampoo|hair gel|body scrub|lip balm|eye shadow|kohl|gloss|train case|supplement|probiotics?|melatonin|biotin|omega|toddler snacks|jerky treats|dumpling surprise|airpods?|airtag|homepod|ipad|iphone|apple watch|headphones?|earphones?|earbuds|speakers?|bluetooth|wireless|camera|maybelline|l'?or[eé]al|covergirl|revlon|neutrogena|olay|aveeno|cerave|eucerin|aquaphor|bio-oil|celimax|glutathione|pdrn|ampoule|serum|\bskin\b|lotion|ointment|blush|liner|foundation|leave-in|polident|denture|hand cream|face cream|eye cream|dark spot|brightening|moisturi[sz]|sunscreen|spf|gift set|kimchi bag|kimchi\)?\(s|mat for kimchi)\b"
+def _ex(k, extra):
+    inc, exc = OVR.get(k, (None, None)); OVR[k] = (inc, (exc + '|' + extra) if exc else extra)
+_ex('herbs-dry', r'old spice|deodorant|\bsecret\b')
+_ex('pickles', r'\bbags?\b|\bmat\b|stew')
+_ex('cake', r'rice cakes?')
+_ex('lemon', r'drops|candy|honey')
+_ex('beef-steak', r'maybelline|superstay')
+_ex('rice-noodles', r'headphones?|earphones?|aquaphor')
+_ex('bread', r'wonderful|croutons|leave-in')
+_ex('oil', r'bio-oil|\bskin\b|leave-in|hair|vinegar')
+_ex('cream', r'hand cream|\bskin\b|face|gift|liquid cream|brightening|ampoule|polident|foaming|dynasty|reju')
+_ex('apple', r'homepod|airpods?|airtag|ipad|iphone|watch')
+MOVE_BEFORE['deodorant'] = 'herbs-dry'
+_ex('hotdog-buns', r'candy')
+_ex('cookies', r'barista')
+_ex('salsa', r'chips')
+_ex('spinach', r'chips')
+_ex('detergent', r'bath tissue|tissues')
+_ex('honey', r'drops|roasted|peanuts')
+_ex('orange', r'honey|blossom')
+_ex('chocolate', r'\bgum\b')
+_ex('water', r'john frieda|illuminating')
