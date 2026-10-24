@@ -1,5 +1,5 @@
 'use strict';
-const APP_VERSION = '5.0.0';
+const APP_VERSION = '5.1.0';
 const $ = s => document.querySelector(s);
 const app = $('#app');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -91,6 +91,10 @@ const I18N = {
   notiDenied:['Notifications are blocked. Allow them for this app in your phone’s settings.','Notifications are blocked. Allow them for this app in your phone’s settings.'],
   notiNo:['Not available here. On iPhone, add the app to your Home Screen first, then open it from there.','Not available here. On iPhone, add the app to your Home Screen first, then open it from there.'],
   needTap:['Tap to help','Tap to help'], gTapHint:['Tap the puppy to pet him','Tap the puppy to pet him'],
+  allAisles:['All','All'], deptL:['Department','Department'], aisleL:['Aisle','Aisle'], itemName1:['Item name','Item name'],
+  apTitle:['Add this product','Add this product'], apHint:['No database has this barcode yet. Tell the pup what it is — it will be remembered for everyone next time.','No database has this barcode yet. Tell the pup what it is — it will be remembered for everyone next time.'],
+  apName:['Product name','Product name'], apSize:['Size','Size'], apSave:['Save product','Save product'], apSaved:['Saved: ','Saved: '], apThanks:['🐾 Thanks! Now pick the item it belongs to.','🐾 Thanks! Now pick the item it belongs to.'],
+  notFound2:['Barcode not found in any database.','Barcode not found in any database.'],
   coinPlus:['🪙 +1 金幣！可以去花園商店買嘢俾 Regen','🪙 +1 coin! Spend it at the garden shop for Regen'],
   treatPlus:['🦴 +1 零食俾 Regen！','🦴 +1 treat for Regen!'],
   curTitle:['🏷️ 而家嘅特價同最新價錢','🏷️ Current deals & latest prices'], curHint:['傳單有效期內嘅特價，同近 7 日記錄嘅價錢，最抵排先','Valid flyer deals and prices logged in the last 7 days, cheapest first'],
@@ -115,7 +119,7 @@ const I18N = {
   signIn:['用 Google 登入並開始同步','Sign in with Google to sync'], signOut:['登出','Sign out'], signedInAs:['已登入：','Signed in: '],
   sOff:['未開啟','Off'], sConnecting:['連接中…','Connecting…'], sSynced:['已同步','Synced'], sSyncing:['同步中…','Syncing…'], sOffline:['離線（稍後自動上傳）','Offline (uploads later)'], sError:['同步出錯','Sync error'],
   notAllowed:['呢個 Google 帳戶未獲准使用','This Google account is not allowed'], signInFail:['登入失敗，請再試','Sign-in failed, please try again'],
-  data:['數據','Data'], credit:['產品資料來自 Open Food Facts 同各超市網上 flyer；新鮮食品插畫來自 OpenMoji（CC BY-SA 4.0）','Product info from Open Food Facts and store flyers; fresh-food illustrations by OpenMoji (CC BY-SA 4.0)'],
+  data:['數據','Data'], credit:['產品資料來自 Open Food Facts 同各超市網上 flyer；新鮮食品插畫來自 OpenMoji（CC BY-SA 4.0）','Product info from PricePup users, Open Food Facts (ODbL) and UPCitemdb, plus weekly store flyers; fresh-food illustrations by OpenMoji (CC BY-SA 4.0)'],
   scanAim:['將 barcode 對準方框','Point at the barcode'], scanNo:['呢個瀏覽器唔支援即時掃描，請手動輸入','Live scanning not supported — type the barcode'],
   scanCam:['開唔到相機（請允許相機權限），可以用相片或者手動輸入','Camera unavailable — use a photo or type it'],
   torch:['電筒','Torch'], fromPhoto:['用相片讀','From photo'], close:['關閉','Close'], manualPh:['或者手動輸入 barcode 數字','Or type the barcode number'], ok:['確定','OK'],
@@ -149,7 +153,86 @@ const tn = (k, n) => I18N[k][LI()](n);
 const tf = (k, ...a) => I18NF[k][LI()](...a);
 const CATS = [['水果蔬菜','Produce'],['肉類','Meat'],['海鮮','Seafood'],['奶類蛋','Dairy & eggs'],['麵包','Bakery'],['米麵乾貨','Rice, noodles & pantry'],['調味醬料','Sauces & seasoning'],['早餐穀物','Breakfast'],['零食','Snacks'],['飲品','Drinks'],['急凍','Frozen'],['清潔用品','Household cleaning'],['個人護理','Personal care'],['其他','Other']];
 const catLabel = c => { const f = CATS.find(x => x[0] === c); return f ? f[LI()] : (c || ''); };
-const itemName = it => LANG === 'en' && it.en ? it.en : (it.name || it.en || t('unnamed'));
+/* ---------- Catalogue: 15 departments, each with aisles (5.1, modelled on Superstore and Walmart) ---------- */
+const DEPTS = [
+  ['produce', 'Produce', '🥬', [['fruit', 'Fruit'], ['veg', 'Vegetables'], ['salad', 'Salads & herbs'], ['precut', 'Pre-cut'], ['tofu', 'Tofu & plant protein']]],
+  ['meat', 'Meat', '🥩', [['chicken', 'Chicken & turkey'], ['beef', 'Beef'], ['pork', 'Pork'], ['sausage', 'Sausages & hot dogs'], ['deli', 'Deli meats'], ['lamb', 'Lamb & other']]],
+  ['seafood', 'Fish & seafood', '🐟', [['fish', 'Fresh fish'], ['shellfish', 'Shellfish'], ['frozen', 'Frozen seafood'], ['canned', 'Canned & smoked']]],
+  ['dairy', 'Dairy & eggs', '🥛', [['milk', 'Milk'], ['plant', 'Plant milks'], ['cream', 'Cream'], ['cheese', 'Cheese'], ['yogurt', 'Yogurt'], ['butter', 'Butter'], ['eggs', 'Eggs'], ['dips', 'Sour cream & dips']]],
+  ['bakery', 'Bakery', '🍞', [['bread', 'Bread'], ['buns', 'Buns & bagels'], ['wraps', 'Tortillas & wraps'], ['asian', 'Asian bakery'], ['cakes', 'Cakes & pastries']]],
+  ['pantry', 'Pantry', '🍚', [['rice', 'Rice'], ['noodles', 'Pasta & noodles'], ['canned', 'Canned & jarred'], ['grains', 'Beans & grains'], ['baking', 'Baking'], ['oils', 'Oils & vinegar'], ['spreads', 'Spreads, honey & syrup'], ['meals', 'Easy meals']]],
+  ['sauces', 'Sauces & seasoning', '🧂', [['condiments', 'Condiments'], ['asian', 'Asian sauces'], ['pasta', 'Pasta sauce'], ['spices', 'Spices'], ['stock', 'Stock & bouillon']]],
+  ['breakfast', 'Breakfast & hot drinks', '🥣', [['cereal', 'Cereal'], ['oatmeal', 'Oatmeal'], ['coffee', 'Coffee'], ['tea', 'Tea'], ['pancake', 'Pancake & waffle']]],
+  ['snacks', 'Snacks', '🍪', [['chips', 'Chips'], ['crackers', 'Crackers'], ['cookies', 'Cookies'], ['candy', 'Chocolate & candy'], ['bars', 'Bars'], ['nuts', 'Nuts & dried fruit'], ['popcorn', 'Popcorn & pretzels']]],
+  ['drinks', 'Drinks', '🧃', [['water', 'Water'], ['pop', 'Pop'], ['juice', 'Juice'], ['energy', 'Sports & energy'], ['wellness', 'Coffee, tea & wellness drinks']]],
+  ['frozen', 'Frozen', '🧊', [['meals', 'Meals & pizza'], ['veg', 'Vegetables & fruit'], ['asian', 'Dumplings & Asian'], ['meat', 'Meat & seafood'], ['icecream', 'Ice cream & desserts'], ['fries', 'Fries & appetizers']]],
+  ['intl', 'International', '🌏', [['eastasian', 'East Asian'], ['southasian', 'South Asian'], ['latin', 'Latin'], ['mideast', 'Middle Eastern'], ['european', 'European'], ['halal', 'Halal & kosher']]],
+  ['household', 'Household', '🧴', [['paper', 'Paper towels & tissue'], ['laundry', 'Laundry'], ['dish', 'Dish'], ['cleaners', 'Cleaners'], ['bags', 'Garbage & food bags'], ['wrap', 'Foil & wrap']]],
+  ['personal', 'Personal care & health', '🧼', [['oral', 'Oral care'], ['hair', 'Hair'], ['body', 'Body & soap'], ['deodorant', 'Deodorant'], ['feminine', 'Feminine care'], ['medicine', 'Medicine & vitamins']]],
+  ['babypet', 'Baby & pet', '🍼', [['diapers', 'Diapers & wipes'], ['formula', 'Formula'], ['babyfood', 'Baby food'], ['dog', 'Dog food'], ['cat', 'Cat food'], ['pet', 'Pet supplies']]]
+];
+const DEPT = Object.fromEntries(DEPTS.map(d => [d[0], d]));
+// the old one-level categories map to a department (and back, for the weekly flyer importer)
+const CAT_DEPT = { '水果蔬菜': 'produce', '肉類': 'meat', '海鮮': 'seafood', '奶類蛋': 'dairy', '麵包': 'bakery', '米麵乾貨': 'pantry', '調味醬料': 'sauces', '早餐穀物': 'breakfast', '零食': 'snacks', '飲品': 'drinks', '急凍': 'frozen', '清潔用品': 'household', '個人護理': 'personal', '其他': 'pantry' };
+const DEPT_CAT = { produce: '水果蔬菜', meat: '肉類', seafood: '海鮮', dairy: '奶類蛋', bakery: '麵包', pantry: '米麵乾貨', sauces: '調味醬料', breakfast: '早餐穀物', snacks: '零食', drinks: '飲品', frozen: '急凍', intl: '米麵乾貨', household: '清潔用品', personal: '個人護理', babypet: '其他' };
+// aisle by item name, checked within the item's department first ([regex, 'dept/aisle'])
+const AISLE_RX = {
+  produce: [[/tofu|plant protein|tempeh/, 'produce/tofu'], [/salad|herb|cilantro|parsley|\bmint\b|basil|\bdill\b/, 'produce/salad'], [/cut |stir.?fry|platter|veggie tray/, 'produce/precut'],
+    [/apple|banana|berr|grape|orange|mandarin|clementine|lemon|lime|mango|melon|pear|peach|nectarine|plum|cherr|kiwi|pineapple|avocado|pomegranate|persimmon|fruit|papaya|lychee|longan|coconut|fig|date/, 'produce/fruit'], [/./, 'produce/veg']],
+  meat: [[/deli|\bham\b|salami|bologna|cold cut|pepperoni|prosciutto/, 'meat/deli'], [/sausage|hot ?dog|wiener|longanisa|tocino|bratwurst|chorizo|kielbasa/, 'meat/sausage'],
+    [/chicken|turkey|duck|drumstick|wing|thigh/, 'meat/chicken'], [/beef|steak|brisket|veal(?!.*lamb)/, 'meat/beef'], [/pork|rib|bacon|belly|loin|chop|shoulder/, 'meat/pork'], [/./, 'meat/lamb']],
+  seafood: [[/canned|smoked|tuna|sardine|anchov/, 'seafood/canned'], [/shrimp|prawn|crab|lobster|mussel|clam|scallop|oyster|squid|octopus/, 'seafood/shellfish'], [/frozen/, 'seafood/frozen'], [/./, 'seafood/fish']],
+  dairy: [[/egg/, 'dairy/eggs'], [/sour cream|\bdips?\b|hummus|tzatziki|guacamole/, 'dairy/dips'], [/cheese|paneer|parmesan|mozzarella|cheddar|bocconcini|feta|ricotta|brie/, 'dairy/cheese'], [/yogh?urt|kefir/, 'dairy/yogurt'], [/butter|margarine|ghee/, 'dairy/butter'],
+    [/plant|almond|oat (milk|bev)|soy|coconut (milk|bev)/, 'dairy/plant'], [/cream|creamer/, 'dairy/cream'], [/./, 'dairy/milk']],
+  bakery: [[/tortilla|wrap|naan|pita|roti|chapati|paratha/, 'bakery/wraps'], [/chinese|bao|bun.*(lotus|bbq)|asian|steamed/, 'bakery/asian'], [/bun|bagel|muffin|croissant|roll|english/, 'bakery/buns'],
+    [/cake|pie|pudding|dessert|pastr|donut|tart|cheesecake|brownie|danish/, 'bakery/cakes'], [/./, 'bakery/bread']],
+  pantry: [[/rice(?! (cake|noodle|vinegar))/, 'pantry/rice'], [/noodle|pasta|spaghetti|ramen|udon|vermicelli|macaroni|lasagna/, 'pantry/noodles'], [/flour|sugar|baking|chocolate chip|yeast|cake mix|condensed|evaporated|cocoa|pie shell/, 'pantry/baking'],
+    [/\boil\b|vinegar|olive|canola/, 'pantry/oils'], [/peanut butter|jam|honey|syrup|maple|nutella|spread/, 'pantry/spreads'], [/bean|lentil|chickpea|grain|quinoa|barley|couscous/, 'pantry/grains'],
+    [/canned|soup|tomato|pulp|corn|tuna/, 'pantry/canned'], [/./, 'pantry/meals']],
+  sauces: [[/stock|broth|bouillon|soup base|hot ?pot/, 'sauces/stock'], [/pasta sauce|tomato sauce|marinara|pesto|alfredo/, 'sauces/pasta'],
+    [/soy|hoisin|oyster|teriyaki|chil|curry|fish sauce|asian|sriracha|gochujang|sambal|marinade|msg|seasoning powder|sesame/, 'sauces/asian'], [/spice|salt|pepper|seasoning|herb|masala|cumin|turmeric|cinnamon/, 'sauces/spices'], [/./, 'sauces/condiments']],
+  breakfast: [[/coffee|espresso/, 'breakfast/coffee'], [/\btea\b|matcha/, 'breakfast/tea'], [/oat|porridge|congee/, 'breakfast/oatmeal'], [/pancake|waffle/, 'breakfast/pancake'], [/./, 'breakfast/cereal']],
+  snacks: [[/popcorn|pretzel/, 'snacks/popcorn'], [/cracker|rice cake|seaweed/, 'snacks/crackers'], [/cookie|biscuit|wafer/, 'snacks/cookies'], [/chocolate|candy|gum|gumm|licorice|jelly|mints/, 'snacks/candy'],
+    [/\bbars?\b|granola/, 'snacks/bars'], [/nut|almond|cashew|pistachio|dried|jerky|seed|trail/, 'snacks/nuts'], [/./, 'snacks/chips']],
+  drinks: [[/water/, 'drinks/water'], [/energy|sports|gatorade|electrolyte/, 'drinks/energy'], [/juice|lemonade|cocktail/, 'drinks/juice'], [/pop|soda|cola|soft drink|ginger ale/, 'drinks/pop'], [/./, 'drinks/wellness']],
+  frozen: [[/ice cream|gelato|kulfi|frozen dessert|popsicle|frozen yogh?urt|sorbet/, 'frozen/icecream'], [/fries|potato|appeti|onion ring|spring roll|samosa/, 'frozen/fries'], [/dumpling|gyoza|wonton|bao|asian|siu mai|har gow/, 'frozen/asian'],
+    [/fruit|berr|veg|pea|corn|broccoli/, 'frozen/veg'], [/chicken|beef|fish|shrimp|nugget|burger|meatball|seafood|wing/, 'frozen/meat'], [/./, 'frozen/meals']],
+  household: [[/paper towel|toilet|bathroom tissue|tissue|napkin/, 'household/paper'], [/laundry|detergent|softener|dryer|bleach/, 'household/laundry'], [/dish/, 'household/dish'],
+    [/garbage|trash|bag|ziploc/, 'household/bags'], [/foil|wrap|parchment/, 'household/wrap'], [/./, 'household/cleaners']],
+  personal: [[/tooth|oral|mouthwash|floss|dental/, 'personal/oral'], [/shampoo|conditioner|hair/, 'personal/hair'], [/deodorant|antiperspirant/, 'personal/deodorant'], [/\bpads?\b|tampon|feminine|liner/, 'personal/feminine'],
+    [/vitamin|medicine|pain|cold|allergy|supplement|probiotic/, 'personal/medicine'], [/diaper|baby wipe/, 'babypet/diapers'], [/./, 'personal/body']],
+  babypet: [[/formula/, 'babypet/formula'], [/baby food|puree|toddler|pouch/, 'babypet/babyfood'], [/dog/, 'babypet/dog'], [/cat\b|kitten/, 'babypet/cat'], [/pet|litter/, 'babypet/pet'], [/./, 'babypet/diapers']]
+};
+// names that point to another department whatever the old category says
+const AISLE_ANY = [[/chocolate spread|\bhoney\b|\bjam\b|marmalade|maple syrup|peanut butter|nut butter|nutella/, 'pantry/spreads'], [/cooking oil|oil spray|vinegar|olive oil/, 'pantry/oils'],
+  [/^dips?\b|hummus|sour cream/, 'dairy/dips'], [/ground .*coffee|whole bean|instant coffee|coffee pods/, 'breakfast/coffee'], [/tea bags|loose tea/, 'breakfast/tea'], [/\btofu\b/, 'produce/tofu'],
+  [/halal|kosher/, 'intl/halal'], [/kimchi|korean|japanese|miso\b|furikake/, 'intl/eastasian'], [/mango pulp|rasmalai|gulab|kulfi|indian sweets|achar/, 'intl/southasian'],
+  [/longanisa|tocino|filipino|mexican|plantain/, 'intl/latin'], [/tahini|halloumi|za.?atar|baklava/, 'intl/mideast']];
+// English names for items that were created with a Chinese name only (the app is English-only from 5.0)
+const EN_NAME = { '牛仔骨': 'Beef short ribs (flanken)', '牛腱（有骨）': 'Beef shank (bone-in)', '牛腱（無骨）': 'Beef shank (boneless)', '牛腳': 'Beef feet', '牛坑腩': 'Beef rib fingers (flank)',
+  '牛筋': 'Beef tendon', '牛頸骨': 'Beef neck bones', '牛筒骨': 'Beef marrow bones', '牛尾': 'Oxtail', '新鮮瘦牛肉': 'Lean beef (fresh)', '牛柏葉': 'Beef tripe (omasum)', '牛骨': 'Beef bones', '大牛腩': 'Beef brisket',
+  '豬腩肉（無骨）': 'Pork belly (boneless)', '排骨': 'Pork spare ribs', '豬扒': 'Pork chops', '豬扒（有皮）': 'Pork chops (skin-on)', '梅頭肉': 'Pork shoulder butt', '梅頭肉（有皮）': 'Pork shoulder butt (skin-on)',
+  '豬髀肉': 'Pork leg', '豬手／全隻': 'Pork hock (whole)', '豬蹄／圓蹄': 'Pork trotters', '豬肚': 'Pork stomach', '豬大腸': 'Pork intestines', '豬頭骨': 'Pork head bones', '豬骨': 'Pork bones',
+  '雞髀肉（去骨去皮）': 'Chicken thighs (boneless, skinless)', '雞腿（連背）': 'Chicken legs (back attached)', '小雞髀': 'Chicken drumsticks', '大雞腳': 'Chicken feet (large)', '雞爪': 'Chicken feet',
+  '雞胸肉': 'Chicken breast', '雞翼': 'Chicken wings', '雞翼（斬件）': 'Chicken wings (split)', '雞肫': 'Chicken gizzards', '火鍋牛肉片': 'Hot pot beef slices', '火鍋牛腩片': 'Hot pot beef brisket slices',
+  '火鍋羊肉片': 'Hot pot lamb slices', '火鍋豬肉片': 'Hot pot pork slices', '牛／豬肉丸': 'Beef / pork balls', '走地雞': 'Free-range chicken' };
+const itemEn = it => it.en || EN_NAME[it.name] || it.name || '';
+function aisleOf(it) {
+  if (it.aisle && DEPT[it.aisle.split('/')[0]]) return it.aisle; // set by hand
+  const s = `${itemEn(it)} ${it.id || ''}`.toLowerCase();
+  let d = CAT_DEPT[it.cat] || 'pantry';
+  if (/diaper|baby wipe|infant formula|baby food|baby care/.test(s)) d = 'babypet';
+  if (/\bdog\b|\bcat food|kitten|litter|\bpet\b/.test(s)) d = 'babypet';
+  for (const [rx, a] of AISLE_ANY) if (rx.test(s)) return a;
+  for (const [rx, a] of AISLE_RX[d] || []) if (rx.test(s)) return a;
+  return d + '/' + DEPT[d][3][0][0];
+}
+const deptOf = it => aisleOf(it).split('/')[0];
+const deptLabel = d => (DEPT[d] || ['', d])[1];
+const aisleLabel = a => { const [d, x] = a.split('/'); const f = ((DEPT[d] || [])[3] || []).find(y => y[0] === x); return f ? f[1] : ''; };
+const placeLabel = it => { const a = aisleOf(it); return `${deptLabel(a.split('/')[0])} · ${aisleLabel(a)}`; };
+const deptEmoji = d => (DEPT[d] || [])[2] || '🛒';
+const itemName = it => itemEn(it) || t('unnamed');
 const itemSub = it => ''; // English only: no second-language name
 function applyStatic() {
   document.documentElement.lang = LANG === 'zh' ? 'zh-Hant' : 'en';
@@ -432,7 +515,7 @@ const isFresh = it => FRESH_CATS.includes(it.cat);
 const freshIcon = it => { if (!isFresh(it)) return ''; const s = `${it.en || ''} ${it.name || ''}`; return `fresh/${FRESH_ID[it.id] || (FRESH_RX.find(([rx]) => rx.test(s)) || [])[1] || FRESH_CAT[it.cat]}.svg`; };
 const itemPhoto = it => freshIcon(it) || it.photo || Object.values(it.variants || {}).map(v => v.photo).find(Boolean) || '';
 const variantPhoto = (it, va) => freshIcon(it) || (va && va.photo) || itemPhoto(it);
-const itemEmoji = it => ({ '水果蔬菜':'🥬','肉類':'🥩','海鮮':'🐟','奶類蛋':'🥛','麵包':'🍞','米麵乾貨':'🍚','調味醬料':'🧂','早餐穀物':'🥣','零食':'🍪','飲品':'🧃','急凍':'🧊','清潔用品':'🧴','個人護理':'🧼' }[it.cat] || '🛒');
+const itemEmoji = it => deptEmoji(deptOf(it));
 
 /* ---------- Barcode lookup ---------- */
 function normCode(raw) { const d = String(raw || '').replace(/\D/g, ''); return !d ? '' : d.length === 12 ? '0' + d : d; }
@@ -539,14 +622,40 @@ $('#photoScanBtn').onclick = async () => {
   try { const codes = await det.detect(await loadBitmap(f)); if (codes.length) { closeScanner(); cb2(codes[0].rawValue); } else toast(t('photoNoCode')); }
   catch (e) { toast(t('photoFail')); }
 };
+/* ---------- Barcode database: our own Firebase first, then free online sources; whatever is found is saved back ---------- */
+const bcRef = code => fb.F.doc(fb.db, 'households', HOUSEHOLD, 'barcodes', code);
+const bcLocal = () => { try { return JSON.parse(lsGet('bcache') || '{}'); } catch (e) { return {}; } };
+function bcLocalPut(code, d) { const m = bcLocal(); m[code] = d; const ks = Object.keys(m); while (ks.length > 300) delete m[ks.shift()]; lsSet('bcache', JSON.stringify(m)); }
+async function bcGet(code) {
+  if (syncOn()) { try { const s = await fb.F.getDoc(bcRef(code)); if (s.exists()) { const d = s.data(); bcLocalPut(code, d); return d; } } catch (e) {} }
+  return bcLocal()[code] || null;
+}
+async function bcPut(code, info) {
+  const d = { name: info.name || '', brand: info.brand || '', quantity: info.quantity || '', image: info.image || '', imageBig: info.imageBig || '', cats: info.cats || '',
+    catsList: (info.catsList || []).slice(0, 8), src: info.src || 'off', ts: Date.now(), by: fbUser ? fbUser.uid : '' };
+  bcLocalPut(code, d);
+  if (syncOn()) fb.F.setDoc(bcRef(code), d).catch(e => console.warn('barcode save', e.code));
+  return d;
+}
+async function upcLookup(code) { // UPCitemdb free tier: 100 lookups a day, no key
+  try { const r = await fetch(`https://api.upcitemdb.com/prod/trial/lookup?upc=${code}`, { signal: AbortSignal.timeout ? AbortSignal.timeout(7000) : undefined }); if (!r.ok) return null;
+    const p = ((await r.json()).items || [])[0]; if (!p || !p.title) return null;
+    return { name: p.title, brand: p.brand || '', quantity: p.size || '', image: (p.images || [])[0] || '', cats: p.category || '', catsList: p.category ? p.category.split('>').map(x => x.trim()) : [], src: 'upc' };
+  } catch (e) { return null; }
+}
+async function findProduct(code) {
+  const own = await bcGet(code); if (own) return own;
+  toast(t('lookingUp'), 5000);
+  let info = await lookupProduct(code); if (info) info.src = 'off'; else info = await upcLookup(code);
+  return info ? bcPut(code, info) : null;
+}
 let scanCtx = null; // what the last barcode scan found, shown as a banner on the item / variant page
 async function handleBarcode(raw) {
   const code = normCode(raw);
   if (!code) return toast(t('badCode'));
   const hit = await findBarcode(code);
   if (hit) { scanCtx = { code, itemId: hit.it.id, vid: hit.vid, known: true }; location.hash = `#variant/${encodeURIComponent(hit.it.id)}/${encodeURIComponent(hit.vid)}`; return; }
-  toast(t('lookingUp'), 5000);
-  const info = await lookupProduct(code);
+  const info = await findProduct(code);
   const sug = info ? matchItems(info, await getAll('items')) : [];
   sessionStorage.setItem('pp_pending', JSON.stringify({ code, info, sug: sug.slice(0, 5).map(x => x.it.id) }));
   if (sug.length && sug[0].score >= 3 && sug[0].strong > 0) { scanCtx = { code, info, itemId: sug[0].it.id, alts: sug.slice(1, 4).map(x => x.it.id) }; location.hash = `#item/${encodeURIComponent(sug[0].it.id)}`; }
@@ -640,7 +749,7 @@ async function loadAll() {
   return { items, obs, by };
 }
 
-let homeQ = '', homeView = lsGet('homeView') || '';
+let homeQ = '', homeView = lsGet('homeView') || '', homeAisle = '';
 if (!['fav', 'all', 'track'].includes(homeView) && !homeView.startsWith('cat:')) homeView = '';
 const catEmoji = c => itemEmoji({ cat: c });
 async function viewHome() {
@@ -655,13 +764,13 @@ async function viewHome() {
     <div class="chips seg3" id="hView" style="margin:4px 0 10px"></div>
     <div class="searchbox"><input id="q" type="search" placeholder="${esc(t('search'))}" value="${esc(homeQ)}" autocomplete="off"><button type="button" id="qClear" class="qclear${homeQ ? '' : ' hidden'}" aria-label="clear">✕</button></div>
     <div id="list"></div>`;
-  const hay = ({ it, s }) => [it.name, it.en, ...(it.aliases || []), catLabel(it.cat), ...Object.values(it.variants || {}).map(v => v.brand + ' ' + (v.desc || '')), s ? s.rows.map(r => r.o.store).join(' ') : ''].join(' ').toLowerCase();
+  const hay = ({ it, s }) => [it.name, it.en, ...(it.aliases || []), placeLabel(it), ...Object.values(it.variants || {}).map(v => v.brand + ' ' + (v.desc || '')), s ? s.rows.map(r => r.o.store).join(' ') : ''].join(' ').toLowerCase();
   const row = ({ it, s }) => { const b = s && (s.best || s.low);
     return `<a class="item" href="#item/${encodeURIComponent(it.id)}">${thumb(itemPhoto(it), itemEmoji(it))}
-      <div class="main"><div class="name">${esc(itemName(it))}</div><div class="muted">${esc(catLabel(it.cat))}</div>
+      <div class="main"><div class="name">${esc(itemName(it))}</div><div class="muted">${esc(placeLabel(it))}</div>
       ${b ? `<div class="muted">${esc(b.o.store)}${b.o.sale && isCurrent(b.o) ? ` · <span class="tag">${t('sale')}</span>` : ''}</div>` : ''}</div>
       <div class="price">${b ? fmtU(b.u) : '—'}<div class="muted">${s ? (s.best ? t('bestNow') : t('histLow')) : t('noPrice')}</div></div>${starBtn(it.id)}</a>`; };
-  const cats = CATS.filter(c => items.some(i => i.cat === c[0]));
+  const depts = DEPTS.filter(d => list.some(x => deptOf(x.it) === d[0]));
   const render = () => {
     homeQ = $('#q').value; const q = homeQ.trim().toLowerCase(); $('#qClear').classList.toggle('hidden', !homeQ);
     const view = homeView || (FAVS.size ? 'fav' : 'all'), top = view.startsWith('cat:') ? 'all' : view;
@@ -669,12 +778,17 @@ async function viewHome() {
     const box = $('#list');
     if (q) { const rows = list.filter(x => hay(x).includes(q)); box.innerHTML = `<div class="card">${rows.length ? rows.slice(0, 300).map(row).join('') : `<div class="empty">${dog('sad')}<div class="muted">${t('noMatch')}</div></div>`}</div>`; return; }
     if (view === 'track') { box.innerHTML = `<div class="card">${trackRows(items, by) || `<div class="empty">${dog('sniff', 'glass')}<div class="muted">${t('trackNone')}</div></div>`}</div>`; return; }
-    if (view === 'all') { // catalogue: pick a category first
-      box.innerHTML = list.length ? `<div class="catgrid">${cats.map(c => `<button type="button" class="catbox" data-cat="${esc(c[0])}"><span class="ce">${catEmoji(c[0])}</span><b>${esc(catLabel(c[0]))}</b><span class="muted">${items.filter(i => i.cat === c[0]).length}</span></button>`).join('')}</div>`
+    if (view === 'all') { // catalogue: departments first, then aisles
+      box.innerHTML = list.length ? `<div class="catgrid">${depts.map(d => `<button type="button" class="catbox" data-cat="${d[0]}"><span class="ce">${d[2]}</span><b>${esc(d[1])}</b><span class="muted">${list.filter(x => deptOf(x.it) === d[0]).length}</span></button>`).join('')}</div>`
         : `<div class="card empty">${dog('sleep', 'z')}<div class="muted">${t('emptyList')}</div></div>`; return; }
-    if (view.startsWith('cat:')) { const c = view.slice(4), rows = list.filter(x => x.it.cat === c);
-      box.innerHTML = `<button type="button" class="btn sec small" id="catBack" style="margin:0 0 8px">‹ ${t('backCats')}</button><div class="card"><h2>${catEmoji(c)} ${esc(catLabel(c))}</h2>${rows.map(row).join('') || `<div class="muted">${t('noMatch')}</div>`}</div>`;
-      $('#catBack').onclick = () => { homeView = 'all'; lsSet('homeView', homeView); render(); }; return; }
+    if (view.startsWith('cat:')) { const dp = DEPT[view.slice(4)] ? view.slice(4) : 'pantry', d = DEPT[dp], inDept = list.filter(x => deptOf(x.it) === dp);
+      const aisles = d[3].filter(a => inDept.some(x => aisleOf(x.it) === dp + '/' + a[0])); if (homeAisle && !aisles.some(a => a[0] === homeAisle)) homeAisle = '';
+      const shown = homeAisle ? [aisles.find(a => a[0] === homeAisle)] : aisles;
+      box.innerHTML = `<button type="button" class="btn sec small" id="catBack" style="margin:0 0 8px">‹ ${t('backCats')}</button><div class="card"><h2>${d[2]} ${esc(d[1])}</h2>
+        <div class="chips scroll" id="aisleChips" style="margin:0 0 6px"><button type="button" class="chip${homeAisle ? '' : ' on'}" data-aisle="">${t('allAisles')}</button>${aisles.map(a => `<button type="button" class="chip${a[0] === homeAisle ? ' on' : ''}" data-aisle="${a[0]}">${esc(a[1])}</button>`).join('')}</div>
+        ${shown.map(a => { const rows = inDept.filter(x => aisleOf(x.it) === dp + '/' + a[0]); return `${homeAisle ? '' : `<div class="aislehead">${esc(a[1])} <span class="muted">${rows.length}</span></div>`}${rows.map(row).join('')}`; }).join('') || `<div class="muted">${t('noMatch')}</div>`}</div>`;
+      $('#catBack').onclick = () => { homeView = 'all'; homeAisle = ''; lsSet('homeView', homeView); render(); };
+      $('#aisleChips').onclick = e => { const b = e.target.closest('[data-aisle]'); if (!b) return; homeAisle = b.dataset.aisle; render(); }; return; }
     const rows = list.filter(x => FAVS.has(x.it.id));
     box.innerHTML = `<div class="card">${rows.length ? rows.map(row).join('') : `<div class="empty">${dog('sniff', 'glass')}<div class="muted">${t('noFav')}</div></div>`}</div>`;
   };
@@ -707,7 +821,7 @@ async function viewItem(id) {
   app.innerHTML = `
     <div class="card"><div class="item" style="padding:0;border:0">${thumb(itemPhoto(it), itemEmoji(it))}<div class="main">
       <div class="name" style="white-space:normal">${esc(itemName(it))}</div>
-      <div class="muted">${esc([itemSub(it), catLabel(it.cat)].filter(Boolean).join(' · '))}</div></div><span id="favWrap" class="hbtns">${trackBtn(id)}${starBtn(id, true)}</span></div></div>
+      <div class="muted">${esc(placeLabel(it))}</div></div><span id="favWrap" class="hbtns">${starBtn(id, true)}</span></div></div>
     ${sc ? `<div class="card scan"><a href="javascript:void 0" class="scprod">${thumb(sc.info && sc.info.image, '📷')}</a><div><a href="javascript:void 0" class="scprod scname"><b>${t('scanGot')}</b>${esc([sc.info && sc.info.brand, sc.info && sc.info.name, sc.info && sc.info.quantity].filter(Boolean).join(' ') || sc.code)} <span class="scmore">${t('scanTapInfo')} ›</span></a>
       <div class="muted" style="margin:4px 0 8px">${tf('scanGuess', esc(itemName(it)))}</div>
       <div class="row" style="flex-wrap:wrap;gap:6px"><button class="btn small" id="scLog" style="margin:0">${t('scanLog')}</button><button class="btn sec small" id="scOther" style="margin:0">${t('scanOther')}</button></div>
@@ -727,7 +841,7 @@ async function viewItem(id) {
     ${ls ? `<div class="card"><h2>🐾 ${vstat.length ? t('looseTitle') : t('byStore')}</h2>${boardHtml(it, ls)}</div>${chartSvg(ls.rows, ls.low.u.v, ls.low.u)}` : ''}`}`;
   bindUnitChip(() => viewItem(id));
   app.querySelectorAll('.showMore').forEach(b => b.onclick = () => { b.parentElement.querySelectorAll('.more').forEach(x => x.classList.remove('hidden')); b.remove(); });
-  $('#favWrap').onclick = e => { if (e.target.closest('[data-track]')) toggleTrack(id); else if (e.target.closest('[data-fav]')) toggleFav(id); else return; $('#favWrap').innerHTML = trackBtn(id) + starBtn(id, true); };
+  $('#favWrap').onclick = e => { if (!e.target.closest('[data-fav]')) return; toggleFav(id); $('#favWrap').innerHTML = starBtn(id, true); };
   if (sc) {
     $('#scLog').onclick = () => location.hash = `#add/${encodeURIComponent(id)}/new`;
     $('#scOther').onclick = () => location.hash = `#pick/${sc.code}`;
@@ -779,13 +893,26 @@ async function viewPick(code) {
   const items = await getAll('items');
   app.innerHTML = `<div class="card"><div id="pickMsg" class="muted"></div><div class="muted">${t('chooseItemHint')}</div>
     <input id="pq" type="search" placeholder="${esc(t('search'))}" style="margin-top:8px"></div>
+    <div class="card hidden" id="addProd"><h2 style="margin-top:0">${t('apTitle')}</h2><div class="muted">${t('apHint')}</div>
+      <label>${t('apName')}</label><input id="apName" placeholder="e.g. Baking soda">
+      <div class="row"><div><label>${t('brand')}</label><input id="apBrand" placeholder="e.g. Arm & Hammer"></div><div><label>${t('apSize')}</label><input id="apSize" placeholder="e.g. 500 g"></div></div>
+      <div class="row" style="align-items:center;margin-top:8px"><div id="apThumb" style="flex:0 0 54px">${thumb('', '📷')}</div><button class="btn sec small" id="apPhoto" style="flex:0 0 auto">📷 ${t('takePhoto')}</button></div>
+      <button class="btn" id="apSave">${t('apSave')}</button></div>
     <div class="card" id="plist"></div>
     <button class="btn sec" id="pNew">${t('newItem')}</button>`;
-  let info = null; const pend0 = JSON.parse(sessionStorage.getItem('pp_pending') || '{}'); const sug = pend0.code === code ? pend0.sug || [] : [];
+  let info = null; const pend0 = JSON.parse(sessionStorage.getItem('pp_pending') || '{}'); let sug = pend0.code === code ? pend0.sug || [] : [];
   if (code) {
     $('#pickMsg').textContent = t('lookingUp');
-    info = pend0.code === code && pend0.info ? pend0.info : await lookupProduct(code);
-    $('#pickMsg').textContent = info ? t('found') + [info.brand, info.name, info.quantity].filter(Boolean).join(' ') : t('notFound');
+    info = pend0.code === code && pend0.info ? pend0.info : await findProduct(code);
+    $('#pickMsg').textContent = info ? t('found') + [info.brand, info.name, info.quantity].filter(Boolean).join(' ') : t('notFound2');
+    if (!info) { // nobody has this barcode yet: the user tells the pup what it is, and it's saved for everyone
+      $('#addProd').classList.remove('hidden'); let apImg = '';
+      $('#apPhoto').onclick = async () => { const f = await pickFile($('#filePhoto')); if (!f) return; apImg = await thumbFrom(f); $('#apThumb').innerHTML = thumb(apImg); };
+      $('#apSave').onclick = async () => { const nm = $('#apName').value.trim(); if (!nm) return toast(t('needName'));
+        info = await bcPut(code, { name: nm, brand: $('#apBrand').value.trim(), quantity: $('#apSize').value.trim(), image: apImg, src: 'user' });
+        $('#addProd').classList.add('hidden'); $('#pickMsg').textContent = t('apSaved') + [info.brand, info.name, info.quantity].filter(Boolean).join(' ');
+        sug = matchItems(info, items).slice(0, 5).map(x => x.it.id); $('#pq').value = ''; render(); toast(t('apThanks'), 2600); };
+    }
   }
   const go = id => {
     sessionStorage.setItem('pp_pending', JSON.stringify({ code: code || '', info }));
@@ -795,7 +922,7 @@ async function viewPick(code) {
     const q = $('#pq').value.trim().toLowerCase();
     const si = id => { const k = sug.indexOf(id); return !q && k >= 0 ? k : 99; };
     const rows = items.filter(it => !q || [it.name, it.en, ...(it.aliases || [])].join(' ').toLowerCase().includes(q)).sort((a, b) => (si(a.id) - si(b.id)) || itemName(a).localeCompare(itemName(b))).slice(0, 80);
-    $('#plist').innerHTML = rows.map(it => `<a class="item" href="javascript:void 0" data-id="${esc(it.id)}">${thumb(itemPhoto(it), itemEmoji(it))}<div class="main"><div class="name">${esc(itemName(it))}${si(it.id) < 99 ? `<span class="tag">${t('suggested')}</span>` : ''}</div><div class="muted">${esc([itemSub(it), catLabel(it.cat)].filter(Boolean).join(' · '))}</div></div></a>`).join('') || `<div class="muted">${t('noMatch')}</div>`;
+    $('#plist').innerHTML = rows.map(it => `<a class="item" href="javascript:void 0" data-id="${esc(it.id)}">${thumb(itemPhoto(it), itemEmoji(it))}<div class="main"><div class="name">${esc(itemName(it))}${si(it.id) < 99 ? `<span class="tag">${t('suggested')}</span>` : ''}</div><div class="muted">${esc([itemSub(it), placeLabel(it)].filter(Boolean).join(' · '))}</div></div></a>`).join('') || `<div class="muted">${t('noMatch')}</div>`;
     $('#plist').querySelectorAll('[data-id]').forEach(a => a.onclick = () => code ? go(a.dataset.id) : (location.hash = `#add/${encodeURIComponent(a.dataset.id)}`));
   };
   $('#pq').oninput = render; render();
@@ -807,9 +934,9 @@ async function viewNewItem() {
   const pend = JSON.parse(sessionStorage.getItem('pp_pending') || '{}');
   let mode = 'pack';
   app.innerHTML = `<div class="card">
-    <label>${t('itemName')}</label><input id="nName" value="${esc(pend.newItemName || '')}" placeholder="例如 洗衣液">
-    <label>${t('itemEn')}</label><input id="nEn" placeholder="e.g. Laundry detergent">
-    <label>${t('cat')}</label><select id="nCat">${CATS.map(c => `<option value="${c[0]}">${c[LI()]}</option>`).join('')}</select>
+    <label>${t('itemName1')}</label><input id="nName" value="${esc(pend.newItemName || '')}" placeholder="e.g. Laundry detergent">
+    <label>${t('deptL')}</label><select id="nDept">${DEPTS.map(d => `<option value="${d[0]}">${d[2]} ${esc(d[1])}</option>`).join('')}</select>
+    <label>${t('aisleL')}</label><select id="nAisle"></select>
     <label>${t('mode')}</label><div class="seg" id="nMode"><button type="button" data-m="pack">${t('modePack')}</button><button type="button" data-m="weight">${t('modeWeight')}</button></div>
     <label style="display:flex;gap:8px;align-items:center;color:var(--text);font-size:15px;margin-top:12px" id="nUsesRow"><input id="nUses" type="checkbox" style="width:auto"> ${t('useLoads')}</label>
     <label>${t('photo')}</label><div class="row" style="align-items:center"><div id="nThumb" style="flex:0 0 54px">${thumb(pend.info && pend.info.image, '📷')}</div><button class="btn sec small" id="nPhoto" style="flex:0 0 auto">📷 ${t('takePhoto')}</button></div>
@@ -817,12 +944,14 @@ async function viewNewItem() {
   </div><button class="btn" id="nSave">${t('save')}</button>`;
   const sync = () => { $('#nMode').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.m === mode)); $('#nUsesRow').classList.toggle('hidden', mode !== 'pack'); };
   $('#nMode').querySelectorAll('button').forEach(b => b.onclick = () => { mode = b.dataset.m; sync(); }); sync();
+  const fillAisles = () => { $('#nAisle').innerHTML = DEPT[$('#nDept').value][3].map(a => `<option value="${a[0]}">${esc(a[1])}</option>`).join(''); };
+  $('#nDept').onchange = fillAisles; fillAisles();
   let nPhoto = '';
   $('#nPhoto').onclick = async () => { const f = await pickFile($('#filePhoto')); if (!f) return; nPhoto = await thumbFrom(f); $('#nThumb').innerHTML = thumb(nPhoto); };
   $('#nSave').onclick = async () => {
     const name = $('#nName').value.trim(); if (!name) return toast(t('needName'));
     const id = 'I' + Date.now().toString(36);
-    await save('items', { id, name, en: $('#nEn').value.trim(), cat: $('#nCat').value, mode, cmpUses: mode === 'pack' && $('#nUses').checked, aliases: [], variants: {}, photo: nPhoto || (pend.info && pend.info.image) || '', created: today(), by: fbUser ? fbUser.uid : '' });
+    await save('items', { id, name, en: name, cat: DEPT_CAT[$('#nDept').value], aisle: $('#nDept').value + '/' + $('#nAisle').value, mode, cmpUses: mode === 'pack' && $('#nUses').checked, aliases: [], variants: {}, photo: nPhoto || (pend.info && pend.info.image) || '', created: today(), by: fbUser ? fbUser.uid : '' });
     location.replace(`#add/${encodeURIComponent(id)}/${pend.code || pend.info ? 'new' : ''}`);
   };
 }
@@ -840,7 +969,7 @@ async function viewAdd(id, preVid) {
   let per = 'lb', newPhoto = '';
   const q = pend.info ? parseQty(pend.info.quantity) : null;
   app.innerHTML = `
-    <div class="card"><div class="item" style="padding:0;border:0"><span id="iThumb">${thumb(itemPhoto(it), itemEmoji(it))}</span><div class="main"><div class="name">${esc(itemName(it))}</div><div class="muted">${esc(catLabel(it.cat))}</div></div>
+    <div class="card"><div class="item" style="padding:0;border:0"><span id="iThumb">${thumb(itemPhoto(it), itemEmoji(it))}</span><div class="main"><div class="name">${esc(itemName(it))}</div><div class="muted">${esc(placeLabel(it))}</div></div>
       ${!itemPhoto(it) && weight ? `<button class="btn sec small" id="iPhoto" style="flex:0 0 auto;margin:0">📷 ${t('takePhoto')}</button>` : ''}</div></div>
     ${weight ? '' : `<div class="card"><h2>${t('variant')}</h2>
       <div class="chips" id="vChips">${vars.map(([k]) => `<button class="chip" data-v="${esc(k)}">${esc(variantText(it, k))}</button>`).join('')}<button class="chip" data-v="__new">${t('newVariant')}</button></div>
@@ -949,7 +1078,7 @@ async function viewDeals() {
     const it = map[o.itemId]; const each = eachPrice(o); const off = o.reg > 0 ? 1 - each / o.reg : 0;
     return { o, it, off, u: unitPrice(it, o) };
   }).sort((a, b) => b.off - a.off);
-  app.innerHTML = `<div class="card muted">${t('dealsHint')}<div class="chips" id="dStores" style="margin-top:8px">${['', ...stores].map(s => `<button class="chip ${s === dealStore ? 'on' : ''}" data-s="${esc(s)}">${s ? esc(s) : t('allStores')}</button>`).join('')}</div></div><div class="card">${deals.length ? deals.slice(0, 200).map(d => `
+  app.innerHTML = `<div class="card muted">${t('dealsHint')}<div class="chips scroll" id="dStores" style="margin-top:8px">${['', ...stores].map(s => `<button class="chip ${s === dealStore ? 'on' : ''}" data-s="${esc(s)}">${s ? esc(s) : t('allStores')}</button>`).join('')}</div></div><div class="card">${deals.length ? deals.slice(0, 200).map(d => `
     <a class="item" href="#item/${encodeURIComponent(d.it.id)}">${thumb(variantPhoto(d.it, (d.it.variants || {})[d.o.vid]), itemEmoji(d.it))}
       <div class="main"><div class="name">${esc(itemName(d.it))}</div><div class="muted">${esc(obsText(d.it, d.o))}</div><div class="muted">${esc(d.o.store)} · ${fmtDate(d.o.date)}${d.o.until ? '–' + fmtDate(d.o.until).slice(5) : ''}${isUpcoming(d.o) ? ` <span class="tag up">${fmtDate(d.o.date).slice(5)} ${t('starts')}</span>` : ''}</div></div>
       <div class="price">${priceText(d.it, d.o)}<div class="muted">${d.off > 0 ? `<span class="tag">-${Math.round(d.off * 100)}%</span><br>${t('reg')} ${money(d.o.reg)}` : ''}${d.u ? '<br>' + fmtU(d.u) : ''}</div></div></a>`).join('')
@@ -1724,7 +1853,7 @@ function trackRows(items, by) {
   return [...TRACK].map(k => { const [id, vid] = k.split('|'), it = map[id]; if (!it || (vid && !(it.variants || {})[vid])) return '';
     const st = trackStatus(it, by[id] || [], vid), b = st.hit || (st.s && (st.s.best || st.s.low)), va = vid ? it.variants[vid] : null;
     return `<a class="item" href="${vid ? `#variant/${encodeURIComponent(id)}/${encodeURIComponent(vid)}` : `#item/${encodeURIComponent(id)}`}">${thumb(vid ? variantPhoto(it, va) : itemPhoto(it), itemEmoji(it))}
-      <div class="main"><div class="name">${esc(vid ? variantText(it, vid) : itemName(it))}</div><div class="muted">${esc(vid ? itemName(it) : catLabel(it.cat))}</div>
+      <div class="main"><div class="name">${esc(vid ? variantText(it, vid) : itemName(it))}</div><div class="muted">${esc(vid ? itemName(it) : placeLabel(it))}</div>
       ${st.hit ? `<div><span class="tag hot">🔥 ${t('track30')}</span> <span class="muted">${esc(st.hit.o.store)}</span></div>` : b ? `<div class="muted">${esc(b.o.store)}</div>` : ''}</div>
       <div class="price">${b ? fmtU(b.u) : '—'}<div class="muted">${st.hit ? priceText(it, st.hit.o) : b ? t('bestNow') : t('noPrice')}</div></div>${trackBtn(k)}</a>`; }).join('');
 }
@@ -1804,6 +1933,14 @@ function showProduct(sc) {
 
 /* ---------- What's new (shown once after each update) ---------- */
 const CHANGES = {
+  '5.1.0': [['New catalogue: 15 departments with aisles, like Superstore and Walmart. Tap All, pick a department, then an aisle.',
+             'Six more stores in the weekly flyers: Calgary Co-op, No Frills, Wholesale Club, H Mart, Shoppers Drug Mart and London Drugs.',
+             'Scanning remembers products: PricePup checks its own barcode list first, then Open Food Facts and UPCitemdb. If nobody knows a barcode, you can add the product yourself.',
+             'Price tracking is now only on specific product pages.'],
+            ['New catalogue: 15 departments with aisles, like Superstore and Walmart. Tap All, pick a department, then an aisle.',
+             'Six more stores in the weekly flyers: Calgary Co-op, No Frills, Wholesale Club, H Mart, Shoppers Drug Mart and London Drugs.',
+             'Scanning remembers products: PricePup checks its own barcode list first, then Open Food Facts and UPCitemdb. If nobody knows a barcode, you can add the product yourself.',
+             'Price tracking is now only on specific product pages.']],
   '5.0.0': [['Bigger garden: the puppy wanders around the lawn and does lots of things on his own. Stats are now in the top-right corner of the garden.',
              'Touch the puppy to pet him (no Pet button). He stops eating or chewing for a moment to enjoy it, then carries on.',
              'Happiness now builds up slowly, and there’s a new Bond level 💗 you earn by caring for your puppy every day.',
