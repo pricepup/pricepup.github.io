@@ -105,13 +105,18 @@ for i in items:
     size, unit, uses = size_of(stext)
     lst = title(re.sub(r',\s*$', '', re.sub(r'\s*,?\s*\d+(\.\d+)?\s*(kg|g|ml|l|lb|oz)\b.*$', '', name, flags=re.I)))
     reg = money(i.get('original_price'))
-    m = re.search(r'save\s*\$?(\d+(?:\.\d+)?)(¢)?', story, re.I)
+    m = re.search(r'save\s*\$?(\d+(?:\.\d+)?)\s*(¢|%)?', story, re.I)
     if not reg and m and not re.search(r'up to', story, re.I):
-        sv = float(m.group(1)) / (100 if m.group(2) else 1)
-        reg = round(price / multi + sv, 2)
+        if m.group(2) == '%':  # "SAVE 21%" is a percentage, not dollars
+            pc = float(m.group(1))
+            if 0 < pc < 90: reg = round(price / multi / (1 - pc / 100), 2)
+        else:
+            sv = float(m.group(1)) / (100 if m.group(2) else 1)
+            reg = round(price / multi + sv, 2)
     o = {'id': f"o-flipp-{i['id']}", 'store': st, 'price': price, 'multi': multi, 'date': i['valid_from'][:10], 'until': i['valid_to'][:10],
          'sale': True, 'src': 'flyer', 'note': 'flyer', 'listing': lst, 'by': 'backend', 'flipp': i['id']}
     if reg and reg > price / multi: o['reg'] = reg
+    if img: o['img'] = img  # flyer product photo: saved once per product by ingest.js (not stored on the price row)
     if re.search(r'member|scene\+', pre + ' ' + pt + ' ' + story, re.I): o['note'] = 'flyer · member'
     if re.search(r'online', pre, re.I): o['note'] = 'flyer · online'
     vnew = None
