@@ -1,5 +1,5 @@
 'use strict';
-const APP_VERSION = '5.3.0';
+const APP_VERSION = '5.4.0';
 const $ = s => document.querySelector(s);
 const app = $('#app');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -35,7 +35,7 @@ const I18N = {
   newVariant:['＋ 新款式','＋ New variant'], brand:['牌子','Brand'], desc:['款式描述（選填）','Description (optional)'], size:['容量／重量','Size'], unit:['單位','Unit'],
   uses:['可用次數（選填）','Number of uses (optional)'], barcode:['Barcode','Barcode'], unitCount:['件／個','pcs'],
   pricePack:['價錢 ($)','Price ($)'], priceLb:['價錢 ($/lb)','Price ($/lb)'], priceKg:['價錢 ($/kg)','Price ($/kg)'], perWhat:['價錢單位','Priced per'],
-  multi:['幾多件呢個價（例如「2 件 $5」就填 2）','Items for this price (e.g. "2 for $5" → 2)'], storePh:['例如 Superstore','e.g. Superstore'],
+  multi:['幾多件呢個價（例如「2 件 $5」就填 2）','Multi-buy deal? How many for this price (normal = 1; a box with 2 inside is still 1)'], storePh:['例如 Superstore','e.g. Superstore'],
   date:['日期','Date'], note:['備註（選填）','Note (optional)'], save:['儲存','Save'], saved:['已儲存','Saved'], needPrice:['請輸入價錢','Please enter a price'],
   needName:['請填名稱','Please enter a name'], needVariant:['請揀或者新增款式','Choose or add a variant'], needSize:['請填容量／重量','Please enter the size'],
   ocrBtn:['📷 影價錢牌（自動讀價）','📷 Snap price tag (auto-read)'], ocrFirst:['🔎 第一次用要下載文字辨識（約 10MB），請等等…','🔎 First use downloads the text reader (~10MB)…'],
@@ -652,6 +652,7 @@ async function bcGet(code) {
 async function bcPut(code, info) {
   const d = { name: info.name || '', brand: info.brand || '', quantity: info.quantity || '', image: info.image || '', imageBig: info.imageBig || '', cats: info.cats || '',
     catsList: (info.catsList || []).slice(0, 8), src: info.src || 'off', ts: Date.now(), by: fbUser ? fbUser.uid : '' };
+  if (info.status) d.status = info.status; if (info.ocr) d.ocr = String(info.ocr).slice(0, 600); if (info.edited) d.edited = info.edited;
   bcLocalPut(code, d);
   if (syncOn()) fb.F.setDoc(bcRef(code), d).catch(e => console.warn('barcode save', e.code));
   return d;
@@ -669,7 +670,7 @@ async function findProduct(code) {
   return info ? bcPut(code, info) : null;
 }
 let scanCtx = null; // what the last barcode scan found, shown as a banner on the item / variant page
-async function handleBarcode(raw) {
+async function handleBarcodeOld(raw) {
   const code = normCode(raw);
   if (!code) return toast(t('badCode'));
   const hit = await findBarcode(code);
@@ -799,7 +800,7 @@ async function viewHome() {
     if (view === 'track') { box.innerHTML = `<div class="card">${trackRows(items, by) || `<div class="empty">${dog('sniff', 'glass')}<div class="muted">${t('trackNone')}</div></div>`}</div>`; return; }
     if (view === 'all') { // catalogue: departments first, then aisles
       box.innerHTML = list.length ? `<div class="catgrid">${depts.map(d => `<button type="button" class="catbox" data-cat="${d[0]}"><span class="ce">${d[2]}</span><b>${esc(d[1])}</b><span class="muted">${list.filter(x => deptOf(x.it) === d[0]).length}</span></button>`).join('')}</div>`
-        : `<div class="card empty">${dog('sleep', 'z')}<div class="muted">${t('emptyList')}</div></div>`; return; }
+        : `<div class="card empty">${dog('sleep', 'z')}<div class="muted">${t('emptyList')}</div>${fbUser ? '' : `<button class="btn" style="margin-top:10px" onclick="signIn()">Sign in with Google</button>`}</div>`; return; }
     if (view.startsWith('cat:')) { const dp = DEPT[view.slice(4)] ? view.slice(4) : 'pantry', d = DEPT[dp], inDept = list.filter(x => deptOf(x.it) === dp);
       const aisles = d[3].filter(a => inDept.some(x => aisleOf(x.it) === dp + '/' + a[0])); if (homeAisle && !aisles.some(a => a[0] === homeAisle)) homeAisle = '';
       const shown = homeAisle ? [aisles.find(a => a[0] === homeAisle)] : aisles;
@@ -1045,7 +1046,7 @@ async function viewAdd(id, preVid) {
     $('#aChains').querySelectorAll('.chip').forEach(b => b.onclick = () => { chain = b.dataset.c; $('#aStore').classList.toggle('hidden', chain !== '__other'); drawChains(list); if (chain === '__other') $('#aStore').focus(); }); };
   drawChains(CHAINS.map(c => ({ c })));
   const findStores = async () => { try { const p = await getPos(); if (!inCalgary(p)) { $('#aGeo').innerHTML = `🗺️ You're outside Calgary. PricePup is currently for Calgary only, so prices logged here aren't counted.`; return; }
-      const list = nearestChains(p); if (list[0].km != null && list[0].km <= .3) chain = list[0].c; drawChains(list); $('#aGeo').textContent = list[0].km <= .3 ? `📍 You're at ${list[0].c}` : '📍 Nearest stores first'; }
+      const list = nearestChains(p); if (list[0].km != null && list[0].km <= .5) chain = list[0].c; drawChains(list); $('#aGeo').textContent = list[0].km <= .5 ? `📍 You're at ${list[0].c}` : '📍 Nearest stores first'; }
     catch (e) { $('#aGeo').innerHTML = `${esc(geoMsg(e))} <button type="button" class="btn sec small" id="aGeoRetry" style="display:inline-block;width:auto;margin:4px 0 0">Try again</button>`; $('#aGeoRetry').onclick = findStores; } };
   findStores();
   $('#ocrBtn').onclick = async () => {
@@ -1131,6 +1132,7 @@ async function viewSettings() {
       ${fbUser ? `<button class="btn sec" id="sSignOut">${t('signOut')}</button>` : `<button class="btn" id="sSignIn">${t('signIn')}</button>`}</div>
     <div class="card"><h2>🦴 ${t('data')}</h2><div class="muted">${tf('count', items.length, obs.length)}</div></div>
     ${isAdmin() ? `<div class="card"><h2>👥 ${t('usersTitle')}</h2><div id="usersBody" class="muted">…</div></div>` : ''}
+    ${isAdmin() ? `<div class="card"><h2>🗂️ Unsorted products</h2><div id="unsortedBody" class="muted">…</div></div>` : ''}
     ${isAdmin() ? `<div class="card"><h2>📊 ${t('usageTitle')}</h2><div class="muted">${t('usageHint')}</div><div id="usageBody"></div>
       <div class="row" style="margin-top:8px"><button class="btn sec small" id="usageBtn">${t('usageLoad')}</button><a class="btn sec small" style="text-align:center;text-decoration:none" target="_blank" rel="noopener" href="https://console.firebase.google.com/project/${FB_CONFIG.projectId}/firestore/databases/-default-/usage">${t('usageConsole')}</a></div></div>` : ''}
     <button class="btn sec" id="sGuide">${t('guide')}</button>
@@ -1144,7 +1146,7 @@ async function viewSettings() {
   if ($('#sSignIn')) $('#sSignIn').onclick = signIn;
   if ($('#sSignOut')) $('#sSignOut').onclick = signOutSync;
   if ($('#usageBtn')) { $('#usageBtn').onclick = () => loadUsage(true); if (usageTok()) loadUsage(false); }
-  if ($('#usersBody')) loadUsers();
+  if ($('#usersBody')) loadUsers(); if ($('#unsortedBody')) loadUnsorted();
 }
 
 /* ---------- Latest flyer week + admin usage ---------- */
@@ -1268,7 +1270,7 @@ $('#installBtn').onclick = async () => {
 };
 const GUIDE = [['g1t', 'g1', 'happy', 'tag'], ['g2t', 'g2', 'normal', ''], ['g3t', 'g3', 'sniff', 'glass'], ['g4t', 'g4', 'happy', 'party'], ['g5t', 'g5', 'normal', 'tag']];
 function showGuide(i) {
-  const done = () => { lsSet('guided', '1'); closeSheet(); };
+  const done = () => { lsSet('guided', '1'); closeSheet(); setTimeout(firstLocation, 700); };
   const [tt, tx, mood, acc] = GUIDE[i], last = i === GUIDE.length - 1;
   const m = showSheet(`<div class="guide"><div style="text-align:center">${dog(mood, acc, 'bounce')}</div><h2 style="text-align:center;font-size:20px">${t(tt)}</h2>
     <div style="font-size:16px;line-height:1.6;margin:6px 0 10px">${t(tx)}</div>${last && !isStandalone() ? `<div class="muted" style="margin-bottom:10px">${t('g6')}</div>` : ''}
@@ -1482,8 +1484,29 @@ const TAG_COLS = { gold: '#f5b70a', silver: '#c9ced6', green: '#2fa36b', red: '#
 var pupCollar = (() => { try { return JSON.parse(lsGet(GKEY) || '{}').wear || null; } catch (e) { return null; } })();
 const collarSvg = cl => { const c = COLLAR_COLS[cl.c] || COLLAR_COLS.blue, t = TAG_COLS[cl.t] || TAG_COLS.gold, ink = '#15151a', hi = cl.t === 'silver' || cl.t === 'gold' ? '#fff8e0' : '#e9fff2';
   return `<path d="M90 140 q30 12 60 0" stroke="${ink}" stroke-width="12" fill="none" stroke-linecap="round"/><path d="M90 140 q30 12 60 0" stroke="${c}" stroke-width="6" fill="none" stroke-linecap="round"/><circle cx="120" cy="155" r="8.5" fill="${t}" stroke="${ink}" stroke-width="4"/><circle cx="120" cy="157.5" r="2.6" fill="${hi}"/><circle cx="116.3" cy="153" r="1.4" fill="${hi}"/><circle cx="120" cy="151.5" r="1.4" fill="${hi}"/><circle cx="123.7" cy="153" r="1.4" fill="${hi}"/>`; };
+
+// food bowl (one drawing everywhere): rounded dog bowl, rim, kibble; level 2 = full mound, 1 = half, 0 = empty
+function bowlSvg(cx, y, w, level = 2, part = 'all', ryK = .13) { // part: 'back' (rim + food, behind the head) | 'front' (bowl body + front lip) | 'all'
+  const ink = '#15151a', h = w * .3, rx = w / 2, ry = w * ryK, k = [];
+  const seed = [[-.32, .1], [-.18, -.05], [-.04, .12], [.1, -.04], [.24, .1], [.34, -.02], [-.26, -.18], [-.1, -.22], [.06, -.2], [.2, -.17], [-.02, -.36], [.13, -.32], [-.16, -.33]];
+  const n = level >= 2 ? seed.length : level === 1 ? 6 : 0, lift = level >= 2 ? ry * .35 : 0;
+  for (let i = 0; i < n; i++) { const [a, b] = seed[i]; const x = cx + a * w, yy = y + (level >= 2 ? b * ry * 2.6 - lift : b * ry * 1.6 + ry * .2);
+    k.push(`<ellipse cx="${x.toFixed(1)}" cy="${yy.toFixed(1)}" rx="${(w * .055).toFixed(1)}" ry="${(w * .045).toFixed(1)}" fill="${i % 3 ? '#b8743a' : '#9a5a2a'}" stroke="${ink}" stroke-width="${(w * .02).toFixed(1)}"/>`); }
+  const mound = level >= 2 ? `<path d="M${cx - rx * .8} ${y} Q${cx} ${y - ry * 2.6} ${cx + rx * .8} ${y} Z" fill="#c98a4b" stroke="${ink}" stroke-width="${(w * .03).toFixed(1)}" stroke-linejoin="round"/>` : '';
+  const sw = (w * .045).toFixed(1);
+  const hb = Math.max(h, ry * 1.6); const body = `<path d="M${cx - rx} ${y} C${cx - rx} ${y + hb * .6} ${cx - rx * .82} ${y + hb} ${cx - rx * .7} ${y + hb} L${cx + rx * .7} ${y + hb} C${cx + rx * .82} ${y + hb} ${cx + rx} ${y + hb * .6} ${cx + rx} ${y} A${rx} ${ry} 0 0 1 ${cx - rx} ${y} Z" fill="#ff7a59" stroke="${ink}" stroke-width="${sw}" stroke-linejoin="round"/>
+    <path d="M${cx - rx * .78} ${y + hb} h${rx * 1.56}" stroke="${ink}" stroke-width="${sw}" stroke-linecap="round"/>
+    <path d="M${cx - rx * .8} ${y + ry + (hb - ry) * .2} q${rx * .1} ${(hb - ry) * .45} ${rx * .35} ${(hb - ry) * .55}" stroke="#ffd0c0" stroke-width="${(w * .035).toFixed(1)}" fill="none" stroke-linecap="round"/>
+    <g transform="translate(${cx + rx * .32} ${y + ry + (hb - ry) * .5}) scale(${(w / 70).toFixed(3)})" fill="#ffd0c0"><circle r="4.2"/><circle cx="-5" cy="-5" r="2"/><circle cx="0" cy="-7.5" r="2"/><circle cx="5" cy="-5" r="2"/></g>`;
+  const back = `<ellipse cx="${cx}" cy="${y}" rx="${rx}" ry="${ry}" fill="#c9463a" stroke="${ink}" stroke-width="${sw}"/>
+    <ellipse cx="${cx}" cy="${y + ry * .25}" rx="${rx * .82}" ry="${ry * .62}" fill="#8f2f26"/>${mound}${k.join('')}`;
+  // the near half of the rim, drawn over the head when the puppy has its nose in the bowl
+  const lip = `<path d="M${cx - rx} ${y} A${rx} ${ry} 0 0 0 ${cx + rx} ${y} L${cx + rx * .82} ${y + ry * .25} A${rx * .82} ${ry * .62} 0 0 1 ${cx - rx * .82} ${y + ry * .25} Z" fill="#c9463a" stroke="${ink}" stroke-width="${sw}" stroke-linejoin="round"/>`;
+  return `<g class="fbowl">${part === 'back' ? back : part === 'front' ? body + lip : body + back}</g>`;
+}
 function regenB(pose, expr, color, collar) {
-  if (collar === undefined) collar = color ? null : pupCollar; // the garden puppy wears its collar; shop/adoption pictures don't
+  if (collar === undefined) collar = color ? null : pupCollar;
+  if (pose === 'eat') collar = null; // face is inside the bowl: the collar tag would poke out under it // the garden puppy wears its collar; shop/adoption pictures don't
   const pc = PUP_COLORS[color || pupColor] || PUP_COLORS.black;
   const ink = '#15151a', fur = pc.fur, ear = pc.ear, face = pc.face, W = 6;
   const L = (d, f = 'none', w = W) => `<path d="${d}" fill="${f}" stroke="${ink}" stroke-width="${w}" stroke-linejoin="round" stroke-linecap="round"/>`;
@@ -1561,11 +1584,12 @@ function regenB(pose, expr, color, collar) {
     body = shadow + tail('M152 196 C174 194 180 176 174 160') +
       L('M98 118 C86 146 80 190 84 216 L156 216 C160 190 154 146 142 118 Z', fur) +
       L('M106 176 L106 214', 'none', 5) + L('M134 176 L134 214', 'none', 5) + L('M84 216 h72', 'none', 6);
-    if (pose === 'eatup') { body += L('M84 204 h72 l-8 16 h-56z', '#ff7a59', 5) + FOOD; hd = head(0, 38, 12, .92); }
+    if (pose === 'eatup') { body += bowlSvg(120, 200, 84, 2); hd = head(0, 38, 12, .92); }
   } else if (pose === 'eat' || pose === 'drink' || pose === 'nose') { // head down in the bowl: we see his back and the top of his head
     body = shadow + tail('M156 170 C178 160 184 140 176 124') + L('M74 214 C70 160 94 118 120 118 C146 118 170 160 166 214 Z', fur) + L('M88 196 L86 218', 'none', 8) + L('M152 196 L154 218', 'none', 8);
-    hd = head(0, 76, 0, .8);
-    front = pose === 'nose' ? '' : pose === 'eat' ? FOOD2 + L('M74 198 h92 l-11 24 h-70z', '#ff7a59', 5) : `<ellipse cx="120" cy="199" rx="44" ry="5" fill="#6fc8ff" stroke="${ink}" stroke-width="3"/>` + L('M74 198 h92 l-11 24 h-70z', '#4f8fd6', 5);
+    hd = pose === 'eat' ? head(0, 76, 0, .8) : head(0, 76, 0, .8); // eating: head low over the bowl, chin just above the food
+        if (pose === 'eat') body += bowlSvg(120, 198, 104, 1, 'back');
+    front = pose === 'nose' ? '' : pose === 'eat' ? bowlSvg(120, 198, 104, 1, 'front') : `<ellipse cx="120" cy="199" rx="44" ry="5" fill="#6fc8ff" stroke="${ink}" stroke-width="3"/>` + L('M74 198 h92 l-11 24 h-70z', '#4f8fd6', 5);
   } else if (pose === 'run' || pose === 'run2') {
     // base: the version Silver picked (big head front-left, round body behind, chunky legs); body 10% bigger + a proper neck
     const big = x => `<g transform="translate(148 166) scale(1.1) translate(-148 -166)">${x}</g>`;
@@ -1668,7 +1692,7 @@ async function viewGarden() {
       </div>
       <div class="ground"></div><div class="lampw"></div>
       <svg class="bed" viewBox="0 0 110 44" aria-hidden="true"><path d="M4 30 C4 8 106 8 106 30 C106 42 4 42 4 30Z" fill="#e85d75" stroke="#15151a" stroke-width="3"/><ellipse cx="55" cy="28" rx="40" ry="9" fill="#ffd1dc" stroke="#15151a" stroke-width="2.5"/></svg>
-      <div class="rug"></div><button class="pad" id="gPad" aria-label="Pee pad"></button><div class="foodbowl"></div>
+      <div class="rug"></div><button class="pad" id="gPad" aria-label="Pee pad"></button><button class="foodbowl" id="gFoodBowl" aria-label="Food bowl"></button>
       <div id="gPoos"></div>
       <button class="bowlbtn" id="gBowl" aria-label="water"></button>
       <div class="pupwrap" id="gWrap"><div class="pflip" id="gFlip"><div class="pup" id="gPup"></div><div class="carry" id="gCarry"></div></div><div class="qbub hidden" id="gQ">?</div></div><button class="pottybtn hidden" id="gPotty">🚽 To the pad!</button><button class="pottybtn hidden" id="gReward">🦴 Reward</button>
@@ -1724,7 +1748,7 @@ async function viewGarden() {
     $('#gTreats').innerHTML = cn(tf('gTreatsMini', g.free || 0, FREE_TREATS, g.bonus || 0, g.coins || 0));
     $('#gBowl').innerHTML = waterSvg(lv);
     const need0 = !(g.bowl > 0) && fullness(g) < HUNGRY ? `🥣 ${g.pup.name} is hungry and the bowl is empty: tap Food` : (g.padUses || 0) >= 3 ? `🧻 The pee pad is dirty: tap it to change` : '';
-    const fb0 = $('#gScene') && $('#gScene').querySelector('.foodbowl'); if (fb0) fb0.classList.toggle('full', (g.bowl || 0) > 0);
+    const fb0 = $('#gFoodBowl'); if (fb0) fb0.innerHTML = `<svg viewBox="0 0 120 80" aria-hidden="true">${bowlSvg(60, 42, 100, Math.min(2, g.bowl || 0))}</svg>`;
     const need = isSick(g) ? `🤒 ${g.pup.name} is sick · better in ${hmm(g.sick.until - Date.now())} · tap` : lv >= 4 ? t('gWaterBad') : g.poos.length ? t('gPooHint') : lv >= 3 ? t('gWaterDirty') : need0;
     const ne = $('#gNeed'); ne.classList.toggle('hidden', !need); ne.classList.toggle('sickn', isSick(g)); ne.textContent = withName(need); };
   const bondUp = () => { const b = bondOf(gLoad()); toast(tf('bondUp', pupName(), b.L), 3200); fx('💗✨💗', 6); };
@@ -1841,7 +1865,7 @@ async function viewGarden() {
     m.querySelector('#fdTreat').onclick = () => { closeSheet(); giveTreat(); };
     m.querySelector('#fdFill').onclick = () => { g = gLoad(); g.bowl = BOWL_MAX; gSave(g); closeSheet(); fx('✨🥣✨', 4, 70); bars(); toast(`🥣 Bowl filled. ${pupName()} will eat when hungry.`, 2400);
       if (!gBusy && !play && !chewing() && fullness(gLoad()) < HUNGRY) later(900, () => { if (!gBusy && !play) { cancelRoam(); eatMeal(); } }); }; };
-  $('#gFeed').onclick = () => { cancelRoam(); openFood(); };
+  $('#gFeed').onclick = () => { cancelRoam(); openFood(); }; $('#gFoodBowl').onclick = e => { e.stopPropagation(); cancelRoam(); openFood(); };
   // ---- water: change it any time; he trots over and drinks fresh water happily ----
   const changeWater = () => { g = gLoad(); const was = waterLevel(g); if (was === 0 && H(g.waterAt) < .5) return toast('💧 The water is already fresh.', 1800);
     g.waterAt = Date.now(); gSave(g); fx('💦✨', 4, 86); care('water', was >= 1 ? 3 : 0); bars(); if (state === 'thirsty') { state = 'idle'; wantDrinkNow = true; } };
@@ -2233,6 +2257,131 @@ function viewAdopt() {
   shop();
 }
 
+
+/* ---------- 5.4 Scan: one screen per product. Users never pick categories: unknown products are saved as "unsorted"
+   (shared with everyone by barcode) and Claude sorts them into items when the power user asks for a data audit ---------- */
+function storePicker(geoEl, chipsEl, otherEl) {
+  let chain = chainOf(lsGet('lastStore') || ''), list = CHAINS.map(c => ({ c }));
+  const draw = () => { chipsEl.innerHTML = list.map(x => `<button type="button" class="chip${x.c === chain ? ' on' : ''}" data-c="${esc(x.c)}">${esc(x.c)}${x.km != null ? `<small> · ${fmtKm(x.km)}</small>` : ''}</button>`).join('') + `<button type="button" class="chip${chain === '__other' ? ' on' : ''}" data-c="__other">Other…</button>`;
+    chipsEl.querySelectorAll('.chip').forEach(b => b.onclick = () => { chain = b.dataset.c; otherEl.classList.toggle('hidden', chain !== '__other'); draw(); if (chain === '__other') otherEl.focus(); }); };
+  const find = async () => { geoEl.textContent = '📍 Finding stores near you…';
+    try { const p = await getPos(); if (!inCalgary(p)) { geoEl.textContent = "🗺️ You're outside Calgary. PricePup is for Calgary only for now, so prices logged here aren't counted."; return; }
+      list = nearestChains(p); if (list[0].km != null && list[0].km <= .5) chain = list[0].c; draw(); geoEl.textContent = list[0].km <= .5 ? `📍 You're at ${list[0].c}` : '📍 Nearest stores first'; }
+    catch (e) { geoEl.innerHTML = `${esc(geoMsg(e))} <button type="button" class="btn sec small" style="display:inline-block;width:auto;margin:4px 0 0">Try again</button>`; geoEl.querySelector('button').onclick = find; } };
+  draw(); find();
+  return { get: () => chain === '__other' ? (chainOf(otherEl.value) || otherEl.value.trim()) : chain };
+}
+async function checkCalgary() { try { const p = await getPos(); if (!inCalgary(p)) { toast("🗺️ PricePup is for Calgary only for now. Prices logged outside Calgary aren't counted.", 4200); return false; } return true; } catch (e) { toast(geoMsg(e), 4200); return false; } }
+// read a shelf tag: product name lines, size ("10 x 130 g") and the price
+function tagParse(text) {
+  const lines = (text || '').split('\n').map(s => s.replace(/[|_~=]+/g, ' ').replace(/\s+/g, ' ').trim()).filter(s => s.length > 1);
+  const sm = (text || '').match(/(\d+)\s*[x×X]\s*(\d+(?:[.,]\d+)?)\s*(g|kg|ml|mL|l|L|lb|oz)\b/) || (text || '').match(/(\d+(?:[.,]\d+)?)\s*(g|kg|ml|mL|l|L|lb|oz)\b/);
+  const size = sm ? sm[0].replace(/\s+/g, ' ').replace(/[×X]/, 'x') : '';
+  const nameL = lines.filter(s => { const letters = (s.match(/[A-Za-z]/g) || []).length; return letters >= 3 && letters / s.replace(/\s/g, '').length > .7 && !/price|per |sell|unit|save|reg\b|each|ea\b|grams?\b|limit|\$/i.test(s) && !(sm && s.includes(sm[0])); }).slice(0, 2);
+  const name = nameL.join(' ').toLowerCase().replace(/(^|\s)\w/g, m => m.toUpperCase());
+  return { name, size };
+}
+async function handleBarcode(raw) { const code = normCode(raw); if (!code) return toast(t('badCode')); location.hash = `#product/${code}`; }
+async function viewProduct(code) {
+  setHeader('Scanned product', true); setTab('scan');
+  app.innerHTML = `<div class="card empty">${dog('sniff', 'glass', 'bounce')}<div class="muted">Looking up ${esc(code)}…</div></div>`;
+  const link = await findBarcode(code); let info = await bcGet(code);
+  if (!info && !link) info = await findProduct(code);
+  if (location.hash !== `#product/${code}`) return;
+  if (!info && !link) return viewNewProduct(code);
+  info = info || {};
+  const it = link && link.it, va = link && (it.variants || {})[link.vid];
+  const name = va ? variantText(it, link.vid) : ([info.brand, info.name].filter(Boolean).join(' ') || 'Unnamed product');
+  const size = va ? '' : (info.quantity || ''), photo = (va && va.photo) || info.image || info.imageBig || '';
+  const rows = (await getAll('obs')).filter(o => (link && o.itemId === it.id && o.vid === link.vid) || o.bc === code).sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.ts || 0) - (a.ts || 0)).slice(0, 8);
+  app.innerHTML = `
+    <div class="card"><div class="item" style="padding:0;border:0">${thumb(photo, '📦')}<div class="main"><div class="name" style="white-space:normal">${esc(name)}</div>
+      <div class="muted">${size ? esc(size) + ' · ' : ''}${link ? `<a href="#variant/${encodeURIComponent(it.id)}/${encodeURIComponent(link.vid)}" style="color:inherit">${esc(itemName(it))}</a>` : '🗂️ Not sorted yet'}</div></div>
+      <button class="btn sec small" id="pEdit" style="flex:0 0 auto;margin:0">✏️ Edit</button></div></div>
+    ${rows.length ? `<div class="card"><h2>Recent prices</h2><table>${rows.map(o => `<tr><td>${esc(o.store)}<div class="muted">${fmtDate(o.date)}${o.sale ? ' · ' + t('sale') : ''}</div></td><td class="r"><b>${o.multi > 1 ? o.multi + ' for ' : ''}${money(o.price)}</b></td></tr>`).join('')}</table></div>` : ''}
+    <div class="card"><h2>Log the price</h2>
+      <label>Price ($)</label><div style="display:flex;gap:8px;align-items:center"><input id="pPrice" class="big" inputmode="decimal" placeholder="0.00" style="flex:1"><button class="btn sec small" id="pTag" style="flex:0 0 auto;width:auto;margin:0">📷 Read tag</button></div><div id="pOcr" class="muted"></div>
+      <label class="ck"><input id="pMultiOn" type="checkbox"> Multi-buy deal, e.g. "2 for $5"</label>
+      <div id="pMultiRow" class="hidden"><label>How many for this price?</label><input id="pMulti" inputmode="numeric" value="2"><div class="muted">A box with 2 inside counts as 1.</div></div>
+      <label>Store</label><div class="muted" id="pGeo"></div><div class="chips storechips" id="pChains"></div><input id="pStore" class="hidden" placeholder="Other store name">
+      <label class="ck"><input id="pSale" type="checkbox"> ${t('sale')}</label></div>
+    <button class="btn" id="pSave">${t('save')}</button>`;
+  const sp = storePicker($('#pGeo'), $('#pChains'), $('#pStore'));
+  $('#pMultiOn').onchange = () => $('#pMultiRow').classList.toggle('hidden', !$('#pMultiOn').checked);
+  $('#pTag').onclick = async () => { const f = await pickFile($('#fileTag')); if (!f) return; $('#pOcr').textContent = t('ocrReading');
+    try { await getOcr(); const c = await readPriceTag(f, false); if (!c.length) { $('#pOcr').textContent = t('ocrNone'); return; }
+      const x = c[0]; $('#pPrice').value = x.price.toFixed(2); if (x.multi > 1) { $('#pMultiOn').checked = true; $('#pMulti').value = x.multi; $('#pMultiRow').classList.remove('hidden'); }
+      $('#pOcr').textContent = `✅ Read ${x.multi > 1 ? x.multi + ' for ' : ''}${money(x.price)}. Please check it.`; } catch (e) { $('#pOcr').textContent = t('ocrFail'); } };
+  $('#pEdit').onclick = () => editProduct(code, info, link, name, size);
+  $('#pSave').onclick = async () => {
+    const price = parseFloat($('#pPrice').value); if (!(price > 0)) return toast(t('needPrice'));
+    const store = sp.get(); if (!store) return toast('Pick the store first');
+    if (!(await checkCalgary())) return;
+    const multi = $('#pMultiOn').checked ? Math.max(2, parseInt($('#pMulti').value) || 2) : 1;
+    const o = { id: newId(), price: Math.round(price * 100) / 100, multi, per: 'pack', store, date: today(), sale: $('#pSale').checked, note: '', src: 'app', by: fbUser ? fbUser.uid : '', ts: Date.now(), bc: code };
+    if (link) { o.itemId = it.id; o.vid = link.vid; } else { o.itemId = ''; o.vid = ''; o.pname = name.slice(0, 80); o.psize = size; }
+    await save('obs', o); lsSet('lastStore', store);
+    if (earnCoin()) setTimeout(() => toast(withName(t('coinPlus')), 2200), 2800);
+    toast(link ? `✅ Saved ${o.multi > 1 ? o.multi + ' for ' : ''}${money(o.price)} at ${store}` : `✅ Saved. This product will be sorted into the right item soon.`, 2800); viewProduct(code);
+  };
+}
+// nobody has this barcode: two photos (price tag + product), the pup fills in the rest, the user checks
+function viewNewProduct(code) {
+  setHeader('New product', true); setTab('scan');
+  let photo = '', ocrText = '';
+  app.innerHTML = `<div class="card"><b>🐾 You're the first to scan this!</b><div class="muted">Snap the price tag and the product. The pup fills in the details; it will be sorted into the right item later, and everyone scanning it next time will see it.</div></div>
+    <div class="card"><h2>1 · Price tag</h2><button class="btn sec" id="nTag" style="margin:0">📷 Snap the price tag</button><div id="nTagMsg" class="muted" style="margin-top:6px"></div></div>
+    <div class="card"><h2>2 · Product photo</h2><div style="display:flex;gap:10px;align-items:center"><div id="nThumb" style="flex:0 0 54px">${thumb('', '📷')}</div><button class="btn sec small" id="nPhoto" style="flex:1;margin:0">📷 Take a clear photo of the product</button></div></div>
+    <div class="card"><h2>3 · Check the details</h2><label>Product name</label><input id="nName" placeholder="e.g. Shin Ramyun Black">
+      <div class="row"><div><label>Brand</label><input id="nBrand" placeholder="e.g. Nongshim"></div><div><label>Size</label><input id="nSize" placeholder="e.g. 10 x 130 g"></div></div>
+      <label>Price ($)</label><input id="nPrice" class="big" inputmode="decimal" placeholder="0.00">
+      <label class="ck"><input id="pMultiOn" type="checkbox"> Multi-buy deal, e.g. "2 for $5"</label><div id="pMultiRow" class="hidden"><label>How many for this price?</label><input id="pMulti" inputmode="numeric" value="2"></div>
+      <label>Store</label><div class="muted" id="pGeo"></div><div class="chips storechips" id="pChains"></div><input id="pStore" class="hidden" placeholder="Other store name"></div>
+    <button class="btn" id="nSave">Save</button>`;
+  const sp = storePicker($('#pGeo'), $('#pChains'), $('#pStore'));
+  $('#pMultiOn').onchange = () => $('#pMultiRow').classList.toggle('hidden', !$('#pMultiOn').checked);
+  $('#nTag').onclick = async () => { const f = await pickFile($('#fileTag')); if (!f) return; const msg = $('#nTagMsg'); msg.textContent = t('ocrReading');
+    try { const w = await getOcr(); const c0 = await prepForOcr(f, 1600); const { data } = await w.recognize(c0); ocrText = (data.text || '').slice(0, 600);
+      const tp = tagParse(ocrText), prices = extractPrices(data, c0.height, false).sort((a, b) => b.score - a.score);
+      if (tp.name && !$('#nName').value) $('#nName').value = tp.name; if (tp.size && !$('#nSize').value) $('#nSize').value = tp.size;
+      if (prices[0] && !$('#nPrice').value) { $('#nPrice').value = prices[0].price.toFixed(2); if (prices[0].multi > 1) { $('#pMultiOn').checked = true; $('#pMulti').value = prices[0].multi; $('#pMultiRow').classList.remove('hidden'); } }
+      msg.textContent = tp.name || prices[0] ? '✅ Read it. Please check the details below.' : t('ocrNone'); } catch (e) { msg.textContent = t('ocrFail'); } };
+  $('#nPhoto').onclick = async () => { const f = await pickFile($('#filePhoto')); if (!f) return; photo = await thumbFrom(f); $('#nThumb').innerHTML = thumb(photo); };
+  $('#nSave').onclick = async () => {
+    const name = $('#nName').value.trim(); if (!name) return toast('Type the product name (or snap the price tag)');
+    if (!photo) return toast('📷 Please take a clear photo of the product first. Everyone who scans it later will see it.', 3600);
+    const price = parseFloat($('#nPrice').value), store = sp.get();
+    if (price > 0 && !store) return toast('Pick the store first');
+    const ok = price > 0 ? await checkCalgary() : true; if (!ok) return;
+    const info = await bcPut(code, { name, brand: $('#nBrand').value.trim(), quantity: $('#nSize').value.trim(), image: photo, src: 'user', status: 'unsorted', ocr: ocrText });
+    if (price > 0) { const multi = $('#pMultiOn').checked ? Math.max(2, parseInt($('#pMulti').value) || 2) : 1;
+      await save('obs', { id: newId(), itemId: '', vid: '', bc: code, pname: [info.brand, info.name].filter(Boolean).join(' ').slice(0, 80), psize: info.quantity, price: Math.round(price * 100) / 100, multi, per: 'pack', store, date: today(), sale: false, note: '', src: 'app', by: fbUser ? fbUser.uid : '', ts: Date.now() });
+      lsSet('lastStore', store); if (earnCoin()) setTimeout(() => toast(withName(t('coinPlus')), 2200), 2800); }
+    toast('🐾 Thanks! Saved for everyone. It will be sorted into the right item soon.', 3000); location.replace(`#product/${code}`);
+  };
+}
+// fix a wrong name, size or picture: saved to the shared barcode record (and the linked product)
+function editProduct(code, info, link, name, size) {
+  let photo = '';
+  const m = showSheet(`<h2 style="margin-top:0">✏️ Edit product</h2><div class="muted">Fix the name, size or picture. Everyone who scans it will see your fix.</div>
+    <label>Product name</label><input id="eName" value="${esc(info.name || name || '')}"><div class="row"><div><label>Brand</label><input id="eBrand" value="${esc(info.brand || '')}"></div><div><label>Size</label><input id="eSize" value="${esc(info.quantity || size || '')}"></div></div>
+    <div style="display:flex;gap:10px;align-items:center;margin-top:10px"><div id="eThumb" style="flex:0 0 54px">${thumb(info.image || '', '📷')}</div><button class="btn sec small" id="ePhoto" style="flex:1;margin:0">📷 New photo</button></div>
+    <div class="row" style="margin-top:12px"><button class="btn sec" id="eCancel" style="margin:0">${t('close')}</button><button class="btn" id="eSave" style="margin:0">${t('save')}</button></div>`);
+  m.querySelector('#eCancel').onclick = closeSheet;
+  m.querySelector('#ePhoto').onclick = async () => { const f = await pickFile($('#filePhoto')); if (!f) return; photo = await thumbFrom(f); m.querySelector('#eThumb').innerHTML = thumb(photo); };
+  m.querySelector('#eSave').onclick = async () => { const nm = m.querySelector('#eName').value.trim(); if (!nm) return toast(t('needName'));
+    await bcPut(code, { ...info, name: nm, brand: m.querySelector('#eBrand').value.trim(), quantity: m.querySelector('#eSize').value.trim(), image: photo || info.image || '', src: info.src || 'user', edited: Date.now() });
+    if (link) { const fresh = await getOne('items', link.it.id), va = (fresh.variants || {})[link.vid]; if (va) { va.desc = nm; va.brand = m.querySelector('#eBrand').value.trim(); if (photo) va.photo = photo; await save('items', fresh); } }
+    closeSheet(); toast('✅ Thanks! Product updated.', 2200); viewProduct(code); };
+}
+async function loadUnsorted() { const box = $('#unsortedBody'); if (!box) return;
+  try { const bcs = (await fb.F.getDocsFromServer(fb.F.collection(fb.db, 'households', HOUSEHOLD, 'barcodes'))).docs.map(d => ({ code: d.id, ...d.data() }));
+    const linked = new Set(); (await getAll('items')).forEach(i => Object.values(i.variants || {}).forEach(v => v.barcode && linked.add(v.barcode)));
+    const un = bcs.filter(b => !linked.has(b.code)).sort((a, b) => (b.ts || 0) - (a.ts || 0)), obs = await getAll('obs'), np = c => obs.filter(o => o.bc === c && !o.itemId).length;
+    box.innerHTML = `<div style="font-weight:700;color:var(--text)">${un.length} product${un.length === 1 ? '' : 's'} waiting · ${obs.filter(o => o.bc && !o.itemId).length} prices</div>
+      <table style="margin-top:6px">${un.slice(0, 40).map(b => `<tr><td>${esc([b.brand, b.name].filter(Boolean).join(' ') || b.code)}<div class="muted">${esc(b.quantity || '')} · ${esc(b.code)}</div></td><td class="r">${np(b.code)}</td></tr>`).join('')}</table>
+      <div class="muted" style="margin-top:6px">Ask Claude for a "data audit" to sort these into items.</div>`;
+  } catch (e) { box.innerHTML = `<span style="color:var(--bad)">${esc(e.code || e.message)}</span>`; } }
 /* ---------- 5.3 Location: PricePup is for Calgary. GPS is only used to check the city and find the nearest store; it is never saved ---------- */
 const CHAINS = ['Superstore', 'Sobeys', 'Save-On-Foods', 'T&T', 'Costco', 'FreshCo', 'Safeway', 'Walmart', 'Co-op', 'No Frills', 'Wholesale Club', 'H Mart', 'Shoppers', 'London Drugs'];
 const CHAIN_RX = [/superstore/i, /sobeys/i, /save[- ]?on/i, /t\s*&\s*t\b/i, /costco/i, /freshco/i, /safeway/i, /walmart/i, /co-?op/i, /no ?frills/i, /wholesale club/i, /h ?mart/i, /shoppers/i, /london drugs/i];
@@ -2363,6 +2512,8 @@ function showProduct(sc) {
 
 /* ---------- What's new (shown once after each update) ---------- */
 const CHANGES = {
+  '5.4.0': [['Scanning is much simpler: one screen per product. Known products go straight to "log the price"; no more picking categories or sizes.', 'New products: snap the price tag and the product, the pup fills in the details. They are shared with everyone right away and sorted into the right item later.', 'Wrong name or picture? Tap ✏️ Edit on a scanned product. New food bowl drawing.'],
+            ['Scanning is much simpler: one screen per product. Known products go straight to "log the price"; no more picking categories or sizes.', 'New products: snap the price tag and the product, the pup fills in the details. They are shared with everyone right away and sorted into the right item later.', 'Wrong name or picture? Tap ✏️ Edit on a scanned product. New food bowl drawing.']],
   '5.3.0': [['Meals are now free: fill the food bowl and your puppy eats when hungry. Treats are extras for rewards. Water is just refreshed; your puppy drinks when it wants.', 'Toilet times now follow your puppy\'s age, like a real dog. New puppies come with a 10-coin welcome gift (sign in with Google to adopt, so your puppy is never lost).', 'PricePup is for Calgary: logging a price checks your location (never saved) and shows the nearest stores first.', 'Flyer products now show their photo. Scanning a product nobody knows yet asks for a photo, so everyone sees it next time.', 'Fixes: no more repeated $/lb, wrong "Reg." prices from flyers, and the store list on Deals now uses two rows.'],
             ['Meals are now free: fill the food bowl and your puppy eats when hungry. Treats are extras for rewards. Water is just refreshed; your puppy drinks when it wants.', 'Toilet times now follow your puppy\'s age, like a real dog. New puppies come with a 10-coin welcome gift (sign in with Google to adopt, so your puppy is never lost).', 'PricePup is for Calgary: logging a price checks your location (never saved) and shows the nearest stores first.', 'Flyer products now show their photo. Scanning a product nobody knows yet asks for a photo, so everyone sees it next time.', 'Fixes: no more repeated $/lb, wrong "Reg." prices from flyers, and the store list on Deals now uses two rows.']],
   '5.2.0': [['Every puppy is now unique, with its own hidden strength, smarts, health and personality. It grows up (1 day = 2 puppy days).', 'Teach fetch: at first your puppy has no idea what the ball is for. Keep throwing!', 'Strong puppies pull the rope harder. Puppies can catch a cold after big temperature swings; rest 5 hours or give a pill.', 'Leave your puppy without care for a day and it goes to the shelter (10 coins to bring it home). Going away? Use the pet hotel.', 'New ⓘ puppy info card. All puppies were reset, so adopt a new one!', 'Your puppy now lives indoors: toilet training with a pee pad, and 8 commands to train (🎓) as your bond grows. Collars in the shop!'],
@@ -2459,7 +2610,7 @@ async function route(bg) {
   const r = parts[0];
   if (!bg) window.scrollTo(0, 0);
   if (r !== 'scan' && scanStream && !bg) closeScanner();
-  if (!bg && !['item', 'variant', 'add', 'pick', 'newitem'].includes(r)) scanCtx = null;
+  if (!bg && !['item', 'variant', 'add', 'pick', 'newitem', 'product'].includes(r)) scanCtx = null;
   switch (r) {
     case 'item': return viewItem(parts[1]);
     case 'pick': return viewPick(normCode(parts[1] || ''));
@@ -2468,6 +2619,7 @@ async function route(bg) {
     case 'deals': return viewDeals();
     case 'settings': return viewSettings();
     case 'variant': return viewVariant(parts[1], parts[2]);
+    case 'product': return viewProduct(normCode(parts[1] || ''));
     case 'garden': return viewGarden();
     case 'scan': await viewHome(); setTab('scan'); return openScanner();
     default: return viewHome();
