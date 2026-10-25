@@ -338,6 +338,13 @@ tr.ended td{color:var(--muted)}tr.ended b{font-weight:600}
 .cmdb small{font-weight:500;font-size:11px;color:var(--muted,#888)}.cmdb i{display:block;width:80%;height:5px;border-radius:4px;background:rgba(0,0,0,.08);overflow:hidden;margin-top:3px}.cmdb i b{display:block;height:100%;background:var(--accent)}
 .cmdb.lk{border:2px dashed #ccc;background:transparent;color:#aaa;cursor:default}.cmdb.tl{border-color:#3d9be0}
 .corder .ic svg{height:26px;width:auto;max-width:40px}.corder .ctot{font-size:15px}.corder .ctot span{flex:1;font-weight:800}
+
+/* 5.3 */
+#dStores{display:grid;grid-auto-flow:column;grid-template-rows:repeat(2,auto);grid-auto-columns:max-content;gap:6px;overflow-x:auto;flex-wrap:nowrap;padding-bottom:4px}
+#dStores .chip{margin:0}
+.storechips{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}.storechips .chip{margin:0;padding:6px 11px;font-size:13.5px}.storechips small{font-weight:500;opacity:.75}
+.foodrow{display:flex;gap:10px;align-items:center;margin:10px 0;background:var(--soft,#fff7ec);border-radius:12px;padding:8px 10px}.foodrow .ic{font-size:26px;width:46px;text-align:center;flex:none}.foodrow .ic svg{width:40px;height:auto}.foodrow .btn{margin:0;width:auto;white-space:nowrap}
+.garden.indoor .foodbowl.full::before{content:'';position:absolute;left:6px;right:6px;top:-7px;height:10px;border-radius:50% 50% 0 0;background:radial-gradient(circle at 20% 60%,#a0612d 3px,transparent 4px),radial-gradient(circle at 45% 40%,#b8743a 3px,transparent 4px),radial-gradient(circle at 70% 60%,#a0612d 3px,transparent 4px),#c98a4b;border:2px solid #15151a;border-bottom:0}
 </style>
 </head>
 <body>
@@ -375,7 +382,7 @@ tr.ended td{color:var(--muted)}tr.ended b{font-weight:600}
 
 <script>
 'use strict';
-const APP_VERSION = '5.2.0';
+const APP_VERSION = '5.3.0';
 const $ = s => document.querySelector(s);
 const app = $('#app');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -960,8 +967,11 @@ const FRESH_CAT = { '水果蔬菜': '1F96C', '肉類': '1F969', '海鮮': '1F41F
 const isFresh = it => FRESH_CATS.includes(it.cat);
 const freshIcon = it => { if (!isFresh(it)) return ''; const s = `${it.en || ''} ${it.name || ''}`; return `fresh/${FRESH_ID[it.id] || (FRESH_RX.find(([rx]) => rx.test(s)) || [])[1] || FRESH_CAT[it.cat]}.svg`; };
 const itemPhoto = it => freshIcon(it) || it.photo || Object.values(it.variants || {}).map(v => v.photo).find(Boolean) || '';
-const variantPhoto = (it, va) => freshIcon(it) || (va && va.photo) || itemPhoto(it);
+const variantPhoto = (it, va) => (va && va.photo) || freshIcon(it) || itemPhoto(it);
+const lkey = (store, listing) => ((store || '') + '_' + (listing || '')).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 60);
+const obsPhoto = (it, o) => { const va = (it.variants || {})[o.vid]; return (va && va.photo) || (o.listing && (it.lphotos || {})[lkey(o.store, o.listing)]) || variantPhoto(it, va); };
 const itemEmoji = it => deptEmoji(deptOf(it));
+const unitLine = (it, u) => it.mode === 'weight' || !u ? '' : `<div class="unitp">${fmtU(u)}</div>`; // loose items are already priced per lb
 
 /* ---------- Barcode lookup ---------- */
 function normCode(raw) { const d = String(raw || '').replace(/\D/g, ''); return !d ? '' : d.length === 12 ? '0' + d : d; }
@@ -1273,16 +1283,16 @@ async function viewItem(id) {
       <div class="row" style="flex-wrap:wrap;gap:6px"><button class="btn small" id="scLog" style="margin:0">${t('scanLog')}</button><button class="btn sec small" id="scOther" style="margin:0">${t('scanOther')}</button></div>
       ${(sc.alts || []).length ? `<div class="chips" style="margin-top:6px">${(await Promise.all(sc.alts.map(a => getOne('items', a)))).filter(Boolean).map(a => `<button class="chip" data-alt="${esc(a.id)}">${esc(itemName(a))}</button>`).join('')}</div>` : ''}</div></div>` : ''}
     ${s ? `<div class="card"><div style="text-align:right;margin:-4px 0 4px">${unitChip()}</div><div class="row" style="align-items:flex-start">
-      <div><div class="muted">${t('histLow')}</div><div class="big-num">${priceText(it, s.low.o)}</div><div class="unitp">${fmtU(s.low.u)}</div>
+      <div><div class="muted">${t('histLow')}</div><div class="big-num">${priceText(it, s.low.o)}</div>${unitLine(it, s.low.u)}
         <div class="muted">${esc(s.low.o.store)}</div><div class="muted">${esc(obsText(it, s.low.o))} · ${fmtDate(s.low.o.date)}</div></div>
-      ${s.best ? `<div><div class="muted">${t('bestNow')}</div><div class="big-num">${priceText(it, s.best.o)}</div><div class="unitp">${fmtU(s.best.u)}</div>
+      ${s.best ? `<div><div class="muted">${t('bestNow')}</div><div class="big-num">${priceText(it, s.best.o)}</div>${unitLine(it, s.best.u)}
         <div class="muted">${esc(s.best.o.store)}</div><div class="muted">${esc(obsText(it, s.best.o))} · ${tf('ago', daysAgo(s.best.o.date))}</div></div>` : ''}
     </div>${mixNote(it, obs, s)}</div>` : `<div class="card empty">${dog('sniff', 'glass')}<div class="muted">${t('noPrice')}</div></div>`}
     ${sc ? `<button class="btn sec" id="scAll">${t('scanSeeAll')}</button>` : `<div class="card"><h2>${t('curTitle')}</h2><div class="muted" style="margin-bottom:4px">${t('curHint')}</div>
-      ${cur.length ? cur.map((r, i) => { const va = (it.variants || {})[r.o.vid]; return `<a class="item${i >= 8 ? ' more hidden' : ''}" href="${r.o.vid && va ? `#variant/${encodeURIComponent(id)}/${encodeURIComponent(r.o.vid)}` : 'javascript:void 0'}">${thumb(variantPhoto(it, va), itemEmoji(it))}
+      ${cur.length ? cur.map((r, i) => { const va = (it.variants || {})[r.o.vid]; return `<a class="item${i >= 8 ? ' more hidden' : ''}" href="${r.o.vid && va ? `#variant/${encodeURIComponent(id)}/${encodeURIComponent(r.o.vid)}` : 'javascript:void 0'}">${thumb(obsPhoto(it, r.o), itemEmoji(it))}
         <div class="main"><div class="name">${esc(r.o.store)}${i === 0 && cur.length > 1 && r.u && s && r.u.key === s.key && isCurrent(r.o) ? `<span class="tag">🏆 ${t('cheapest')}</span>` : ''}${isUpcoming(r.o) ? `<span class="tag up">${fmtDate(r.o.date).slice(5)} ${t('starts')}</span>` : r.o.sale ? `<span class="tag">${t('sale')}</span>` : `<span class="tag off">${t('logged')}</span>`}</div>
         <div class="muted">${esc(obsText(it, r.o))}</div><div class="muted">${fmtDate(r.o.date)}${r.o.until ? '–' + fmtDate(r.o.until).slice(5) : ''}</div></div>
-        <div class="price">${priceText(it, r.o)}<div class="muted">${r.u ? fmtU(r.u) : ''}${r.o.reg ? `<br>${t('reg')} ${money(r.o.reg)}` : ''}</div></div></a>`; }).join('') + moreBtn(cur.length, 8) : `<div class="muted">${t('curNone')}</div>`}</div>
+        <div class="price">${priceText(it, r.o)}<div class="muted">${r.u && it.mode !== 'weight' ? fmtU(r.u) : ''}${r.o.reg ? `<br>${t('reg')} ${money(r.o.reg)}` : ''}</div></div></a>`; }).join('') + moreBtn(cur.length, 8) : `<div class="muted">${t('curNone')}</div>`}</div>
     ${vstat.length ? `<div class="card"><h2>${t('variants')}</h2><div class="muted" style="margin-bottom:4px">${t('varHint')}</div>${vstat.map(({ vid, va, vo, vs, vb }, i) => `<a class="item${i >= 10 ? ' more hidden' : ''}" href="#variant/${encodeURIComponent(id)}/${encodeURIComponent(vid)}">${thumb(variantPhoto(it, va), itemEmoji(it))}<div class="main"><div>${esc(variantText(it, vid))}</div><div class="muted">${vo.length ? `${vo.length} ${t('records')}` : t('noPrice')}${va.barcode ? ' · ' + esc(va.barcode) : ''}</div></div><div class="price">${vb ? fmtU(vb.u) : vo.length ? priceText(it, vo[0]) : '—'}<div class="muted">${vs ? (vs.best ? t('bestNow') : t('histLow')) : vo.length ? fmtDate(vo[0].date) : ''}</div></div><span class="chev">›</span></a>`).join('') + moreBtn(vstat.length, 10)}</div>` : ''}
     ${ls ? `<div class="card"><h2>🐾 ${vstat.length ? t('looseTitle') : t('byStore')}</h2>${boardHtml(it, ls)}</div>${chartSvg(ls.rows, ls.low.u.v, ls.low.u)}` : ''}`}`;
   bindUnitChip(() => viewItem(id));
@@ -1342,7 +1352,7 @@ async function viewPick(code) {
     <div class="card hidden" id="addProd"><h2 style="margin-top:0">${t('apTitle')}</h2><div class="muted">${t('apHint')}</div>
       <label>${t('apName')}</label><input id="apName" placeholder="e.g. Baking soda">
       <div class="row"><div><label>${t('brand')}</label><input id="apBrand" placeholder="e.g. Arm & Hammer"></div><div><label>${t('apSize')}</label><input id="apSize" placeholder="e.g. 500 g"></div></div>
-      <div class="row" style="align-items:center;margin-top:8px"><div id="apThumb" style="flex:0 0 54px">${thumb('', '📷')}</div><button class="btn sec small" id="apPhoto" style="flex:0 0 auto">📷 ${t('takePhoto')}</button></div>
+      <div class="row" style="align-items:center;margin-top:8px"><div id="apThumb" style="flex:0 0 54px">${thumb('', '📷')}</div><button class="btn sec small" id="apPhoto" style="flex:0 0 auto">📷 ${t('takePhoto')} (required)</button></div>
       <button class="btn" id="apSave">${t('apSave')}</button></div>
     <div class="card" id="plist"></div>
     <button class="btn sec" id="pNew">${t('newItem')}</button>`;
@@ -1354,7 +1364,7 @@ async function viewPick(code) {
     if (!info) { // nobody has this barcode yet: the user tells the pup what it is, and it's saved for everyone
       $('#addProd').classList.remove('hidden'); let apImg = '';
       $('#apPhoto').onclick = async () => { const f = await pickFile($('#filePhoto')); if (!f) return; apImg = await thumbFrom(f); $('#apThumb').innerHTML = thumb(apImg); };
-      $('#apSave').onclick = async () => { const nm = $('#apName').value.trim(); if (!nm) return toast(t('needName'));
+      $('#apSave').onclick = async () => { const nm = $('#apName').value.trim(); if (!nm) return toast(t('needName')); if (!apImg) return toast('📷 Please take a clear photo of the product first. Everyone who scans it later will see it.', 3600);
         info = await bcPut(code, { name: nm, brand: $('#apBrand').value.trim(), quantity: $('#apSize').value.trim(), image: apImg, src: 'user' });
         $('#addProd').classList.add('hidden'); $('#pickMsg').textContent = t('apSaved') + [info.brand, info.name, info.quantity].filter(Boolean).join(' ');
         sug = matchItems(info, items).slice(0, 5).map(x => x.it.id); $('#pq').value = ''; render(); toast(t('apThanks'), 2600); };
@@ -1434,7 +1444,8 @@ async function viewAdd(id, preVid) {
       <label id="priceLbl">${weight ? t('priceLb') : t('pricePack')}</label><input id="aPrice" class="big" inputmode="decimal" placeholder="0.00">
       <div class="${weight ? 'hidden' : ''}"><label>${t('multi')}</label><input id="aMulti" inputmode="numeric" value="1"></div>
       <div id="verdict"></div>
-      <label>${t('store')}</label><input id="aStore" list="storeList" value="${esc(lsGet('lastStore') || '')}" placeholder="${esc(t('storePh'))}">
+      <label>${t('store')}</label><div class="muted" id="aGeo">📍 Finding stores near you…</div><div class="chips storechips" id="aChains"></div>
+      <input id="aStore" class="hidden" list="storeList" value="" placeholder="Other store name">
       <datalist id="storeList">${stores.map(s => `<option value="${esc(s)}">`).join('')}</datalist>
       <div class="row"><div><label>${t('date')}</label><input id="aDate" type="date" value="${today()}"></div>
         <div><label>&nbsp;</label><label style="display:flex;gap:8px;align-items:center;color:var(--text);font-size:16px;margin:0;padding:11px 0"><input id="aSale" type="checkbox" style="width:auto"> ${t('sale')}</label></div></div>
@@ -1466,6 +1477,14 @@ async function viewAdd(id, preVid) {
   }
   if ($('#iPhoto')) $('#iPhoto').onclick = async () => { const f = await pickFile($('#filePhoto')); if (!f) return; const ph = await thumbFrom(f); const fresh = await getOne('items', id); fresh.photo = ph; await save('items', fresh); $('#iThumb').innerHTML = thumb(ph); $('#iPhoto').remove(); };
   $('#aPrice').oninput = upd; $('#aMulti').oninput = upd; upd();
+  let chain = chainOf(lsGet('lastStore') || '');
+  const drawChains = list => { $('#aChains').innerHTML = list.map(x => `<button type="button" class="chip${x.c === chain ? ' on' : ''}" data-c="${esc(x.c)}">${esc(x.c)}${x.km != null ? `<small> · ${fmtKm(x.km)}</small>` : ''}</button>`).join('') + `<button type="button" class="chip${chain === '__other' ? ' on' : ''}" data-c="__other">Other…</button>`;
+    $('#aChains').querySelectorAll('.chip').forEach(b => b.onclick = () => { chain = b.dataset.c; $('#aStore').classList.toggle('hidden', chain !== '__other'); drawChains(list); if (chain === '__other') $('#aStore').focus(); }); };
+  drawChains(CHAINS.map(c => ({ c })));
+  const findStores = async () => { try { const p = await getPos(); if (!inCalgary(p)) { $('#aGeo').innerHTML = `🗺️ You're outside Calgary. PricePup is currently for Calgary only, so prices logged here aren't counted.`; return; }
+      const list = nearestChains(p); if (list[0].km != null && list[0].km <= .3) chain = list[0].c; drawChains(list); $('#aGeo').textContent = list[0].km <= .3 ? `📍 You're at ${list[0].c}` : '📍 Nearest stores first'; }
+    catch (e) { $('#aGeo').innerHTML = `${esc(geoMsg(e))} <button type="button" class="btn sec small" id="aGeoRetry" style="display:inline-block;width:auto;margin:4px 0 0">Try again</button>`; $('#aGeoRetry').onclick = findStores; } };
+  findStores();
   $('#ocrBtn').onclick = async () => {
     const f = await pickFile($('#fileTag')); if (!f) return;
     const msg = $('#ocrMsg'); $('#chips').innerHTML = '';
@@ -1488,6 +1507,9 @@ async function viewAdd(id, preVid) {
   };
   $('#aSave').onclick = async () => {
     const price = parseFloat($('#aPrice').value); if (!(price > 0)) return toast(t('needPrice'));
+    const storeName = chain === '__other' ? (chainOf($('#aStore').value) || $('#aStore').value.trim()) : chain; if (!storeName) return toast('Pick the store first');
+    try { const p = await getPos(); if (!inCalgary(p)) return toast("🗺️ PricePup is for Calgary only for now. Prices logged outside Calgary aren't counted.", 4200); }
+    catch (e) { return toast(geoMsg(e), 4200); }
     let useVid = '';
     if (!weight) {
       if (!vid) return toast(t('needVariant'));
@@ -1500,7 +1522,7 @@ async function viewAdd(id, preVid) {
       } else useVid = vid;
     }
     const multi = weight ? 1 : (parseInt($('#aMulti').value) || 1);
-    const o = { id: newId(), itemId: id, vid: useVid, price: Math.round(price * 100) / 100, multi, per: weight ? per : 'pack', store: $('#aStore').value.trim(), date: $('#aDate').value || today(),
+    const o = { id: newId(), itemId: id, vid: useVid, price: Math.round(price * 100) / 100, multi, per: weight ? per : 'pack', store: storeName, date: $('#aDate').value || today(),
                 sale: $('#aSale').checked, note: $('#aNote').value.trim(), src: 'app', by: fbUser ? fbUser.uid : '', ts: Date.now() };
     const v = verdict(await getOne('items', id), o, sum);
     await save('obs', o);
@@ -1525,9 +1547,9 @@ async function viewDeals() {
     return { o, it, off, u: unitPrice(it, o) };
   }).sort((a, b) => b.off - a.off);
   app.innerHTML = `<div class="card muted">${t('dealsHint')}<div class="chips scroll" id="dStores" style="margin-top:8px">${['', ...stores].map(s => `<button class="chip ${s === dealStore ? 'on' : ''}" data-s="${esc(s)}">${s ? esc(s) : t('allStores')}</button>`).join('')}</div></div><div class="card">${deals.length ? deals.slice(0, 200).map(d => `
-    <a class="item" href="#item/${encodeURIComponent(d.it.id)}">${thumb(variantPhoto(d.it, (d.it.variants || {})[d.o.vid]), itemEmoji(d.it))}
+    <a class="item" href="#item/${encodeURIComponent(d.it.id)}">${thumb(obsPhoto(d.it, d.o), itemEmoji(d.it))}
       <div class="main"><div class="name">${esc(itemName(d.it))}</div><div class="muted">${esc(obsText(d.it, d.o))}</div><div class="muted">${esc(d.o.store)} · ${fmtDate(d.o.date)}${d.o.until ? '–' + fmtDate(d.o.until).slice(5) : ''}${isUpcoming(d.o) ? ` <span class="tag up">${fmtDate(d.o.date).slice(5)} ${t('starts')}</span>` : ''}</div></div>
-      <div class="price">${priceText(d.it, d.o)}<div class="muted">${d.off > 0 ? `<span class="tag">-${Math.round(d.off * 100)}%</span><br>${t('reg')} ${money(d.o.reg)}` : ''}${d.u ? '<br>' + fmtU(d.u) : ''}</div></div></a>`).join('')
+      <div class="price">${priceText(d.it, d.o)}<div class="muted">${d.off > 0 ? `<span class="tag">-${Math.round(d.off * 100)}%</span><br>${t('reg')} ${money(d.o.reg)}` : ''}${d.u && d.it.mode !== 'weight' ? '<br>' + fmtU(d.u) : ''}</div></div></a>`).join('')
     : `<div class="empty">${dog('sleep', 'z')}<div class="muted">${t('noDeals')}</div></div>`}</div>`;
   $('#dStores').querySelectorAll('.chip').forEach(b => b.onclick = () => { dealStore = b.dataset.s; viewDeals(); });
 }
@@ -1572,9 +1594,13 @@ async function loadUsers() {
     box.innerHTML = `<div style="font-weight:700;color:var(--text)">${tn('usersTotal', us.length)} · ${tn('usersActive', live)}</div>
       <table style="margin-top:6px">${us.map(u => `<tr><td>${Date.now() - (u.lastSeen || 0) < 10 * 60e3 ? '🟢 ' : ''}${esc(u.email)}${u.name ? `<div class="muted">${esc(u.name)}</div>` : ''}</td>
         <td class="r">${fmtWhen(u.lastSeen)}<div class="muted">v${esc(u.app || '?')}</div></td></tr>`).join('')}</table>
-      <div class="muted" style="margin-top:6px">${t('usersNote')}</div>`;
+      <div class="muted" style="margin-top:6px">${t('usersNote')}</div>${areaStats(us)}`;
   } catch (e) { box.innerHTML = `<span style="color:var(--bad)">${esc(e.code || e.message)}</span>`; }
 }
+function areaStats(us) { const c = {}; us.forEach(u => { const a = u.area ? (u.inCalgary || /^calgary$/i.test(u.area.trim()) ? 'Calgary' : u.area.trim().toLowerCase().replace(/\s+/g, ' ').replace(/(^|[\s,(-])\w/g, m => m.toUpperCase()).replace(/\b(ab|bc|sk|mb|on|qc|ns|nb|nl|pe|yt|nt|nu|usa|uk)\b/gi, m => m.toUpperCase())) : 'Not shared'; c[a] = (c[a] || 0) + 1; });
+  const yyc = c.Calgary || 0, none = c['Not shared'] || 0, other = us.length - yyc - none, rows = Object.entries(c).filter(([a]) => a !== 'Calgary' && a !== 'Not shared').sort((a, b) => b[1] - a[1]);
+  return `<h3 style="margin:12px 0 4px">📍 Where users are</h3><div style="color:var(--text)"><b>${yyc}</b> in Calgary · <b>${other}</b> elsewhere · <b>${none}</b> not shared</div>
+    ${rows.length ? `<table style="margin-top:4px">${rows.map(([a, n]) => `<tr><td>${esc(a)}</td><td class="r">${n}</td></tr>`).join('')}</table>` : ''}`; }
 function latestFlyer(obs) {
   const fl = obs.filter(o => o.src === 'flyer' && o.date); if (!fl.length) return null;
   const from = fl.reduce((m, o) => o.date > m ? o.date : m, '');
@@ -1635,8 +1661,8 @@ async function viewVariant(id, vid) {
     ${scanCtx && scanCtx.known && scanCtx.vid === vid ? `<div class="card scan"><div>${t('scanKnown')}</div></div>` : ''}
     <button class="btn" id="vAdd">${dog('normal', 'tag')}<span>${t('logThis')}</span></button>
     ${s ? `<div class="card"><div style="text-align:right;margin:-4px 0 4px">${unitChip()}</div><div class="row" style="align-items:flex-start">
-      <div><div class="muted">${t('histLow')}</div><div class="big-num">${priceText(it, s.low.o)}</div><div class="unitp">${fmtU(s.low.u)}</div><div class="muted">${esc(s.low.o.store)} · ${fmtDate(s.low.o.date)}</div></div>
-      ${s.best ? `<div><div class="muted">${t('bestNow')}</div><div class="big-num">${priceText(it, s.best.o)}</div><div class="unitp">${fmtU(s.best.u)}</div><div class="muted">${esc(s.best.o.store)} · ${tf('ago', daysAgo(s.best.o.date))}</div></div>` : ''}</div></div>
+      <div><div class="muted">${t('histLow')}</div><div class="big-num">${priceText(it, s.low.o)}</div>${unitLine(it, s.low.u)}<div class="muted">${esc(s.low.o.store)} · ${fmtDate(s.low.o.date)}</div></div>
+      ${s.best ? `<div><div class="muted">${t('bestNow')}</div><div class="big-num">${priceText(it, s.best.o)}</div>${unitLine(it, s.best.u)}<div class="muted">${esc(s.best.o.store)} · ${tf('ago', daysAgo(s.best.o.date))}</div></div>` : ''}</div></div>
     <div class="card"><h2>🏷️ ${t('curDeals')}</h2>${cur.length ? `<table>${cur.map(r => `<tr><td>${esc(r.o.store)}<div class="muted">${fmtDate(r.o.date)}${r.o.until ? '–' + fmtDate(r.o.until).slice(5) : ''}</div></td><td class="r">${priceText(it, r.o)}${r.o.reg ? `<div class="muted">${t('reg')} ${money(r.o.reg)}</div>` : ''}</td><td class="r"><b>${fmtU(r.u)}</b></td></tr>`).join('')}</table>` : `<div class="muted">${t('noCurDeal')}</div>`}</div>
     <div class="card"><h2>🐾 ${t('byStore')}</h2>${boardHtml(it, s)}</div>
     ${chartSvg(s.rows, s.low.u.v, s.low.u)}
@@ -1715,7 +1741,21 @@ function ageTxt(p) { const m = pupAgeM(p); if (m >= 12) { const y = Math.floor(m
   const mm = Math.floor(m), d = Math.floor((m - mm) * 30.44); return `${mm} months ${d} day${d === 1 ? '' : 's'}`; }
 const stageTxt = p => pupAgeM(p) < 12 ? '🐶 Puppy' : pupAgeM(p) < 84 ? '🐕 Adult' : '🦮 Senior';
 const pupKg = p => Math.round((p.kg || 15) * (.12 + .83 * Math.pow(Math.max(0, Math.min(1, (pupAgeM(p) - 2) / 10)), .8)) * 10) / 10;
-const hungerH = g => (g.pup && g.pup.app === 4) ? 10 : 12;   // big eaters get hungry sooner
+const mealsPerDay = g => { const m = g.pup ? pupAgeM(g.pup) : 12; return m < 3 ? 4 : m < 6 ? 3 : 2; };
+const emptyH = g => 24 / mealsPerDay(g) * 1.6 * ((g.pup && g.pup.app === 4) ? .85 : 1); // hours from a full meal to an empty tummy (big eaters sooner)
+const hungerH = g => emptyH(g);
+const BOWL_MAX = 2, HUNGRY = 40;   // the food bowl holds 2 meals; the puppy eats by itself when fullness drops below 40
+const rndMin = (a, b) => (a + Math.random() * (b - a)) * 60e3;
+const isYoung = g => !g.pup || pupAgeM(g.pup) < 6;
+const holdH = g => Math.min(7, (g.pup ? pupAgeM(g.pup) : 12) + 1);  // rule of thumb: a puppy holds it about (age in months + 1) hours
+const nextPee = (g, from) => { g.pendingPee = (from || Date.now()) + holdH(g) * 36e5 * (.7 + Math.random() * .4); };
+const peeAfterDrink = g => { const t = Date.now() + (isYoung(g) ? rndMin(15, 40) : rndMin(30, 90)); if (!g.pendingPee || g.pendingPee > t) g.pendingPee = t; };
+const pooAfterMeal = (g, at) => { if (!g.pendingPoo) g.pendingPoo = (at || Date.now()) + (isYoung(g) ? rndMin(10, 40) : rndMin(30, 120)); };
+function autoEat(g) { // while nobody is watching, the puppy eats from its bowl when hungry
+  let ch = false;
+  while ((g.bowl || 0) > 0 && g.lastFed) { const t = g.lastFed + emptyH(g) * (1 - HUNGRY / 100) * 36e5; if (t > Date.now()) break;
+    g.lastFed = t; g.bowl--; g.fedTotal = (g.fedTotal || 0) + 1; pooAfterMeal(g, t); ch = true; }
+  return ch; }
 // skills (0-100). Fetch: under 30 no idea ("?"), 30-60 chases the ball but keeps it, 60+ brings it back
 const SKILL_DAY = 10, TOILET_OK = 80, CMD_OK = 80;
 const CMDS = [ // commands unlock with the bond level; d = difficulty
@@ -1774,6 +1814,7 @@ function gDay(g) {
   if (typeof isAdmin === 'function' && isAdmin()) g.coins = 99; // power user: always 99 coins for testing
   if (g.joyV == null) { g.joyV = g.lastFed ? clamp(100 - Math.min(H(g.lastFed), H(g.lastPet)) / 6 * 100) : 60; g.joyAt = Date.now(); } // happiness now builds up slowly
   g.xp = g.xp || 0; if (!g.xpLog || g.xpLog.day !== today()) g.xpLog = { day: today() };
+  if (g.pup && g.bowl === undefined) g.bowl = BOWL_MAX; // 5.3: meals moved to a free food bowl
   if (g.pup && g.pup.sk && g.pup.decayDay !== today()) { g.pup.decayDay = today(); const at = g.pup.skAt || {};
     for (const k in g.pup.sk) { const v = g.pup.sk[k]; if (v > 0 && at[k] && (Date.now() - at[k]) / 864e5 > 7) g.pup.sk[k] = Math.max(v >= 60 ? 60 : 0, v - 2); } }
   return g;
@@ -1781,7 +1822,10 @@ function gDay(g) {
 function gSave(g) { g.updated = Date.now(); lsSet(GKEY, JSON.stringify(g)); if (syncOn()) fb.F.setDoc(favRef(), { garden: g }, { merge: true }).catch(() => {}); }
 async function gSync() { // newest copy wins (phone vs cloud)
   let g = gLoad();
-  if (syncOn()) { try { const s = await fb.F.getDoc(favRef()); const r = s.exists() && s.data().garden; if (r && (r.updated || 0) > (g.updated || 0)) { g = gPoo(gDay({ ...r })); lsSet(GKEY, JSON.stringify(g)); } } catch (e) {} }
+  if (syncOn()) { try { const s = await fb.F.getDoc(favRef()); const r = s.exists() && s.data().garden;
+    const cloudPup = r && r.pup && r.pup.v >= PUP_V, samePup = cloudPup && g.pup && g.pup.adopted === r.pup.adopted;
+    if (r && ((cloudPup && !samePup) || (r.updated || 0) > (g.updated || 0))) { g = gPoo(gDay({ ...r })); lsSet(GKEY, JSON.stringify(g)); } // the puppy in your account always wins over a different one on this phone
+  } catch (e) {} }
   return g;
 }
 function earnCoin() { const g = gLoad(); if ((g.coinsToday || 0) >= COIN_CAP) return false; g.coins++; g.coinsToday = (g.coinsToday || 0) + 1; gSave(g); return true; }
@@ -1806,7 +1850,7 @@ function gMood(g) {
   return 'idle';
 }
 const clamp = x => Math.max(0, Math.min(100, Math.round(x)));
-const fullness = g => g.lastFed ? clamp((100 - H(g.lastFed) / hungerH(g) * 100) * Math.min(1, (g.recentFeeds || 1) / ((g.pup && g.pup.app) || 3))) : 0; // 3 treats = full (4 for big eaters)
+const fullness = g => g.lastFed ? clamp(100 - H(g.lastFed) / emptyH(g) * 100) : 0; // one meal fills the puppy up
 // happiness: a stored level that fades about 12 points an hour; care adds a little at a time
 const JOY_DECAY = 12;
 const baseJoy = g => clamp((g.joyV == null ? 60 : g.joyV) - H(g.joyAt) * JOY_DECAY * (g.pup && g.pup.per === 'independent' ? .75 : 1));
@@ -1827,16 +1871,18 @@ function potty(g, k) { // one toilet trip while nobody is watching: trained (or 
 function gPoo(g) {
   g.poos = g.poos || []; let ch = false;
   const watching = Date.now() - (window.__gTick || 0) < 15e3;
+  if (g.pup && !watching && autoEat(g)) ch = true;
+  if (g.pup && !g.pendingPee) { nextPee(g); ch = true; }
   for (const [key, k] of [['pendingPoo', 'poo'], ['pendingPee', 'pee']]) { const due = g[key]; if (!due || Date.now() < due) continue;
     if (watching && Date.now() - due < 3 * 60e3) continue; // the home screen shows the signal so you can help
-    potty(g, k); g[key] = 0; ch = true; }
+    potty(g, k); g[key] = 0; if (k === 'pee') nextPee(g, due); ch = true; }
   if (ch) lsSet(GKEY, JSON.stringify(g));
   return g;
 }
 // shop and toys (each toy lasts 10 plays)
 const TOY_LIFE = 10;
 const SHOP = [
-  { id: 'treat1', kind: 'treat', n: 1, price: 1 }, { id: 'treat5', kind: 'treat', n: 5, price: 4 },
+  { id: 'treat1', kind: 'treat', n: 1, price: 1 },
   { id: 'ball', kind: 'toy', price: 5 }, { id: 'rope', kind: 'toy', price: 8 }, { id: 'chew', kind: 'toy', price: 6 }
 ];
 // ---------- item drawings (same line style as the puppy) ----------
@@ -2069,7 +2115,7 @@ async function viewGarden() {
       <div class="fx" id="gFx"></div>
     </div>
     <div class="gbtns">
-      <button class="btn" id="gFeed">🦴<span>${t('gFeedShort')}</span></button>
+      <button class="btn" id="gFeed">🥣<span>Food</span></button>
       <button class="btn sec" id="gWaterBtn">💧<span>${t('gWaterBtn')}</span></button>
       <button class="btn sec" id="gTrainBtn">🎓<span>Train</span></button>
       <button class="btn sec" id="gToyBtn">🎾<span>${t('gToyBtn')}</span></button>
@@ -2114,7 +2160,8 @@ async function viewGarden() {
     $('#gLv').textContent = 'Lv ' + b.L;
     $('#gTreats').innerHTML = cn(tf('gTreatsMini', g.free || 0, FREE_TREATS, g.bonus || 0, g.coins || 0));
     $('#gBowl').innerHTML = waterSvg(lv);
-    const need0 = (g.padUses || 0) >= 3 ? `🧻 The pee pad is dirty: tap it to change` : '';
+    const need0 = !(g.bowl > 0) && fullness(g) < HUNGRY ? `🥣 ${g.pup.name} is hungry and the bowl is empty: tap Food` : (g.padUses || 0) >= 3 ? `🧻 The pee pad is dirty: tap it to change` : '';
+    const fb0 = $('#gScene') && $('#gScene').querySelector('.foodbowl'); if (fb0) fb0.classList.toggle('full', (g.bowl || 0) > 0);
     const need = isSick(g) ? `🤒 ${g.pup.name} is sick · better in ${hmm(g.sick.until - Date.now())} · tap` : lv >= 4 ? t('gWaterBad') : g.poos.length ? t('gPooHint') : lv >= 3 ? t('gWaterDirty') : need0;
     const ne = $('#gNeed'); ne.classList.toggle('hidden', !need); ne.classList.toggle('sickn', isSick(g)); ne.textContent = withName(need); };
   const bondUp = () => { const b = bondOf(gLoad()); toast(tf('bondUp', pupName(), b.L), 3200); fx('💗✨💗', 6); };
@@ -2214,25 +2261,31 @@ async function viewGarden() {
       else later(1200, () => { gBusy = false; rest(); }); });
   };
   pup.onclick = pet;
-  $('#gFeed').onclick = () => {
-    cancelRoam(); if (gBusy || play || chewing()) return busyToast(); g = gLoad(); if (!treatsLeft(g)) { toast(t('gNoTreat'), 3500); return; }
-    if (g.free > 0) g.free--; else g.bonus--;
-    g.recentFeeds = H(g.lastFed) < 3 ? (g.recentFeeds || 0) + 1 : 1; g.lastFed = Date.now(); g.fedTotal = (g.fedTotal || 0) + 1;
-    g.eatUntil = Date.now() + EAT_MS + (atHome() ? 0 : 4000);
-    if (!g.pendingPoo) g.pendingPoo = Date.now() + POO_H * 36e5; gSave(g); care('feed', 6);
+  // ---- food: meals are free (fill the bowl; the puppy eats when hungry). Treats are extras: 3 free a day, more in the shop ----
+  const eatMeal = () => { g = gLoad(); if (!(g.bowl > 0)) return; g.bowl--; g.lastFed = Date.now(); g.fedTotal = (g.fedTotal || 0) + 1; pooAfterMeal(g);
+    g.eatUntil = Date.now() + EAT_MS + (atHome() ? 0 : 4000); gSave(g); care('feed', 6);
     if (state === 'weak' || state === 'grumpy') state = 'idle'; if (isSick(gLoad())) state = 'sick'; grumpLeft = 0; wrap.classList.remove('turned');
-    comeHome(() => eat(gLoad().eatUntil));
-  };
+    gBusy = true; const G = geo(); goTo(G.W - 120, G.SH - 14, () => eat(gLoad().eatUntil), false, 'super'); };
+  const giveTreat = () => { cancelRoam(); if (gBusy || play || chewing()) return busyToast(); g = gLoad(); if (!treatsLeft(g)) return toast(t('gNoTreat'), 3500);
+    if (g.free > 0) g.free--; else g.bonus--; gSave(g); care('feed', 8); gBusy = true;
+    comeHome(() => { draw('eatup', 'eat', 'r-chompl wagfast'); fx('🦴💖', 4); later(1600, () => { draw('sit', 'super', 'r-jump wagfast'); }); later(2800, () => { gBusy = false; rest(); bars(); }); }); };
+  const openFood = () => { g = gLoad(); const bw = g.bowl || 0;
+    const m = showSheet(`<h2 style="margin-top:0">🥣 Food</h2><div class="muted">Meals are free. Fill the bowl and ${esc(g.pup.name)} eats by itself when hungry (${mealsPerDay(g)} meals a day at this age).</div>
+      <div class="foodrow"><span class="ic">🥣</span><div style="flex:1"><b>Food bowl</b><div class="muted">${bw >= BOWL_MAX ? 'Full' : bw ? '1 meal left' : 'Empty'} · holds ${BOWL_MAX} meals</div></div><button class="btn small" id="fdFill" ${bw >= BOWL_MAX ? 'disabled' : ''}>Fill · free</button></div>
+      <div class="foodrow"><span class="ic">${treatSvg()}</span><div style="flex:1"><b>Treat</b><div class="muted">${cn(tf('gTreatsMini', g.free || 0, FREE_TREATS, g.bonus || 0, g.coins || 0))}</div></div><button class="btn sec small" id="fdTreat" ${treatsLeft(g) ? '' : 'disabled'}>Give</button></div>
+      <div class="muted">Treats make your puppy happy and reward training. More treats in the shop 🛒</div><button class="btn sec" id="fdClose">${t('close')}</button>`);
+    m.querySelector('#fdClose').onclick = closeSheet;
+    m.querySelector('#fdTreat').onclick = () => { closeSheet(); giveTreat(); };
+    m.querySelector('#fdFill').onclick = () => { g = gLoad(); g.bowl = BOWL_MAX; gSave(g); closeSheet(); fx('✨🥣✨', 4, 70); bars(); toast(`🥣 Bowl filled. ${pupName()} will eat when hungry.`, 2400);
+      if (!gBusy && !play && !chewing() && fullness(gLoad()) < HUNGRY) later(900, () => { if (!gBusy && !play) { cancelRoam(); eatMeal(); } }); }; };
+  $('#gFeed').onclick = () => { cancelRoam(); openFood(); };
   // ---- water: change it any time; he trots over and drinks fresh water happily ----
-  const changeWater = () => {
-    g = gLoad(); const was = waterLevel(g); g.waterAt = Date.now(); gSave(g); fx('💦✨', 4, 86); care('water', was >= 1 ? 3 : 0);
-    cancelRoam(); if (gBusy || play || chewing()) return;
-    gBusy = true;
-    comeHome(() => { draw('sit', 'open', 'r-look');
-      later(800, () => { draw('drink', 'eatdown', 'r-dig wagfast'); fx('💧', 3); const g2 = gLoad(); if (!g2.pendingPee) { g2.pendingPee = Date.now() + 2 * 36e5; gSave(g2); } });
-      later(3800, () => { recheck(); draw('sit', was >= 4 ? 'super' : 'happy', was >= 4 ? 'r-jump wagfast' : 'wagfast'); fx(was >= 4 ? '💙💖💙' : '💙', 3); });
-      later(5200, () => { gBusy = false; rest(); }); });
-  };
+  const changeWater = () => { g = gLoad(); const was = waterLevel(g); if (was === 0 && H(g.waterAt) < .5) return toast('💧 The water is already fresh.', 1800);
+    g.waterAt = Date.now(); gSave(g); fx('💦✨', 4, 86); care('water', was >= 1 ? 3 : 0); bars(); if (state === 'thirsty') { state = 'idle'; wantDrinkNow = true; } };
+  const drinkGap = () => (isYoung(gLoad()) ? 1.5 + Math.random() * 1.5 : 3 + Math.random() * 2) * 36e5;
+  let drinkAt = gLoad().lastDrink ? gLoad().lastDrink + drinkGap() : Date.now() + rndMin(5, 30), wantDrinkNow = false;
+  const drink = () => { gBusy = true; const G = geo(); goTo(G.W - 74, G.SH - 10, () => { draw('drink', 'eatdown', 'r-dig wagfast'); fx('💧', 3);
+      later(3200, () => { g = gLoad(); g.lastDrink = Date.now(); peeAfterDrink(g); gSave(g); drinkAt = Date.now() + drinkGap(); recheck(); draw('sit', 'happy', 'wagfast'); fx('💙', 2); later(1200, () => { gBusy = false; rest(); }); }); }, false, 'open'); };
   $('#gWaterBtn').onclick = changeWater; $('#gBowl').onclick = changeWater;
   // ---- shop: spend coins on treats and toys ----
   const shopName = it => t('shop_' + it.id);
@@ -2308,7 +2361,7 @@ async function viewGarden() {
   const padSpot = () => { const sc = $('#gScene').getBoundingClientRect(), r = $('#gPad').getBoundingClientRect(); return [r.left - sc.left + r.width / 2, r.top - sc.top + r.height * .8]; };
   const pottyDue = () => { const g0 = gLoad(); for (const [key, k] of [['pendingPoo', 'poo'], ['pendingPee', 'pee']]) if (g0[key] && Date.now() >= g0[key]) return [key, k]; return null; };
   const btn = (id, ms, fn) => { const b = $('#' + id); b.classList.remove('hidden'); let used = false; b.onclick = e => { e.stopPropagation(); if (used) return; used = true; b.classList.add('hidden'); fn(); }; later(ms, () => b.classList.add('hidden')); return () => used; };
-  const finishPotty = (key, onPad) => { g = gLoad(); g[key] = 0; if (onPad) g.padUses = (g.padUses || 0) + 1; gSave(g); poos(); bars(); };
+  const finishPotty = (key, onPad) => { g = gLoad(); g[key] = 0; if (key === 'pendingPee') nextPee(g); if (onPad) g.padUses = (g.padUses || 0) + 1; gSave(g); poos(); bars(); };
   // trained: walks to the pad by itself. Untrained: sniffs and circles (💦) — tap "To the pad!" within 20 s, or it has an accident
   const toilet = ([key, k]) => { cancelRoam(); gBusy = true; const trained = skill(gLoad(), 'toilet') >= TOILET_OK && (gLoad().padUses || 0) < 4;
     const onPad = (helped) => { const [px, py] = padSpot(); goTo(px, py, () => { draw('squat', 'open', ''); fx(k === 'pee' ? '💦' : '💨', 1);
@@ -2324,7 +2377,7 @@ async function viewGarden() {
     later(1600, () => { if (!gBusy) return; draw('nose', 'eatdown', 'r-dig'); });
     const helped = btn('gPotty', 20000, () => { $('#gQ').classList.add('hidden'); $('#gQ').textContent = '?'; onPad(true); });
     later(20200, () => { if (helped()) return; $('#gQ').classList.add('hidden'); $('#gQ').textContent = '?'; draw('squat', 'sad', ''); fx(k === 'pee' ? '💦' : '💨', 1); // accident
-      later(2200, () => { g = gLoad(); const G = geo(); if (g.poos.length < POO_MAX + 2) g.poos.push({ x: Math.max(6, Math.min(78, Math.round((G.homeX + pos.x) / G.W * 100))), t: Date.now(), k }); g[key] = 0; gSave(g); poos(); bars();
+      later(2200, () => { g = gLoad(); const G = geo(); if (g.poos.length < POO_MAX + 2) g.poos.push({ x: Math.max(6, Math.min(78, Math.round((G.homeX + pos.x) / G.W * 100))), t: Date.now(), k }); g[key] = 0; if (key === 'pendingPee') nextPee(g); gSave(g); poos(); bars();
         state = 'dirty'; draw('sit', 'sad', 'r-sigh'); toast(`Oops! ${pupName()} had an accident. Clean it up, and next time help it to the pad.`, 3600); later(1600, () => { gBusy = false; rest(); }); }); }); };
   // ---- training: commands unlock with the bond level ----
   const openTrain = () => { g = gLoad(); const L = bondOf(g).L, ts = skill(g, 'toilet');
@@ -2501,6 +2554,8 @@ async function viewGarden() {
     if (gBusy || walkT || play || roaming) return;
     if (chewing()) return;
     const pd = pottyDue(); if (pd && !eating()) { toilet(pd); return; }
+    if (state !== 'sick' && fullness(g) < HUNGRY && (g.bowl || 0) > 0 && !eating()) { eatMeal(); return; }
+    if (waterLevel(g) < 4 && (Date.now() > drinkAt || wantDrinkNow)) { wantDrinkNow = false; drink(); return; }
     if (g.poos.length > before && state !== 'weak') { state = 'dirty'; draw('sit', 'sad', 'r-sigh'); return; }
     if (state !== 'weak' && waterLevel(g) >= 4 && state !== 'thirsty') state = 'thirsty';
     if (state === 'sick') { if (!isSick(g)) { recheck(); bars(); gBusy = true; draw('sit', 'super', 'r-jump wagfast'); fx('💖✨', 5); toast(`🎉 ${pupName()} feels better!`, 2600); later(1500, () => { gBusy = false; rest(); }); }
@@ -2580,6 +2635,11 @@ function viewShelter() {
 /* ---------- First visit: adopt a puppy at the pet shop (pick colour, then a name) ---------- */
 function viewAdopt() {
   const g0 = gLoad(); if (g0.pup && g0.pup.name) return viewGarden(); // adoption is a promise: colour and name can't be changed later
+  if (!syncOn()) { setHeader(t('adoptTitle'), true); setTab('home');
+    app.innerHTML = `<div class="shop small"><div class="pups one"><div class="pupbox on">${regenSvg('sit', 'open', 'brown')}<span class="cushion"></span></div></div></div>
+      <div class="card" style="text-align:center"><b>Sign in to adopt a puppy</b><div class="muted" style="margin-top:4px">Your puppy is saved to your Google account, so it's never lost when you change or reset your phone.</div></div>
+      <button class="btn" id="adSign">Sign in with Google</button>`;
+    $('#adSign').onclick = async () => { await signIn(); if (syncOn()) viewGarden(); }; return; }
   let color = '';
   setHeader(t('adoptTitle'), true); setTab('home');
   const shop = () => {
@@ -2598,17 +2658,45 @@ function viewAdopt() {
     $('#adBack').onclick = shop;
     $('#adDone').onclick = () => {
       const name = $('#adName').value.trim(); if (!name) return toast(t('adoptNeedName'));
-      const g = gLoad(); if (g.pup && g.pup.name) return viewGarden(); const first = true; g.pup = newPup(color, name); delete g.sick; delete g.shelter; delete g.vac;
+      const g = gLoad(); if (g.pup && g.pup.name) return viewGarden(); const first = true; g.pup = newPup(color, name); delete g.sick; delete g.shelter; delete g.vac; g.coins = (g.coins || 0) + 10; g.bowl = BOWL_MAX; delete g.pendingPee; delete g.pendingPoo;
       if (first) { g.lastFed = g.lastFed || Date.now(); g.lastPet = Date.now(); g.lastVisit = Date.now(); } // a new puppy starts happy
       gSave(g); pupColor = color; setAppIcon(color);
       app.innerHTML = `<div class="shop small"><div class="pups one"><div class="pupbox on r-jump">${regenSvg('sit', 'super', color)}<span class="cushion"></span></div></div><div class="fx" id="gFx"></div></div>
-        <div class="card" style="text-align:center"><b>${tf('adoptWelcome', esc(name))}</b></div>`;
+        <div class="card" style="text-align:center"><b>${tf('adoptWelcome', esc(name))}</b><div class="muted" style="margin-top:4px">🎁 Welcome gift: 10 ${COIN_SVG} to spend in the shop</div></div>`;
       const box = $('#gFx'); ['💕', '🎉', '✨', '💖', '🐾'].forEach((c, i) => { const sp = document.createElement('span'); sp.textContent = c; sp.style.left = (25 + i * 12) + '%'; sp.style.animationDelay = i * .15 + 's'; box.appendChild(sp); });
       setTimeout(() => { if (location.hash === '#garden') viewGarden(); }, 2200);
     };
   };
   shop();
 }
+
+/* ---------- 5.3 Location: PricePup is for Calgary. GPS is only used to check the city and find the nearest store; it is never saved ---------- */
+const CHAINS = ['Superstore', 'Sobeys', 'Save-On-Foods', 'T&T', 'Costco', 'FreshCo', 'Safeway', 'Walmart', 'Co-op', 'No Frills', 'Wholesale Club', 'H Mart', 'Shoppers', 'London Drugs'];
+const CHAIN_RX = [/superstore/i, /sobeys/i, /save[- ]?on/i, /t\s*&\s*t\b/i, /costco/i, /freshco/i, /safeway/i, /walmart/i, /co-?op/i, /no ?frills/i, /wholesale club/i, /h ?mart/i, /shoppers/i, /london drugs/i];
+const BRANCHES = '8,5108816,-11413098;6,5110645,-11416198;8,5114148,-11413021;6,5101455,-11416805;0,5111583,-11406937;6,5112709,-11407239;3,5114063,-11406863;1,5115523,-11405777;6,5110157,-11407268;6,5094255,-11404784;1,5097859,-11401367;1,5104795,-11418678;5,5108285,-11398278;1,5091723,-11395981;6,5109936,-11396237;8,5106854,-11393323;8,5101902,-11415883;6,5102069,-11414199;8,5116167,-11412275;3,5106164,-11398402;7,5105366,-11397851;6,5093034,-11396373;9,5096147,-11408551;6,5097416,-11409724;7,5104114,-11413911;2,5088153,-11395883;8,5112371,-11420086;8,5096265,-11400786;6,5104338,-11413976;5,5117559,-11410971;8,5090291,-11406352;9,5093105,-11402506;1,5090524,-11411325;6,5108450,-11415652;6,5094044,-11411906;9,5108521,-11395575;2,5101976,-11416261;2,5103829,-11408228;0,5104744,-11405506;1,5111126,-11403989;2,5107733,-11414697;8,5118116,-11415767;1,5086291,-11402785;0,5108213,-11418692;11,5106310,-11399268;9,5104549,-11408825;5,5105270,-11410325;11,5103997,-11406062;1,5106527,-11421012;6,5112626,-11420104;1,5115147,-11421292;8,5110278,-11414638;6,5105619,-11408523;1,5111153,-11403996;0,5106906,-11398405;0,5113647,-11416125;2,5111254,-11405389;6,5107494,-11416610;0,5101954,-11417435;7,5115365,-11421339;0,5116205,-11406952;10,5107867,-11400277;6,5102273,-11411661;10,5100199,-11406084;7,5110754,-11403780;4,5107932,-11399062;0,5093430,-11396717;4,5098964,-11404630;7,5090092,-11406128;0,5091002,-11406764;6,5090558,-11406429;6,5095273,-11406165;0,5110973,-11397165;1,5091534,-11407216;5,5098452,-11401430;6,5104235,-11408011;0,5096185,-11407443;8,5097455,-11406928;7,5098410,-11404611;3,5098534,-11404616;0,5098646,-11404193;1,5088088,-11397668;6,5103030,-11407265;8,5104356,-11408822;1,5103722,-11396084;1,5087943,-11407326;2,5087494,-11403867;2,5106533,-11395617;11,5115780,-11415748;9,5103663,-11396934;7,5103856,-11391088;5,5112365,-11394526;8,5092888,-11402890;0,5087474,-11396044;2,5116715,-11408872;4,5115478,-11415532;1,5089733,-11394115;3,5116982,-11415164;1,5117349,-11415691;4,5104331,-11391745;8,5089551,-11394433;7,5109705,-11414383;8,5108835,-11413083;2,5107974,-11419670;1,5112479,-11424866;5,5115598,-11393929;6,5106834,-11406099;8,5103891,-11398808;8,5114713,-11425635;6,5104101,-11420886;9,5118324,-11409378;8,5105840,-11421279;9,5106001,-11421022;2,5097440,-11407268;6,5106569,-11410300;5,5108533,-11412416;8,5106738,-11405207;8,5096272,-11412060;12,5110504,-11416059;13,5112722,-11407478;13,5108063,-11398287;13,5101676,-11416160;13,5115361,-11421505;13,5093148,-11396732;12,5115495,-11405383;12,5110226,-11407062;12,5097824,-11401336;12,5111683,-11420519;12,5101438,-11416844;12,5098581,-11408252;12,5116283,-11412520;12,5107444,-11398475;12,5106411,-11406316;12,5120291,-11399196;12,5112576,-11394545;12,5103768,-11407957;12,5105510,-11395542;12,5096088,-11410512;12,5097862,-11406062;12,5103744,-11396380;12,5114971,-11421197;12,5102387,-11410928;12,5094249,-11404704;12,5103718,-11414389;12,5088108,-11395994;12,5095346,-11406686;12,5117411,-11411017;12,5103867,-11406071;13,5097850,-11406991;12,5108507,-11415683;12,5092973,-11402980;12,5094096,-11412124;12,5087589,-11403651;12,5090210,-11405730;12,5087837,-11407339;12,5099592,-11407457;12,5118114,-11415992;12,5103138,-11407123;12,5099642,-11411950;12,5104655,-11407006;12,5103969,-11414008;12,5112740,-11419831;12,5107860,-11414458;12,5116195,-11406657;13,5090093,-11406638;7,5092934,-11396681;12,5090411,-11406899;12,5090800,-11410970;4,5121121,-11398327;12,5091532,-11407323;7,5096605,-11406917;12,5109773,-11395550;12,5115770,-11416043;12,5098406,-11401421;7,5116975,-11414247;12,5089916,-11394323;12,5103890,-11399091;12,5105279,-11409369;12,5091237,-11395363;4,5093816,-11414467;12,5115590,-11394122;12,5103887,-11420551;12,5106039,-11421275;12,5106617,-11410161;13,5108503,-11412359'.split(';').map(s => { const [c, a, b] = s.split(',').map(Number); return { c: CHAINS[c], lat: a / 1e5, lon: b / 1e5 }; }); // Calgary branches (OpenStreetMap, Oct 2026)
+const YYC = { lat: 51.0447, lon: -114.0719 }, YYC_KM = 30;
+const kmBetween = (a, b) => { const r = x => x * Math.PI / 180, dA = r(b.lat - a.lat), dO = r(b.lon - a.lon), h = Math.sin(dA / 2) ** 2 + Math.cos(r(a.lat)) * Math.cos(r(b.lat)) * Math.sin(dO / 2) ** 2; return 12742 * Math.asin(Math.sqrt(h)); };
+const inCalgary = p => kmBetween(p, YYC) <= YYC_KM;
+const chainOf = s => { const i = CHAIN_RX.findIndex(rx => rx.test(s || '')); return i < 0 ? '' : CHAINS[i]; }; // "Seton Superstore" -> "Superstore"
+let geoLast = null;
+function getPos(maxAge = 3 * 60e3) { return new Promise((res, rej) => {
+  if (!navigator.geolocation) return rej({ code: 'nogeo' }); if (geoLast && Date.now() - geoLast.t < maxAge) return res(geoLast);
+  navigator.geolocation.getCurrentPosition(p => { geoLast = { lat: p.coords.latitude, lon: p.coords.longitude, acc: p.coords.accuracy, t: Date.now() }; res(geoLast); }, e => rej(e), { enableHighAccuracy: true, timeout: 15000, maximumAge: maxAge }); }); }
+const nearestChains = p => { const best = {}; for (const b of BRANCHES) { const d = kmBetween(p, b); if (best[b.c] == null || d < best[b.c]) best[b.c] = d; } return CHAINS.map(c => ({ c, km: best[c] })).sort((a, b) => (a.km ?? 99) - (b.km ?? 99)); };
+const fmtKm = km => km == null ? '' : km < 1 ? Math.round(km * 1000 / 50) * 50 + ' m' : km.toFixed(1) + ' km';
+const geoMsg = e => e && e.code === 1 ? '📍 Location is off for PricePup. Turn it on in your phone settings to log prices.' : '📍 Could not get your location. Check that location is on and try again.';
+function setArea(area, inYyc) { lsSet('area', area); if (syncOn()) { fb.F.setDoc(favRef(), { area, inCalgary: !!inYyc, areaAt: Date.now() }, { merge: true }).catch(() => {}); lsSet('areaSynced', '1'); } }
+function firstLocation() {
+  if (lsGet('locAsked')) { if (syncOn() && lsGet('area') && !lsGet('areaSynced')) setArea(lsGet('area'), lsGet('area') === 'Calgary'); return; }
+  const m = showSheet(`<h2 style="margin-top:0">📍 PricePup is made for Calgary</h2><div>Prices come from Calgary stores and from people shopping in Calgary. We use your location only to check that you're in Calgary and to find the nearest store when you log a price. Your location is never saved.</div>
+    <button class="btn" id="locYes" style="margin-top:12px">Share my location</button><button class="btn sec" id="locNo">Not now</button>`);
+  m.querySelector('#locNo').onclick = () => { lsSet('locAsked', '1'); closeSheet(); };
+  m.querySelector('#locYes').onclick = async () => { lsSet('locAsked', '1'); try { const p = await getPos(0); if (inCalgary(p)) { setArea('Calgary', true); closeSheet(); toast('📍 Welcome, Calgarian! 🐾', 2600); } else askArea(); } catch (e) { closeSheet(); toast(geoMsg(e), 4200); } }; }
+function askArea() {
+  const m = showSheet(`<h2 style="margin-top:0">🗺️ Not in Calgary yet</h2><div>PricePup is currently designed for Calgarians, so prices logged outside Calgary aren't counted. More cities are coming! Where do you live? It helps us choose the next city.</div>
+    <label>City / region</label><input id="arIn" placeholder="e.g. Edmonton, AB" maxlength="40"><button class="btn" id="arOk" style="margin-top:10px">Send</button><button class="btn sec" id="arSkip">Skip</button>`);
+  m.querySelector('#arSkip').onclick = closeSheet;
+  m.querySelector('#arOk').onclick = () => { const v = m.querySelector('#arIn').value.trim(); if (!v) return toast('Type your city first'); setArea(v, false); closeSheet(); toast(`Thanks! We'll let you know when PricePup comes to ${v} 🐾`, 3200); }; }
 
 /* ---------- Price tracking: alert when a tracked item or product hits its 30-day low ---------- */
 let TRACK = new Set((() => { try { return JSON.parse(lsGet('track') || '[]'); } catch (e) { return []; } })());
@@ -2712,6 +2800,8 @@ function showProduct(sc) {
 
 /* ---------- What's new (shown once after each update) ---------- */
 const CHANGES = {
+  '5.3.0': [['Meals are now free: fill the food bowl and your puppy eats when hungry. Treats are extras for rewards. Water is just refreshed; your puppy drinks when it wants.', 'Toilet times now follow your puppy\'s age, like a real dog. New puppies come with a 10-coin welcome gift (sign in with Google to adopt, so your puppy is never lost).', 'PricePup is for Calgary: logging a price checks your location (never saved) and shows the nearest stores first.', 'Flyer products now show their photo. Scanning a product nobody knows yet asks for a photo, so everyone sees it next time.', 'Fixes: no more repeated $/lb, wrong "Reg." prices from flyers, and the store list on Deals now uses two rows.'],
+            ['Meals are now free: fill the food bowl and your puppy eats when hungry. Treats are extras for rewards. Water is just refreshed; your puppy drinks when it wants.', 'Toilet times now follow your puppy\'s age, like a real dog. New puppies come with a 10-coin welcome gift (sign in with Google to adopt, so your puppy is never lost).', 'PricePup is for Calgary: logging a price checks your location (never saved) and shows the nearest stores first.', 'Flyer products now show their photo. Scanning a product nobody knows yet asks for a photo, so everyone sees it next time.', 'Fixes: no more repeated $/lb, wrong "Reg." prices from flyers, and the store list on Deals now uses two rows.']],
   '5.2.0': [['Every puppy is now unique, with its own hidden strength, smarts, health and personality. It grows up (1 day = 2 puppy days).', 'Teach fetch: at first your puppy has no idea what the ball is for. Keep throwing!', 'Strong puppies pull the rope harder. Puppies can catch a cold after big temperature swings; rest 5 hours or give a pill.', 'Leave your puppy without care for a day and it goes to the shelter (10 coins to bring it home). Going away? Use the pet hotel.', 'New ⓘ puppy info card. All puppies were reset, so adopt a new one!', 'Your puppy now lives indoors: toilet training with a pee pad, and 8 commands to train (🎓) as your bond grows. Collars in the shop!'],
             ['Every puppy is now unique, with its own hidden strength, smarts, health and personality. It grows up (1 day = 2 puppy days).', 'Teach fetch: at first your puppy has no idea what the ball is for. Keep throwing!', 'Strong puppies pull the rope harder. Puppies can catch a cold after big temperature swings; rest 5 hours or give a pill.', 'Leave your puppy without care for a day and it goes to the shelter (10 coins to bring it home). Going away? Use the pet hotel.', 'New ⓘ puppy info card. All puppies were reset, so adopt a new one!', 'Your puppy now lives indoors: toilet training with a pee pad, and 8 commands to train (🎓) as your bond grows. Collars in the shop!']],
   '5.1.1': [['Faster, lighter syncing: the app now downloads only prices that changed since your last visit.'],
@@ -2832,6 +2922,7 @@ window.addEventListener('hashchange', () => route());
   updInstall();
   if (!lsGet('guided')) { lsSet('seenVer', APP_VERSION); setTimeout(() => showGuide(0), 600); }
   else setTimeout(showWhatsNew, 800);
+  setTimeout(() => { if (lsGet('guided') && !document.getElementById('sheet')) firstLocation(); }, 3500);
   setTimeout(checkVersion, 2500); checkTrack(); setTimeout(checkPet, 4000);
 })();
 </script>
