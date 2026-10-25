@@ -1,5 +1,5 @@
 'use strict';
-const APP_VERSION = '5.1.1';
+const APP_VERSION = '5.2.0';
 const $ = s => document.querySelector(s);
 const app = $('#app');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -1263,8 +1263,75 @@ function showGuide(i) {
 const FREE_TREATS = 3, COIN_CAP = 20;           // 3 free treats a day; logging a price earns 1 coin (max 20 a day)
 const GKEY = 'garden';
 const H = ms => (Date.now() - (ms || 0)) / 36e5;
+
+// ---------- 5.2: every puppy is different (hidden abilities 1-100), grows up, can get sick, goes to the shelter if left alone ----------
+const PUP_V = 2;
+const rnd = (a, b) => a + Math.random() * (b - a);
+const roll = () => Math.round((rnd(20, 100) + rnd(20, 100) + rnd(20, 100)) / 3); // most puppies 45-75; extremes are rare
+const PERSONAS = ['cuddly', 'independent', 'playful', 'shy'];
+const PERSONA_TXT = { cuddly: '💛 Cuddly', independent: '🧭 Independent', playful: '🎈 Playful', shy: '🌸 Shy' };
+function newPup(color, name) { // potential (adult peak) of each ability; what it can do now also depends on age and training
+  return { v: PUP_V, color, name, adopted: Date.now(), pot: { str: roll(), iq: roll(), hp: roll(), en: roll() },
+    app: Math.random() < .3 ? 4 : 3, per: PERSONAS[Math.floor(Math.random() * 4)], kg: Math.round(rnd(8, 30) * 10) / 10,
+    tr: { str: 0, iq: 0, hp: 0 }, sk: { fetch: 0 }, skLog: {} };
+}
+const pupAgeM = p => 2 + (Date.now() - (p.adopted || Date.now())) / 864e5 * 2 / 30.44;   // adopted at 2 months; 1 real day = 2 puppy days
+const growth = p => Math.max(.3, Math.min(1, .3 + .7 * (pupAgeM(p) - 2) / 10));         // 30% at 2 months -> 100% at 12 months
+function stat(g, k) { const p = (g && g.pup) || {}; if (!p.pot) return 50; if (k === 'en') return p.pot.en; // energy: highest as a puppy
+  return Math.max(1, Math.min(100, Math.round(p.pot[k] * (.6 * growth(p) + .4 * Math.min(1, (p.tr || {})[k] || 0))))); }
+function train(g, k, n) { if (!g.pup) return; const tr = g.pup.tr = g.pup.tr || {}; tr[k] = Math.min(1, (tr[k] || 0) + n); }
+const speedK = g => .75 + stat(g, 'str') / 200;   // strong puppies run faster
+function ageTxt(p) { const m = pupAgeM(p); if (m >= 12) { const y = Math.floor(m / 12), r = Math.floor(m % 12); return y + (y > 1 ? ' years' : ' year') + (r ? ` ${r} month${r > 1 ? 's' : ''}` : ''); }
+  const mm = Math.floor(m), d = Math.floor((m - mm) * 30.44); return `${mm} months ${d} day${d === 1 ? '' : 's'}`; }
+const stageTxt = p => pupAgeM(p) < 12 ? '🐶 Puppy' : pupAgeM(p) < 84 ? '🐕 Adult' : '🦮 Senior';
+const pupKg = p => Math.round((p.kg || 15) * (.12 + .83 * Math.pow(Math.max(0, Math.min(1, (pupAgeM(p) - 2) / 10)), .8)) * 10) / 10;
+const hungerH = g => (g.pup && g.pup.app === 4) ? 10 : 12;   // big eaters get hungry sooner
+// skills (0-100). Fetch: under 30 no idea ("?"), 30-60 chases the ball but keeps it, 60+ brings it back
+const SKILL_DAY = 10;
+const skill = (g, k) => ((g.pup && g.pup.sk) || {})[k] || 0;
+function practise(g, k) { if (!g.pup) return false; g.pup.sk = g.pup.sk || {};
+  const log = g.pup.skLog = g.pup.skLog && g.pup.skLog.day === today() ? g.pup.skLog : { day: today() };
+  if ((log[k] || 0) >= SKILL_DAY) return false; log[k] = (log[k] || 0) + 1;
+  const before = g.pup.sk[k] || 0, gain = 4 + 8 * stat(g, 'iq') / 100; g.pup.sk[k] = Math.min(100, before + gain); train(g, 'iq', .01);
+  if (before < 60 && g.pup.sk[k] >= 60) { train(g, 'iq', .05); return 'learned'; }
+  if (before < 30 && g.pup.sk[k] >= 30) return 'half';
+  return true; }
+// sickness: one check a day. Big temperature swings (chinooks), deep cold and poor care raise the risk; health lowers it
+const SICK_MS = 5 * 36e5, PILL_MS = 5 * 60e3, PILL_PRICE = 5, SHELTER_H = 24, SHELTER_FEE = 10;
+const isSick = g => !!(g && g.sick && g.sick.until > Date.now());
+async function calgaryTemps() { // the last 24 hours of hourly temperatures in Calgary (cached for 3 hours)
+  try { const c = JSON.parse(lsGet('pp_t24') || 'null'); if (c && Date.now() - c.at < 3 * 36e5) return c.t; } catch (e) {}
+  const r = await fetch('https://api.open-meteo.com/v1/forecast?latitude=51.0447&longitude=-114.0719&hourly=temperature_2m&past_days=1&forecast_days=1&timezone=America%2FEdmonton');
+  const j = await r.json(), now = calgaryNow().slice(0, 13), i = j.hourly.time.findIndex(x => x.slice(0, 13) === now);
+  const t = j.hourly.temperature_2m.slice(Math.max(0, i - 24), i + 1).filter(x => x != null);
+  lsSet('pp_t24', JSON.stringify({ at: Date.now(), t })); return t;
+}
+function sickCheck(g, temps) { // true if the puppy just got sick
+  if (!g.pup || !g.pup.pot || g.sickChk === today()) return false; g.sickChk = today();
+  if (H(g.lastFed) < 24 && waterLevel(g) < 3 && !(g.poos || []).length) train(g, 'hp', .02); // good care builds health
+  if (isSick(g)) return false;
+  const lo = temps && temps.length ? Math.min(...temps) : 0, hi = temps && temps.length ? Math.max(...temps) : 0;
+  let risk = 0, cause = '';
+  if (hi - lo >= 15) { risk += .25; cause = 'swing'; }
+  if (lo <= -20) { risk += .15; cause = cause || 'cold'; }
+  if (waterLevel(g) >= 4) { risk += .1; cause = cause || 'water'; }
+  if ((g.poos || []).length >= 2) { risk += .1; cause = cause || 'dirty'; }
+  if (fullness(g) === 0) { risk += .1; cause = cause || 'hungry'; }
+  if (Math.random() < risk * (1 - stat(g, 'hp') / 120)) { g.sick = { at: Date.now(), until: Date.now() + SICK_MS, cause, lo: Math.round(lo), hi: Math.round(hi) }; return true; }
+  return false;
+}
+const SICK_WHY = { swing: s => `caught a cold after the big temperature swing (${s.lo}°C → ${s.hi}°C)`, cold: s => `caught a chill in the deep cold (${s.lo}°C)`,
+  water: () => 'got a tummy bug from dirty water', dirty: () => 'got sick from the messy garden', hungry: () => 'got weak and sick from going hungry' };
+const hmm = ms => { const m = Math.max(0, Math.ceil(ms / 60e3)); return m >= 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${m} min`; };
+// shelter: nobody cared for the puppy (no visit) for 24 hours. The pet hotel (vacation) pauses this
+const onVacation = g => !!(g && g.vac && g.vac.until > Date.now());
+function shelterCheck(g) { if (!g.pup || g.shelter || onVacation(g)) return;
+  const last = Math.max(g.lastVisit || 0, (g.vac && g.vac.until) || 0); if (last && H(last) >= SHELTER_H) g.shelter = { at: last + SHELTER_H * 36e5 }; }
+const xpAt = L => { let x = 0, need = 40; for (let i = 1; i < L; i++) { x += need; need += 20; } return x; };
 function gLoad() { let g = {}; try { g = JSON.parse(lsGet(GKEY) || '{}'); } catch (e) {} return gPoo(gDay(g)); }
 function gDay(g) {
+  if (g.pup && (g.pup.v || 0) < PUP_V) { const keep = { coins: g.coins, toys: g.toys, bonus: g.bonus, day: g.day, free: g.free, coinsToday: g.coinsToday, updated: g.updated };
+    Object.keys(g).forEach(k => delete g[k]); Object.assign(g, keep); }
   if (g.day !== today()) { g.day = today(); g.free = FREE_TREATS; g.coinsToday = 0; }
   if (g.free > FREE_TREATS) g.free = FREE_TREATS;   // older versions gave 10 a day
   g.bonus = g.bonus || 0; g.coins = g.coins || 0; g.toys = g.toys || [];
@@ -1292,7 +1359,9 @@ const treatsLeft = g => (g.free || 0) + (g.bonus || 0);
 // water gets dirtier over time: level 0 (fresh) .. 5; at level 4+ (12 h) the puppy won't drink and gets thirsty
 const waterLevel = g => Math.min(5, Math.floor(H(g.waterAt) / 3));
 function gMood(g) {
-  if (!g.lastFed || H(g.lastFed) >= 12) return 'weak';
+  if (g.shelter) return 'shelter';
+  if (isSick(g)) return 'sick';
+  if (!g.lastFed || H(g.lastFed) >= hungerH(g)) return 'weak';
   if (waterLevel(g) >= 4) return 'thirsty';
   if ((g.poos || []).length) return 'dirty';
   if (baseJoy(g) < 15) return 'grumpy';
@@ -1300,11 +1369,11 @@ function gMood(g) {
   return 'idle';
 }
 const clamp = x => Math.max(0, Math.min(100, Math.round(x)));
-const fullness = g => g.lastFed ? clamp((100 - H(g.lastFed) / 12 * 100) * Math.min(1, (g.recentFeeds || 1) / 3)) : 0; // 3 treats = full
+const fullness = g => g.lastFed ? clamp((100 - H(g.lastFed) / hungerH(g) * 100) * Math.min(1, (g.recentFeeds || 1) / ((g.pup && g.pup.app) || 3))) : 0; // 3 treats = full (4 for big eaters)
 // happiness: a stored level that fades about 12 points an hour; care adds a little at a time
 const JOY_DECAY = 12;
-const baseJoy = g => clamp((g.joyV == null ? 60 : g.joyV) - H(g.joyAt) * JOY_DECAY);
-const joy = g => clamp(baseJoy(g) - (g.poos || []).length * 20 - (waterLevel(g) >= 4 ? 20 : 0));
+const baseJoy = g => clamp((g.joyV == null ? 60 : g.joyV) - H(g.joyAt) * JOY_DECAY * (g.pup && g.pup.per === 'independent' ? .75 : 1));
+const joy = g => clamp(baseJoy(g) - (g.poos || []).length * 20 - (waterLevel(g) >= 4 ? 20 : 0) - (isSick(g) ? 15 : 0));
 function addJoy(g, n) { g.joyV = Math.min(100, baseJoy(g) + n); g.joyAt = Date.now(); }
 // bond (affection) level: earned by daily care; each kind of care has a daily cap
 const XP = { visit: [5, 5], feed: [3, 9], water: [2, 4], toy: [4, 16], pet: [1, 10], poo: [2, 6] };
@@ -1353,13 +1422,21 @@ const PUP_COLORS = {
   brown: { fur: '#c98a4b', ear: '#9a5f2c', face: '#ecc896', earHi: '#ddaa72' }
 };
 var pupColor = (() => { try { return (JSON.parse(lsGet(GKEY) || '{}').pup || {}).color || 'black'; } catch (e) { return 'black'; } })();
-function regenB(pose, expr, color) {
+// collars (shop item): collar colour + tag colour
+const COLLAR_COLS = { blue: '#2f6fdc', red: '#e0453a', pink: '#ff7fb0', green: '#2fa36b', purple: '#8a5cd6', yellow: '#f2c230', black: '#2a2a30' };
+const TAG_COLS = { gold: '#f5b70a', silver: '#c9ced6', green: '#2fa36b', red: '#e0453a', blue: '#3d8bfd' };
+var pupCollar = (() => { try { return JSON.parse(lsGet(GKEY) || '{}').wear || null; } catch (e) { return null; } })();
+const collarSvg = cl => { const c = COLLAR_COLS[cl.c] || COLLAR_COLS.blue, t = TAG_COLS[cl.t] || TAG_COLS.gold, ink = '#15151a', hi = cl.t === 'silver' || cl.t === 'gold' ? '#fff8e0' : '#e9fff2';
+  return `<path d="M90 140 q30 12 60 0" stroke="${ink}" stroke-width="12" fill="none" stroke-linecap="round"/><path d="M90 140 q30 12 60 0" stroke="${c}" stroke-width="6" fill="none" stroke-linecap="round"/><circle cx="120" cy="155" r="8.5" fill="${t}" stroke="${ink}" stroke-width="4"/><circle cx="120" cy="157.5" r="2.6" fill="${hi}"/><circle cx="116.3" cy="153" r="1.4" fill="${hi}"/><circle cx="120" cy="151.5" r="1.4" fill="${hi}"/><circle cx="123.7" cy="153" r="1.4" fill="${hi}"/>`; };
+function regenB(pose, expr, color, collar) {
+  if (collar === undefined) collar = color ? null : pupCollar; // the garden puppy wears its collar; shop/adoption pictures don't
   const pc = PUP_COLORS[color || pupColor] || PUP_COLORS.black;
   const ink = '#15151a', fur = pc.fur, ear = pc.ear, face = pc.face, W = 6;
   const L = (d, f = 'none', w = W) => `<path d="${d}" fill="${f}" stroke="${ink}" stroke-width="${w}" stroke-linejoin="round" stroke-linecap="round"/>`;
   const eye = (x, y) => {
     if (expr === 'happy' || expr === 'super' || expr === 'eat' || expr === 'tug') return L(`M${x - 8} ${y + 2} q8 -10 16 0`, 'none', 5);
-    if (expr === 'sleep' || expr === 'eatdown') return L(`M${x - 8} ${y} q8 7 16 0`, 'none', 5);
+    if (expr === 'strain') return x < 120 ? L(`M${x - 8} ${y - 7} l14 7 l-14 7`, 'none', 5) : L(`M${x + 8} ${y - 7} l-14 7 l14 7`, 'none', 5);
+    if (expr === 'sleep' || expr === 'eatdown' || expr === 'sick') return L(`M${x - 8} ${y} q8 7 16 0`, 'none', 5);
     if (expr === 'grumpy') return L(`M${x - 8} ${y} h16`, 'none', 5);
     return `<g class="eye"><circle cx="${x}" cy="${y}" r="7" fill="${ink}"/><circle cx="${x + 2.5}" cy="${y - 2.5}" r="2.4" fill="#fff"/></g>` + (expr === 'sad' ? `<path d="M${x} ${y + 11} q-3 6 0 9 q3 -3 0 -9z" fill="#8fd0ff"/>` : '');
   };
@@ -1370,6 +1447,8 @@ function regenB(pose, expr, color) {
     eat: `<ellipse cx="120" cy="127" rx="7" ry="5" fill="${ink}"/>`,
     thirsty: L('M106 122 q7 7 14 0 q7 7 14 0', 'none', 4.5) + `<path d="M112 126 q8 30 16 0 z" fill="#ff7a59" stroke="${ink}" stroke-width="3.5" stroke-linejoin="round"/><path d="M120 130 v12" stroke="#d9583d" stroke-width="2.5" stroke-linecap="round"/>`,
     tug: L('M106 124 q14 5 28 0', 'none', 5) + `<path d="M110 124 l3 5 l3 -4 l4 5 l4 -5 l3 4 l3 -5" fill="#fff" stroke="${ink}" stroke-width="2" stroke-linejoin="round"/>`,
+    sick: L('M108 131 q6 -6 12 0 q6 6 12 0', 'none', 4.5),
+    strain: L('M104 123 q16 -5 32 0', 'none', 5) + `<path d="M107 123 l3 6 l3 -5 l4 6 l4 -6 l4 6 l4 -6 l3 5 l3 -6" fill="#fff" stroke="${ink}" stroke-width="2" stroke-linejoin="round"/>`,
     eatdown: '', sad: L('M110 130 q10 -8 20 0', 'none', 4.5), sleep: L('M114 126 q6 3 12 0', 'none', 4), grumpy: L('M110 128 h20', 'none', 4.5)
   }[expr];
   const head = (tx = 0, ty = 0, rot = 0, s = 1) => `<g class="hd" transform="translate(${tx} ${ty}) rotate(${rot} 120 100) translate(120 100) scale(${s}) translate(-120 -100)"><g class="hdi">
@@ -1381,16 +1460,21 @@ function regenB(pose, expr, color) {
     ${eye(96, 94)}${eye(144, 94)}
     <ellipse cx="84" cy="114" rx="8" ry="5" fill="#ff8fa3" opacity=".5"/><ellipse cx="156" cy="114" rx="8" ry="5" fill="#ff8fa3" opacity=".5"/>
     <path d="M111 108 q9 -6 18 0 q-2 8 -9 9 q-7 -1 -9 -9z" fill="${ink}"/><circle cx="116" cy="108" r="2" fill="#fff" opacity=".8"/>
-    ${expr === 'sad' || expr === 'thirsty' ? L('M86 78 l12 -4M154 78 l-12 -4', 'none', 4.5) : ''}${expr === 'thirsty' ? '<path d="M170 66 q-7 11 0 15 q7 -4 0 -15z" fill="#8fd0ff" stroke="#15151a" stroke-width="2.5"/>' : ''}${mouth}
-    ${L('M90 140 q30 12 60 0', 'none', 12)}<path d="M90 140 q30 12 60 0" stroke="#2f6fdc" stroke-width="6" fill="none" stroke-linecap="round"/>
-    <circle cx="120" cy="155" r="8.5" fill="#2fa36b" stroke="${ink}" stroke-width="4"/><circle cx="120" cy="157.5" r="2.6" fill="#e9fff2"/><circle cx="116.3" cy="153" r="1.4" fill="#e9fff2"/><circle cx="120" cy="151.5" r="1.4" fill="#e9fff2"/><circle cx="123.7" cy="153" r="1.4" fill="#e9fff2"/></g></g>`;
+    ${expr === 'sad' || expr === 'thirsty' || expr === 'sick' ? L('M86 78 l12 -4M154 78 l-12 -4', 'none', 4.5) : ''}${expr === 'strain' ? L('M84 74 l14 6M156 74 l-14 6', 'none', 5) : ''}${expr === 'sick' ? '<ellipse cx="84" cy="114" rx="10" ry="6" fill="#ff5a5a" opacity=".45"/><ellipse cx="156" cy="114" rx="10" ry="6" fill="#ff5a5a" opacity=".45"/>' : ''}${expr === 'thirsty' ? '<path d="M170 66 q-7 11 0 15 q7 -4 0 -15z" fill="#8fd0ff" stroke="#15151a" stroke-width="2.5"/>' : ''}${mouth}
+    ${collar ? collarSvg(collar) : ''}</g></g>`;
   const tail = d => `<g class="tail">${L(d, 'none', 14)}<path d="${d}" stroke="${fur}" stroke-width="6" fill="none" stroke-linecap="round"/></g>`;
   const shadow = `<ellipse cx="120" cy="222" rx="60" ry="6" fill="rgba(60,40,20,.14)"/>`;
   let body = '', hd = head(), front = '';
   const FOOD = '<path d="M96 203 q6 -7 12 0 M116 202 q6 -7 12 0 M134 203 q6 -6 10 0" fill="#e9b872" stroke="#15151a" stroke-width="3"/>', FOOD2 = '<path d="M82 198 q6 -8 12 0 M146 198 q6 -8 12 0 M158 197 q4 -6 8 0" fill="#e9b872" stroke="#15151a" stroke-width="3"/>';
-  if (pose === 'sit' || pose === 'eatup') {
+  let lean = '', out = '';
+  if (pose === 'pull') { // tug of war: leaning back, front paws braced towards the rope
+    body = tail('M92 196 C70 194 62 178 68 162') +
+      L('M98 118 C86 146 80 190 84 216 L150 216 C156 190 152 146 140 118 Z', fur) +
+      L('M84 216 h66', 'none', 6) + L('M126 176 L156 214', 'none', 9) + L('M110 180 L136 216', 'none', 9);
+    hd = head(-6, 6, 4, .95); lean = 'transform="rotate(-10 100 216)"'; out = shadow;
+  } else if (pose === 'sit' || pose === 'eatup') {
     body = shadow + tail('M152 196 C174 194 180 176 174 160') +
-      L('M90 150 C82 170 80 196 84 216 L156 216 C160 196 158 170 150 150', fur) +
+      L('M98 118 C86 146 80 190 84 216 L156 216 C160 190 154 146 142 118 Z', fur) +
       L('M106 176 L106 214', 'none', 5) + L('M134 176 L134 214', 'none', 5) + L('M84 216 h72', 'none', 6);
     if (pose === 'eatup') { body += L('M84 204 h72 l-8 16 h-56z', '#ff7a59', 5) + FOOD; hd = head(0, 38, 12, .92); }
   } else if (pose === 'eat' || pose === 'drink' || pose === 'nose') { // head down in the bowl: we see his back and the top of his head
@@ -1420,7 +1504,8 @@ function regenB(pose, expr, color) {
       L('M84 218 h40', 'none', 6) + L('M158 196 q10 8 8 22', 'none', 5);
     hd = head(-14, sl ? 58 : 42, sl ? -8 : 0, sl ? .9 : .95);
   }
-  return `<svg class="regen" viewBox="0 0 240 240" aria-hidden="true"><g class="rgAll"><g class="bd">${body}</g>${hd}${front}</g></svg>`;
+  if (expr === 'sick' && pose === 'lie') front += `<g transform="translate(104 92) rotate(-12)"><path d="M-30 6 C-30 -10 30 -10 30 6 C30 14 -30 14 -30 6Z" fill="#9fd8ff" stroke="${ink}" stroke-width="4"/><path d="M-6 -6 L0 -18 L6 -6" fill="#9fd8ff" stroke="${ink}" stroke-width="4" stroke-linejoin="round"/><rect x="-5" y="-22" width="10" height="7" rx="2" fill="#ff7a59" stroke="${ink}" stroke-width="3"/><path d="M-18 2 q6 -4 12 0" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round"/></g><g transform="translate(118 162) rotate(28)"><rect x="0" y="-4" width="40" height="8" rx="4" fill="#fff" stroke="${ink}" stroke-width="3"/><rect x="2" y="-1.5" width="22" height="3" rx="1.5" fill="#e53935"/><circle cx="2" cy="0" r="5" fill="#e53935" stroke="${ink}" stroke-width="3"/></g><path d="M176 112 q-6 9 0 13 q6 -4 0 -13z" fill="#8fd0ff" stroke="${ink}" stroke-width="2.5"/>`;
+  return `<svg class="regen" viewBox="0 0 240 240" aria-hidden="true">${out}<g class="rgAll" ${lean}><g class="bd">${body}</g>${hd}${front}</g></svg>`;
 }
 // poo (same in both styles, cute not gross)
 const pooSvg = (ink = '#141418') => `<svg viewBox="0 0 60 50" class="poo" aria-hidden="true"><path d="M8 44 C2 44 2 34 10 33 C6 26 14 20 20 23 C18 14 30 8 34 16 C42 14 46 22 42 27 C50 28 52 38 46 40 C54 44 50 48 44 48 L12 48 C9 48 8 46 8 44 Z" fill="#8a5a33" stroke="${ink}" stroke-width="3" stroke-linejoin="round"/><path d="M14 36 q8 4 18 0M20 26 q6 3 12 0" stroke="#b07b4f" stroke-width="3" fill="none" stroke-linecap="round"/><path d="M14 8 q-4 -4 0 -8M28 6 q-4 -4 0 -8M42 8 q-4 -4 0 -8" stroke="#8aa36a" stroke-width="2.5" fill="none" stroke-linecap="round"/></svg>`;
@@ -1475,7 +1560,10 @@ const mmss = ms => { const s = Math.max(0, Math.ceil(ms / 1000)); return Math.fl
 async function viewGarden() {
   let g = await gSync();
   if (!g.pup || !g.pup.name) return viewAdopt();
-  pupColor = g.pup.color || 'black'; setAppIcon(pupColor);
+  pupColor = g.pup.color || 'black'; setAppIcon(pupColor); pupCollar = g.wear || null;
+  if (onVacation(g)) return viewHotel();
+  if (g.vac) { const back = g.vac.until; delete g.vac; g.lastFed = Math.max(g.lastFed || 0, back); g.waterAt = Math.max(g.waterAt || 0, back); g.poos = []; g.pendingPoo = 0; g.lastVisit = Math.max(g.lastVisit || 0, back); } // home from the pet hotel: fed and clean
+  shelterCheck(g); if (g.shelter) { gSave(g); return viewShelter(); }
   setHeader(tf('gTitle', g.pup.name), true); setTab('home');
   const mood0 = gMood(g);
   g.lastVisit = Date.now(); const lvUpVisit = addXp(g, 'visit'); gSave(g);
@@ -1484,7 +1572,7 @@ async function viewGarden() {
       <div class="sky"><div class="stars">${Array.from({ length: 30 }, () => `<i style="left:${(Math.random() * 100).toFixed(1)}%;top:${(Math.random() * 45).toFixed(1)}%;animation-delay:${(Math.random() * 3).toFixed(1)}s"></i>`).join('')}</div>
         <div class="sun"></div><div class="moon"></div><div class="cloud c1"></div><div class="cloud c2"></div><div class="cloud c3"></div><div class="fall"></div></div>
       <div class="wx" id="gWx">📍 Calgary</div>
-      <div class="gneed hidden" id="gNeed"></div>
+      <div class="gneed hidden" id="gNeed"></div><button class="ginfo" id="gInfo" aria-label="About your puppy">i</button>
       <div class="gstats" id="gStats">
         <div class="gs"><span>🍖</span><i><b id="mFull"></b></i></div>
         <div class="gs"><span>💛</span><i><b id="mJoy"></b></i></div>
@@ -1497,7 +1585,7 @@ async function viewGarden() {
       <svg class="house" viewBox="0 0 110 100" aria-hidden="true"><path d="M6 44 L55 6 L104 44" fill="none" stroke="#15151a" stroke-width="14" stroke-linejoin="round" stroke-linecap="round"/><path d="M6 44 L55 6 L104 44" fill="none" stroke="#c2553a" stroke-width="8" stroke-linejoin="round" stroke-linecap="round"/><path d="M16 42 L55 12 L94 42 V96 H16 Z" fill="#f0c27c" stroke="#15151a" stroke-width="4" stroke-linejoin="round"/><path d="M40 96 V70 a15 15 0 0 1 30 0 V96 Z" fill="#4a2f1c" stroke="#15151a" stroke-width="3"/><rect x="34" y="46" width="42" height="13" rx="4" fill="#fff4dc" stroke="#15151a" stroke-width="2.5"/><text x="55" y="56" font-size="${g.pup.name.length > 7 ? 7 : 10}" font-weight="800" text-anchor="middle" fill="#8a4a22" font-family="Arial">${esc(g.pup.name.toUpperCase().slice(0, 10))}</text></svg>
       <div id="gPoos"></div>
       <button class="bowlbtn" id="gBowl" aria-label="water"></button>
-      <div class="pupwrap" id="gWrap"><div class="pflip" id="gFlip"><div class="pup" id="gPup"></div><div class="carry" id="gCarry"></div></div></div>
+      <div class="pupwrap" id="gWrap"><div class="pflip" id="gFlip"><div class="pup" id="gPup"></div><div class="carry" id="gCarry"></div></div><div class="qbub hidden" id="gQ">?</div></div>
       <div class="ballfly hidden" id="gBall">${toySvg('ball')}</div><div class="ballhand hidden" id="gHand">${toySvg('ball')}</div><div class="balltip hidden" id="gTip">${t('ballHint')}</div>
       <svg class="ropesvg hidden" id="gRope" aria-hidden="true"><path class="ro" id="gRopeO"/><path class="ri" id="gRopeI"/></svg><b class="ropeknot hidden" id="gKnot"></b>
       <div class="gtimer hidden" id="gTimer"></div>
@@ -1548,10 +1636,12 @@ async function viewGarden() {
     $('#gLv').textContent = 'Lv ' + b.L;
     $('#gTreats').innerHTML = cn(tf('gTreatsMini', g.free || 0, FREE_TREATS, g.bonus || 0, g.coins || 0));
     $('#gBowl').innerHTML = waterSvg(lv);
-    const need = lv >= 4 ? t('gWaterBad') : g.poos.length ? t('gPooHint') : lv >= 3 ? t('gWaterDirty') : '';
-    const ne = $('#gNeed'); ne.classList.toggle('hidden', !need); ne.textContent = withName(need); };
+    const need = isSick(g) ? `🤒 ${g.pup.name} is sick · better in ${hmm(g.sick.until - Date.now())} · tap` : lv >= 4 ? t('gWaterBad') : g.poos.length ? t('gPooHint') : lv >= 3 ? t('gWaterDirty') : '';
+    const ne = $('#gNeed'); ne.classList.toggle('hidden', !need); ne.classList.toggle('sickn', isSick(g)); ne.textContent = withName(need); };
   const bondUp = () => { const b = bondOf(gLoad()); toast(tf('bondUp', pupName(), b.L), 3200); fx('💗✨💗', 6); };
-  const care = (kind, joyN) => { g = gLoad(); if (joyN) addJoy(g, joyN); const up = addXp(g, kind); gSave(g); bars(); if (up) later(600, bondUp); };
+  const care = (kind, joyN) => { g = gLoad(); const per = g.pup && g.pup.per; // personality: cuddly pups love pets, playful ones love toys, shy ones warm up slowly
+    if (kind === 'pet' && joyN) joyN = per === 'cuddly' ? joyN + 1 : per === 'shy' ? 1 : joyN; if (kind === 'toy' && per === 'playful') joyN += 4;
+    if (joyN) addJoy(g, joyN); const up = addXp(g, kind); gSave(g); bars(); if (up) later(600, bondUp); };
   const poos = () => { g = gLoad(); const box = $('#gPoos'); if (!box) return;
     box.innerHTML = g.poos.map((p, i) => `<button class="poobtn" data-i="${i}" style="left:${p.x}%" aria-label="poo">${pooSvg()}</button>`).join('');
     box.querySelectorAll('.poobtn').forEach(b => b.onclick = e => { e.stopPropagation(); const i = +b.dataset.i, x = g.poos[i].x; g = gLoad(); g.poos.splice(i, 1); gSave(g);
@@ -1563,13 +1653,14 @@ async function viewGarden() {
     carry.innerHTML = '';
     if (chewing()) { draw('lie', 'eat', 'r-chompl wagfast'); carry.className = 'carry chewing'; carry.innerHTML = toySvg('chew'); return; }
     carry.className = 'carry';
-    if (state === 'weak') draw('lie', 'sad', 'r-breathe weak');
+    if (state === 'sick') draw('lie', 'sick', 'r-breathe weak');
+    else if (state === 'weak') draw('lie', 'sad', 'r-breathe weak');
     else if (state === 'thirsty') draw('sit', 'thirsty', 'r-pant');
     else if (state === 'grumpy') draw('sit', 'grumpy', '');
     else if (state === 'dirty') draw('sit', 'sad', '');
     else if (night && Math.random() < .6) draw('sleep', 'sleep', 'r-breathe sleeping');
     else draw('sit', 'open', ''); };
-  const recheck = () => { const m = gMood(gLoad()); if (m === 'weak' || m === 'thirsty' || m === 'dirty' || m === 'grumpy') state = m; else state = 'idle'; };
+  const recheck = () => { const m = gMood(gLoad()); if (m === 'sick' || m === 'weak' || m === 'thirsty' || m === 'dirty' || m === 'grumpy') state = m; else state = 'idle'; };
   // ---- eating: takes about a minute; head down in the bowl, with different moves ----
   const EAT_MOVES = [['eat', 'eatdown', 'r-chompl'], ['eat', 'eatdown', 'r-nudge'], ['eat', 'eatdown', 'r-dig'], ['eat', 'eatdown', 'r-chompl'], ['eatup', 'eat', 'r-chompl']];
   const eat = until => {
@@ -1588,6 +1679,7 @@ async function viewGarden() {
   const eatUntil = g.eatUntil || 0, chewUntil = g.chewUntil || 0;
   if (eatUntil > Date.now()) eat(eatUntil);
   else if (chewUntil > Date.now()) chew(chewUntil);
+  else if (mood0 === 'sick') draw('lie', 'sick', 'r-breathe weak');
   else if (mood0 === 'weak') draw('lie', 'sad', 'r-breathe weak');
   else if (mood0 === 'thirsty') { draw('sit', 'thirsty', 'r-pant'); fx('💧', 2); }
   else if (mood0 === 'grumpy') draw('sit', 'grumpy', '');
@@ -1605,6 +1697,9 @@ async function viewGarden() {
   }
   else draw('sit', 'happy', 'r-wiggle wagfast');
   bars(); poos(); if (lvUpVisit) later(1200, bondUp);
+  const gotSick = temps => { g = gLoad(); const got = sickCheck(g, temps); gSave(g); if (!got || !alive()) return;
+    state = 'sick'; bars(); if (!gBusy && !play && !roaming) rest(); later(800, () => toast(`🤒 ${g.pup.name} ${SICK_WHY[g.sick.cause] ? SICK_WHY[g.sick.cause](g.sick) : 'is not feeling well'}.`, 4200)); };
+  calgaryTemps().then(gotSick).catch(() => gotSick(null));
   const applySky = w => { const sc = $('#gScene'); if (!sc) return; const cls = sky(w); night = /night/.test(cls); sc.className = 'garden big ' + cls;
     if (w) { const x = WX[w.weather_code] || ['🌡️', '', '']; $('#gWx').textContent = `${x[0]} ${Math.round(w.temperature_2m)}°C · ${calgaryNow().slice(11)}`; $('#gWx').title = `Calgary · ${x[2]} · ${t('gFeels')} ${Math.round(w.apparent_temperature)}°C`; }
     else $('#gWx').textContent = `📍 ${calgaryNow().slice(11)}`;
@@ -1624,6 +1719,7 @@ async function viewGarden() {
       later(1700, () => { if (eating()) draw('eat', 'eatdown', 'r-chompl wagfast'); }); return; }
     if (chewing()) { care('pet', joyN); draw('lie', 'happy', 'r-wiggle wagfast'); fx('💕', 2); later(1700, () => { if (!gBusy && !play) rest(); }); return; }
     if (gBusy) return; care('pet', joyN);
+    if (state === 'sick') { gBusy = true; draw('lie', 'sick', 'r-wiggle weak'); fx('💗', 1); later(1400, () => { gBusy = false; rest(); }); return; }
     if (state === 'weak') { gBusy = true; draw('lie', 'open', 'r-wiggle weak'); fx('💧', 1); later(1400, () => { gBusy = false; rest(); }); return; }
     if (state === 'thirsty') { gBusy = true; draw('sit', 'thirsty', 'r-wiggle'); fx('💧', 2); later(1400, () => { gBusy = false; rest(); }); return; }
     if (state === 'dirty') { gBusy = true; draw('sit', 'sad', 'r-shake'); fx('💩', 1); later(1300, () => { gBusy = false; rest(); }); return; }
@@ -1644,7 +1740,7 @@ async function viewGarden() {
     g.recentFeeds = H(g.lastFed) < 3 ? (g.recentFeeds || 0) + 1 : 1; g.lastFed = Date.now(); g.fedTotal = (g.fedTotal || 0) + 1;
     g.eatUntil = Date.now() + EAT_MS + (atHome() ? 0 : 4000);
     if (!g.pendingPoo) g.pendingPoo = Date.now() + POO_H * 36e5; gSave(g); care('feed', 6);
-    if (state === 'weak' || state === 'grumpy') state = 'idle'; grumpLeft = 0; wrap.classList.remove('turned');
+    if (state === 'weak' || state === 'grumpy') state = 'idle'; if (isSick(gLoad())) state = 'sick'; grumpLeft = 0; wrap.classList.remove('turned');
     comeHome(() => eat(gLoad().eatUntil));
   };
   // ---- water: change it any time; he trots over and drinks fresh water happily ----
@@ -1661,19 +1757,71 @@ async function viewGarden() {
   // ---- shop: spend coins on treats and toys ----
   const shopName = it => t('shop_' + it.id);
   const shopIcon = it => it.kind === 'treat' ? treatSvg() : toySvg(it.id);
+  const SHOP_LV = { treat1: 1, treat5: 1, collar: 1, ball: 2, rope: 3, chew: 4 };   // more items unlock as the bond grows
+  const COLLAR_IT = { id: 'collar', kind: 'collar', price: COLLAR_PRICE };
+  let cart = {};
+  // cart keys: an item id, or "collar|<collar colour>|<tag colour>"
+  const cartRows = () => Object.entries(cart).map(([id, n]) => { if (id.startsWith('collar|')) { const [, c, t] = id.split('|'); return { it: COLLAR_IT, n, key: id, cl: { c, t } }; } return { it: SHOP.find(x => x.id === id), n, key: id }; }).filter(r => r.it && r.n > 0);
+  const rowName = r => r.cl ? `Collar · ${collarName(r.cl)}` : shopName(r.it);
+  const rowIcon = r => r.cl ? collarIcon(r.cl) : shopIcon(r.it);
+  const cartTotal = () => cartRows().reduce((s, r) => s + r.it.price * r.n, 0);
   const openShop = () => {
-    g = gLoad();
+    g = gLoad(); const L = bondOf(g).L, lv = it => SHOP_LV[it.id] || 1;
+    const open = [...SHOP.slice(0, 2), COLLAR_IT, ...SHOP.slice(2)].filter(it => lv(it) <= L), next = SHOP.filter(it => lv(it) > L).sort((x, y) => lv(x) - lv(y))[0];
+    const count = cartRows().reduce((s, r) => s + r.n, 0), total = cartTotal();
     const m = showSheet(`<h2 style="margin-top:0">🛒 ${t('shopTitle')}</h2><div class="muted">${cn(tf('shopCoins', g.coins || 0))}</div>
-      <div class="shopgrid">${SHOP.map(it => `<button class="shopitem" data-id="${it.id}" ${g.coins >= it.price ? '' : 'disabled'}><span class="ic">${shopIcon(it)}</span><b>${shopName(it)}</b><span class="price">${COIN_SVG} ${it.price}</span></button>`).join('')}</div>
-      <div class="muted" style="margin-top:10px">${t('shopHint')}</div><button class="btn sec" id="shopClose">${t('close')}</button>`);
-    m.querySelector('#shopClose').onclick = closeSheet;
-    m.querySelectorAll('.shopitem').forEach(b => b.onclick = () => {
-      const it = SHOP.find(x => x.id === b.dataset.id); g = gLoad(); if ((g.coins || 0) < it.price) return;
-      g.coins -= it.price; if (it.kind === 'treat') g.bonus += it.n; else g.toys.push({ type: it.id, uses: 0, t: Date.now() });
-      gSave(g); bars(); toast('✅ ' + tf('shopBought', shopName(it)), 2000); openShop();
-    });
+      <div class="shopgrid">${open.map(it => { if (it.kind === 'collar') { const n = cartRows().filter(r => r.cl).length; return `<div class="shopitem${n ? ' incart' : ''}"><span class="ic">${collarIcon({ c: 'red', t: 'gold' })}</span><b>Collar</b><span class="price">${COIN_SVG} ${it.price}</span><button class="addc" id="pickCollar">${n ? n + ' in cart' : 'Choose'}</button></div>`; }
+        const n = cart[it.id] || 0; return `<div class="shopitem${n ? ' incart' : ''}"><span class="ic">${shopIcon(it)}</span><b>${shopName(it)}</b><span class="price">${COIN_SVG} ${it.price}</span>
+        ${n ? `<div class="qty"><button data-dec="${it.id}" aria-label="less">−</button><b>${n}</b><button data-inc="${it.id}" aria-label="more">+</button></div>` : `<button class="addc" data-inc="${it.id}">Add</button>`}</div>`; }).join('')}</div>
+      ${next ? `<div class="shopnext">🔒 ${shopName(next)} unlocks at bond Lv ${lv(next)}</div>` : ''}
+      ${isSick(g) ? pillRow(g) : ''}
+      <div class="cartbar"><span>🛒 ${count ? `${count} item${count > 1 ? 's' : ''} · ${total} ${COIN_SVG}` : 'Your cart is empty'}</span><button class="btn small" id="cartGo" ${count ? '' : 'disabled'}>Checkout</button></div>
+      <button class="btn sec" id="shopClose">${t('close')}</button>`);
+    m.querySelector('#shopClose').onclick = closeSheet; bindPill(m, openShop);
+    m.querySelectorAll('[data-inc]').forEach(b => b.onclick = () => { const id = b.dataset.inc; cart[id] = Math.min(9, (cart[id] || 0) + 1); openShop(); });
+    m.querySelectorAll('[data-dec]').forEach(b => b.onclick = () => { const id = b.dataset.dec; cart[id] = (cart[id] || 0) - 1; if (cart[id] <= 0) delete cart[id]; openShop(); });
+    m.querySelector('#cartGo').onclick = checkout; const pc = m.querySelector('#pickCollar'); if (pc) pc.onclick = () => pickCollar();
+  };
+  // choose a collar colour and a tag colour, with a live preview on your own puppy
+  const pickCollar = (sel = { c: 'red', t: 'gold' }) => { g = gLoad(); const own = (g.collars || []).some(x => x.c === sel.c && x.t === sel.t), key = `collar|${sel.c}|${sel.t}`, inCart = !!cart[key];
+    const m = showSheet(`<h2 style="margin-top:0">🎀 Choose a collar</h2><div class="cprev">${regenB('sit', 'happy', g.pup.color, sel)}</div>
+      <div class="clab">Collar</div><div class="cswatch">${Object.entries(COLLAR_COLS).map(([k, v]) => `<button class="sw${k === sel.c ? ' on' : ''}" data-c="${k}" style="background:${v}" aria-label="${k}"></button>`).join('')}</div>
+      <div class="clab">Tag</div><div class="cswatch">${Object.entries(TAG_COLS).map(([k, v]) => `<button class="sw tag${k === sel.t ? ' on' : ''}" data-t="${k}" style="background:${v}" aria-label="${k}"></button>`).join('')}</div>
+      <div class="muted" style="text-align:center;margin-top:6px">${collarName(sel)}${own ? ' · you already have this one' : inCart ? ' · already in your cart' : ''}</div>
+      <div class="row" style="margin-top:12px"><button class="btn sec" id="cpBack" style="margin:0">‹ Back to shop</button><button class="btn" id="cpAdd" style="margin:0" ${own || inCart ? 'disabled' : ''}>Add to cart</button></div>`);
+    m.querySelectorAll('[data-c]').forEach(b => b.onclick = () => pickCollar({ ...sel, c: b.dataset.c }));
+    m.querySelectorAll('[data-t]').forEach(b => b.onclick = () => pickCollar({ ...sel, t: b.dataset.t }));
+    m.querySelector('#cpBack').onclick = openShop; m.querySelector('#cpAdd').onclick = () => { cart[key] = 1; openShop(); }; };
+  const checkout = () => {
+    g = gLoad(); const rows = cartRows(), total = cartTotal(), have = g.coins || 0, ok = rows.length && have >= total;
+    const m = showSheet(`<h2 style="margin-top:0">🧾 Checkout</h2>
+      <div class="corder">${rows.map(r => `<div><span class="ic">${rowIcon(r)}</span><span style="flex:1">${rowName(r)} × ${r.n}</span><b>${r.it.price * r.n} ${COIN_SVG}</b></div>`).join('')}
+        <div class="ctot"><span>Total</span><b>${total} ${COIN_SVG}</b></div></div>
+      <div class="muted">${ok ? `You have ${have} ${COIN_SVG}. After paying: ${have - total} ${COIN_SVG}` : `Not enough coins: you have ${have} ${COIN_SVG}. Remove something, or log prices to earn more.`}</div>
+      <div class="row" style="margin-top:12px"><button class="btn sec" id="coBack" style="margin:0">‹ Back to shop</button><button class="btn" id="coPay" style="margin:0" ${ok ? '' : 'disabled'}>Pay ${total} ${COIN_SVG}</button></div>`);
+    m.querySelector('#coBack').onclick = openShop;
+    m.querySelector('#coPay').onclick = () => { g = gLoad(); const rs = cartRows(), tot = cartTotal(); if (!rs.length || (g.coins || 0) < tot) return;
+      g.coins -= tot; let wore = null; rs.forEach(({ it, n, cl }) => { for (let i = 0; i < n; i++) { if (cl) { g.collars = g.collars || []; g.collars.push({ ...cl, t0: Date.now() }); wore = g.wear = { c: cl.c, t: cl.t }; } else if (it.kind === 'treat') g.bonus += it.n; else g.toys.push({ type: it.id, uses: 0, t: Date.now() }); } });
+      gSave(g); cart = {}; bars(); closeSheet(); toast('✅ ' + rs.map(r => `${rowName(r)} × ${r.n}`).join(', '), 2600); fx('🛍️✨', 3, 50);
+      if (wore) { pupCollar = wore; if (!gBusy && !play) { gBusy = true; draw('sit', 'super', 'r-jump wagfast'); fx('🎀✨', 4); later(1500, () => { gBusy = false; rest(); }); } } };
   };
   $('#gShopBtn').onclick = openShop;
+  // ---- sick: rest 5 hours, or a pill (5 coins) and it's better in 5 minutes ----
+  function pillRow(g) { const sick = isSick(g), short = sick && g.sick.until - Date.now() <= PILL_MS;
+    return `<div class="pillrow">${PILL_SVG}<div style="flex:1"><b>Puppy pill</b><div class="muted">${sick ? (short ? 'Already working…' : 'Back on its paws in 5 minutes') : 'Only needed when your puppy is sick'}</div></div>
+      <button class="btn small" id="pillBuy" ${sick && !short && (g.coins || 0) >= PILL_PRICE ? '' : 'disabled'}>${PILL_PRICE} ${COIN_SVG}</button></div>`; }
+  function bindPill(m, again) { const b = m.querySelector('#pillBuy'); if (!b) return; b.onclick = () => { g = gLoad(); if (!isSick(g) || (g.coins || 0) < PILL_PRICE) return;
+    const c = showSheet(`<h2 style="margin-top:0">💊 Puppy pill</h2><div>Give ${esc(g.pup.name)} a pill for <b>${PILL_PRICE} ${COIN_SVG}</b>? It will feel better in 5 minutes.</div><div class="muted" style="margin-top:4px">You have ${g.coins || 0} ${COIN_SVG}</div>
+      <div class="row" style="margin-top:12px"><button class="btn sec" id="plNo" style="margin:0">Not now</button><button class="btn" id="plYes" style="margin:0">Pay ${PILL_PRICE} ${COIN_SVG}</button></div>`);
+    c.querySelector('#plNo').onclick = again; c.querySelector('#plYes').onclick = () => { g = gLoad(); if (!isSick(g) || (g.coins || 0) < PILL_PRICE) return closeSheet();
+    g.coins -= PILL_PRICE; g.sick.until = Math.min(g.sick.until, Date.now() + PILL_MS); g.sick.pill = Date.now(); gSave(g); bars(); closeSheet(); toast(`💊 ${g.pup.name} took the pill. Feeling better in 5 minutes.`, 3000); fx('💊✨', 3); }; }; }
+  const openSick = () => { g = gLoad(); if (!isSick(g)) return; const s = g.sick, why = SICK_WHY[s.cause] ? SICK_WHY[s.cause](s) : 'is not feeling well';
+    const m = showSheet(`<h2 style="margin-top:0">🤒 ${esc(g.pup.name)} is sick</h2><div>${esc(g.pup.name)} ${why}. It will feel better by itself in <b>${hmm(s.until - Date.now())}</b>.</div>
+      <div class="muted" style="margin-top:6px">While sick it rests: no playing or training. Feeding, water and cuddles still help.</div>${pillRow(g)}<div class="muted">${cn(tf('shopCoins', g.coins || 0))}</div>
+      <button class="btn sec" id="sickClose">${t('close')}</button>`);
+    m.querySelector('#sickClose').onclick = closeSheet; bindPill(m, openSick); };
+  $('#gNeed').onclick = () => { if (isSick(gLoad())) openSick(); };
+  $('#gInfo').onclick = () => openPupInfo(); viewGarden._rest = () => { if (alive() && !gBusy && !play) rest(); };
   // ---- toys: each lasts 10 plays, then it's old and dirty ----
   const openToys = () => {
     cancelRoam(); if (gBusy || play) return busyToast();
@@ -1688,6 +1836,7 @@ async function viewGarden() {
     m.querySelectorAll('[data-play]').forEach(b => b.onclick = () => {
       const i = +b.dataset.play; closeSheet();
       if (state === 'weak') { toast(withName(t('gToyWeak')), 2500); return; }
+      if (isSick(gLoad())) { toast(`🤒 ${pupName()} is sick and needs rest. No playing until it feels better.`, 3000); return; }
       if (chewing()) return busyToast();
       g = gLoad(); const y = g.toys[i]; if (!y || y.uses >= TOY_LIFE) return;
       y.uses++; g.playTotal = (g.playTotal || 0) + 1; if (y.type === 'chew') g.chewUntil = Date.now() + CHEW_MS; gSave(g); care('toy', 10);
@@ -1713,6 +1862,8 @@ async function viewGarden() {
       const a = samples[0], z = samples[samples.length - 1], dt = Math.max(16, z[0] - a[0]), vx = (z[1] - a[1]) / dt, vy = (z[2] - a[2]) / dt, sp = Math.hypot(vx, vy);
       if (sp < .3 || vy > -.15) { hand.style.transition = 'transform .25s'; hand.style.transform = ''; $('#gTip').classList.add('r-shake'); later(600, () => $('#gTip').classList.remove('r-shake')); return; } // too soft, or not upwards: try again
       $('#gTip').classList.add('hidden'); hand.onpointerdown = hand.onpointermove = hand.onpointerup = hand.onpointercancel = null; toss(vx / sp, -vy / sp, sp); };
+    g = gLoad(); const fk = skill(g, 'fetch'), learnt = practise(g, 'fetch'), spd = speedK(g); if (fk >= 30) train(g, 'str', .01); gSave(g);
+    const mode = fk < 30 ? 'lost' : fk < 60 ? 'keep' : 'fetch';
     const toss = (dx, up, sp) => {
       // where it lands: the faster the swipe the farther (higher up the lawn); left/right follows the finger
       const reach = Math.max(.08, Math.min(1, (sp - .3) / 2.4)), ly = homeY - 12 - reach * (homeY - 12 - HZ);
@@ -1725,16 +1876,26 @@ async function viewGarden() {
         hand.style.transform = `rotate(${k * 540}deg)`;
         if (k < 1) requestAnimationFrame(fly); else land(lx, ly, w1, T); };
       requestAnimationFrame(fly);
-      later(T * .35, () => { const right = lx > homeX; move('super', 'wagfast', true); place(lx - homeX + (right ? -14 : 14) * depth(ly, G), ly - homeY, depth(ly, G), 500 + Math.abs(ly - homeY) * 4 + Math.abs(lx - homeX) * 2, right); });
+      if (mode === 'lost') later(T * .5, () => { draw('sit', 'open', 'r-tilt'); $('#gQ').classList.remove('hidden'); }); // no idea what just happened
+      else later(T * .35, () => { const right = lx > homeX; move('super', 'wagfast', true); place(lx - homeX + (right ? -14 : 14) * depth(ly, G), ly - homeY, depth(ly, G), (500 + Math.abs(ly - homeY) * 4 + Math.abs(lx - homeX) * 2) / spd, right); });
     };
     const land = (lx, ly, w, T) => {
       hand.classList.add('hidden'); hand.style.cssText = '';
       ball.className = 'ballfly'; ball.style.cssText = `left:${lx - w / 2}px;top:${ly - w}px;width:${w}px;bottom:auto;transform:none`;
-      const runMs = 500 + Math.abs(ly - homeY) * 4 + Math.abs(lx - homeX) * 2, wait = Math.max(250, runMs - T * .65);
+      const runMs = (500 + Math.abs(ly - homeY) * 4 + Math.abs(lx - homeX) * 2) / spd, wait = Math.max(250, runMs - T * .65);
+      const learnMsg = () => { if (learnt === 'learned') later(900, () => { toast(`🎉 ${pupName()} learned to fetch!`, 3500); fx('🎓✨🎾', 6); }); else if (learnt === 'half') later(900, () => toast(`🎾 ${pupName()} is starting to chase the ball!`, 3200)); };
+      if (mode === 'lost') { // sits there with a question mark; you go and pick the ball up
+        later(1800, () => { draw('sit', 'open', 'r-look'); });
+        later(2600, () => { $('#gQ').classList.add('hidden'); ball.className = 'ballfly hidden'; ball.style.cssText = ''; toast(`${pupName()} has no idea what to do with the ball yet. Keep throwing to teach it!`, 3600); learnMsg(); gBusy = false; end(); rest(); });
+        return; }
+      if (mode === 'keep') { // runs to it, then lies down and chews it instead of bringing it back
+        later(wait, () => { ball.className = 'ballfly hidden'; place(lx - homeX, ly - homeY, depth(ly, G), 0, false); draw('lie', 'happy', 'r-chompl wagfast'); carry.className = 'carry chewing'; carry.innerHTML = toySvg('ball'); fx('🎾', 2); });
+        later(wait + 2800, () => { carry.innerHTML = ''; carry.className = 'carry'; toast(`${pupName()} keeps the ball to play with. Almost there!`, 3000); comeHome(() => { learnMsg(); gBusy = false; end(); rest(); }, false); });
+        return; }
       later(wait, () => { // got it!
         ball.className = 'ballfly hidden'; carry.className = 'carry mouth'; carry.innerHTML = toySvg('ball'); draw('sit', 'happy', 'r-jump wagfast'); place(lx - homeX, ly - homeY, depth(ly, G), 0, false);
         later(700, () => { carry.className = 'carry mouth runm'; move('happy', 'wagfast', true); place(0, 0, 1, runMs, lx < homeX); });
-        later(700 + runMs, () => { carry.innerHTML = ''; carry.className = 'carry'; place(0, 0, 1, 0, false); draw('sit', 'super', 'r-jump wagfast'); fx('🎾💖✨', 6);
+        later(700 + runMs, () => { carry.innerHTML = ''; carry.className = 'carry'; place(0, 0, 1, 0, false); draw('sit', 'super', 'r-jump wagfast'); fx('🎾💖✨', 6); learnMsg();
           ball.className = 'ballfly'; ball.style.cssText = ''; });
         later(2400 + runMs, () => { ball.className = 'ballfly hidden'; ball.style.cssText = ''; gBusy = false; end(); rest(); });
       });
@@ -1744,21 +1905,24 @@ async function viewGarden() {
   // even out of the garden, anywhere on the screen. Let go = he wins; a quick strong yank (or pulling far) = you win.
   const playRope = end => {
     gBusy = true; stopTimer(); const rope = $('#gRope'), knot = $('#gKnot'), ro = $('#gRopeO'), ri = $('#gRopeI');
+    g = gLoad(); const S = stat(g, 'str'); train(g, 'str', .02); gSave(g); let facing = false;
     draw('sit', 'tug', 'r-tug wagfast'); place(0, 0, 1, 0, false);
-    const mouth = () => { const r = pup.getBoundingClientRect(); return [r.left + r.width * .5, r.top + r.height * (124 / 240)]; };
+    const mouth = () => { const r = pup.getBoundingClientRect(); return holding ? [r.left + r.width * (facing ? .59 : .41), r.top + r.height * .54] : [r.left + r.width * .5, r.top + r.height * (124 / 240)]; };
     const VW = () => innerWidth, VH = () => innerHeight;
-    let [mx, my] = mouth(); const home = [mx, Math.min(VH() - 24, my + 84)];
-    let kx = home[0], ky = home[1], holding = false, done = false, grab = [0, 0], samples = [], raf = 0, jig = 0;
+    let kx = 0, ky = 0, holding = false, done = false, grab = [0, 0], samples = [], raf = 0, jig = 0;
+    let [mx, my] = mouth(); const home = [mx, Math.min(VH() - 24, my + 84)]; kx = home[0]; ky = home[1];
     rope.classList.remove('hidden'); knot.classList.remove('hidden');
     const drawRope = () => { [mx, my] = mouth(); const cx = (mx + kx) / 2, cy = (my + ky) / 2 + 14; const d = `M${mx} ${my} Q${cx} ${cy} ${kx} ${ky}`; ro.setAttribute('d', d); ri.setAttribute('d', d); knot.style.left = kx + 'px'; knot.style.top = ky + 'px'; };
     const loop = () => { if (!alive() || done) return; jig++;
       if (!holding) { const w = Math.sin(jig / 9) * 4; kx = home[0] + w * .6; ky = home[1] - Math.abs(w); } // he shakes the rope while waiting
-      const vx = kx - home[0], vy = ky - home[1], len = Math.hypot(vx, vy) || 1, pull = Math.min(30, len * .15);
-      place(holding ? vx / len * pull - vx / len * 6 * Math.abs(Math.sin(jig / 5)) : 0, holding ? Math.min(0, vy / len * pull * .4) : 0, 1, 120, false);
+      const vx = kx - home[0], vy = ky - home[1], len = Math.hypot(vx, vy) || 1, pull = Math.min(30, len * .15) * (.6 + S / 100);
+      if (holding) { const f = kx < home[0]; if (f !== facing) { facing = f; } }
+      place(holding ? vx / len * pull - vx / len * 6 * Math.abs(Math.sin(jig / 5)) * (.5 + S / 100) : 0, holding ? Math.min(0, vy / len * pull * .4) : 0, 1, 120, holding && facing);
+      if (holding && S >= 80 && Math.random() < (S - 75) / 25 * .004) { toast(`💪 ${pupName()} is so strong it yanked the rope away!`, 3000); finish(false); return; } // very strong pups can win
       drawRope(); raf = requestAnimationFrame(loop); };
-    toast(t('ropeHint'), 3200); loop();
+    toast(withName(t('ropeHint')), 3200); loop();
     const finish = userWins => { if (done) return; done = true; cancelAnimationFrame(raf); clearTimeout(auto); holding = false;
-      knot.onpointerdown = knot.onpointermove = knot.onpointerup = knot.onpointercancel = null;
+      knot.onpointerdown = knot.onpointermove = knot.onpointerup = knot.onpointercancel = null; facing = false;
       if (userWins) { // you yank it away: he tumbles, then bounces up thrilled
         const vx = kx - home[0], vy = ky - home[1], len = Math.hypot(vx, vy) || 1; kx += vx / len * 260; ky += vy / len * 260;
         knot.style.transition = 'left .4s ease-out, top .4s ease-out'; drawRope(); place(-vx / len * 14, 0, 1, 300, false); draw('lie', 'super', 'r-roll');
@@ -1773,12 +1937,12 @@ async function viewGarden() {
         later(4100, () => { carry.innerHTML = ''; carry.className = 'carry'; draw('sit', 'super', 'r-jump wagfast'); fx('💖🏆✨', 6); });
         later(5800, () => { gBusy = false; end(); rest(); });
       } };
-    knot.onpointerdown = e => { e.preventDefault(); try { knot.setPointerCapture(e.pointerId); } catch (x) {} holding = true; grab = [e.clientX - kx, e.clientY - ky]; samples = []; draw('sit', 'tug', 'r-tug r-tugfast wagfast'); };
+    knot.onpointerdown = e => { e.preventDefault(); try { knot.setPointerCapture(e.pointerId); } catch (x) {} holding = true; grab = [e.clientX - kx, e.clientY - ky]; samples = []; draw('pull', 'strain', 'r-tug r-tugfast'); };
     knot.onpointermove = e => { if (!holding || done) return;
       kx = Math.max(16, Math.min(VW() - 16, e.clientX - grab[0])); ky = Math.max(16, Math.min(VH() - 16, e.clientY - grab[1]));
       const now = performance.now(); samples.push([now, e.clientX, e.clientY]); samples = samples.filter(s => now - s[0] < 160);
       const far = Math.hypot(kx - home[0], ky - home[1]);
-      if (samples.length > 1) { const a = samples[0], b = samples[samples.length - 1], v = Math.hypot(b[1] - a[1], b[2] - a[2]) / Math.max(1, b[0] - a[0]); if (v > 1.5 || far > 240) finish(true); } };
+      if (samples.length > 1) { const a = samples[0], b = samples[samples.length - 1], v = Math.hypot(b[1] - a[1], b[2] - a[2]) / Math.max(1, b[0] - a[0]); if (v > 1.5 + S / 100 || far > 150 + S * 2) finish(true); } };
     knot.onpointerup = knot.onpointercancel = () => { if (holding && !done) finish(false); };
     play = { pet: () => {} };
     const auto = setTimeout(() => { if (alive()) finish(false); }, 25e3);
@@ -1803,6 +1967,9 @@ async function viewGarden() {
     if (chewing()) return;
     if (g.poos.length > before && state !== 'weak') { state = 'dirty'; draw('sit', 'sad', 'r-sigh'); return; }
     if (state !== 'weak' && waterLevel(g) >= 4 && state !== 'thirsty') state = 'thirsty';
+    if (state === 'sick') { if (!isSick(g)) { recheck(); bars(); gBusy = true; draw('sit', 'super', 'r-jump wagfast'); fx('💖✨', 5); toast(`🎉 ${pupName()} feels better!`, 2600); later(1500, () => { gBusy = false; rest(); }); }
+      else draw('lie', 'sick', 'r-breathe weak' + (Math.random() < .3 ? ' r-sigh' : '')); return; }
+    if (isSick(g)) { state = 'sick'; rest(); bars(); return; }
     if (state === 'weak') { draw('lie', 'sad', 'r-breathe weak' + (Math.random() < .3 ? ' r-sigh' : '')); return; }
     if (state === 'thirsty') { // goes to sniff the dirty bowl, then sits by it panting
       if (Math.random() < .35) { const G = geo(); roam(done => goTo(G.W - 74, G.SH - 10, () => { draw('nose', 'eatdown', 'r-sniff'); const tok = roamTok; later(1400, () => { if (tok !== roamTok) return; done(); draw('sit', 'sad', 'r-shake'); fx('💧', 1); }); }, false, 'sad')); }
@@ -1810,13 +1977,69 @@ async function viewGarden() {
     if (state === 'grumpy') { draw('sit', 'grumpy', Math.random() < .5 ? 'r-look' : 'r-twitch'); return; }
     if (state === 'dirty') { draw('sit', 'sad', Math.random() < .5 ? 'r-look' : 'r-sigh'); return; }
     if (night && Math.random() < .5) { if (Math.random() < .3) { const G = geo(); roam(done => goTo(64, G.HZ + 14, () => { done(); draw('sleep', 'sleep', 'r-breathe sleeping'); }, false)); } else draw('sleep', 'sleep', 'r-breathe sleeping'); return; }
+    if (Math.random() > .4 + stat(g, 'en') / 150) { Math.random() < .5 ? draw('lie', 'sleep', 'r-breathe sleeping') : draw('lie', 'open', 'r-breathe'); bars(); return; } // low-energy pups rest more
     if (Math.random() < .5) wander(); else ACTS[Math.floor(Math.random() * ACTS.length)]();
     bars(); };
   viewGarden._iv = setInterval(tick, 4200);
   viewGarden._sky = setInterval(() => { if (!$('#gScene')) { clearInterval(viewGarden._sky); return; } loadWx(); }, 60e3);
 }
 // header puppy: a hint dot when the puppy needs attention
-function gardenDot() { const g = gLoad(); if (!g.pup) return '<span class="gdot">🐾</span>'; const m = gMood(g); return m === 'weak' || m === 'grumpy' || m === 'dirty' || m === 'thirsty' ? '<span class="gdot">!</span>' : ''; }
+function gardenDot() { const g = gLoad(); if (!g.pup) return '<span class="gdot">🐾</span>'; const m = gMood(g); return m === 'shelter' || m === 'sick' || m === 'weak' || m === 'grumpy' || m === 'dirty' || m === 'thirsty' ? '<span class="gdot">!</span>' : ''; }
+
+const COLLAR_PRICE = 5;
+const collarName = x => `${x.c[0].toUpperCase() + x.c.slice(1)} · ${x.t} tag`;
+const collarIcon = x => `<svg class="cicon" viewBox="0 0 60 44" aria-hidden="true"><ellipse cx="30" cy="16" rx="24" ry="11" fill="none" stroke="#15151a" stroke-width="9"/><ellipse cx="30" cy="16" rx="24" ry="11" fill="none" stroke="${COLLAR_COLS[x.c]}" stroke-width="4.5"/><circle cx="30" cy="33" r="8" fill="${TAG_COLS[x.t]}" stroke="#15151a" stroke-width="3.5"/></svg>`;
+const PILL_SVG = '<svg class="pill" viewBox="0 0 60 40" aria-hidden="true"><g transform="rotate(-25 30 20)"><path d="M14 10 h16 v20 h-16 a10 10 0 0 1 0 -20z" fill="#ff7a59" stroke="#15151a" stroke-width="3.5"/><path d="M30 10 h16 a10 10 0 0 1 0 20 h-16z" fill="#fff" stroke="#15151a" stroke-width="3.5"/><path d="M12 15 q4 -3 9 -2" stroke="#fff" stroke-width="2.5" fill="none" stroke-linecap="round"/></g></svg>';
+/* ---------- puppy info card (abilities stay hidden) + pet hotel ---------- */
+function openPupInfo() {
+  const g = gLoad(), p = g.pup; if (!p) return; const b = bondOf(g), fk = skill(g, 'fetch');
+  const fetchTag = fk >= 60 ? '🎾 Fetch ✓' : fk > 0 ? '🎾 Fetch (learning)' : '🎾 Fetch (not yet)';
+  const CMDS = [['🪑 Sit', 2], ['⬇️ Down', 3], ['🐾 Paw', 4], ['⬆️ Up', 5], ['🔄 Spin', 6], ['🌀 Roll over', 8], ['💤 Play dead', 10], ['🙇 Bow', 12]];
+  const m = showSheet(`<div class="pinfo"><div class="ic"><div class="av">${regenB('sit', isSick(g) ? 'sad' : 'happy', p.color, g.wear || null)}</div><div><div class="nm">${esc(p.name)}</div>
+      <span class="ptag">${stageTxt(p)}</span><span class="ptag ${isSick(g) ? 'r' : 'g'}">${isSick(g) ? '🤒 Sick' : 'Healthy'}</span><span class="ptag">${PERSONA_TXT[p.per] || ''}</span></div></div>
+    <div class="prows"><div><span>Age</span><b>${ageTxt(p)}</b></div><div><span>Adopted</span><b>${new Date(p.adopted).toLocaleDateString('en-CA', { year: 'numeric', month: 'short', day: 'numeric' })}</b></div>
+      <div><span>Weight</span><b>${pupKg(p)} kg</b></div>
+      <div class="blk"><span>Bond</span><b style="float:right">Lv ${b.L} · ${b.cur}/${b.need}</b><div class="pbond"><i style="width:${Math.round(b.cur / b.need * 100)}%"></i></div></div>
+      <div class="blk"><span>Skills</span><div class="psk"><span>${fetchTag}</span>${CMDS.map(([n, L]) => `<span class="lk">🔒 ${n} · Lv ${L}</span>`).join('')}</div></div></div>
+    <div class="prows"><div class="blk"><span>Collars</span><div class="cown"><button class="cw${!g.wear ? ' on' : ''}" data-w="-1"><span class="none">∅</span>None</button>${(g.collars || []).map((x, i) => `<button class="cw${g.wear && g.wear.c === x.c && g.wear.t === x.t ? ' on' : ''}" data-w="${i}">${collarIcon(x)}${collarName(x)}</button>`).join('')}</div>
+      ${(g.collars || []).length ? '' : '<div class="muted" style="font-size:12px">Buy collars in the shop 🛒</div>'}</div></div>
+    <div class="muted" style="margin-top:6px">Commands unlock as your bond grows (coming soon).</div>
+    <div class="row" style="margin-top:12px"><button class="btn sec" id="piClose" style="margin:0">${t('close')}</button><button class="btn sec" id="piHotel" style="margin:0">🏨 Pet hotel</button></div></div>`);
+  m.querySelector('#piClose').onclick = closeSheet; m.querySelector('#piHotel').onclick = openHotel;
+  m.querySelectorAll('[data-w]').forEach(b => b.onclick = () => { const g2 = gLoad(), i = +b.dataset.w, x = (g2.collars || [])[i]; g2.wear = x ? { c: x.c, t: x.t } : null; gSave(g2); pupCollar = g2.wear; openPupInfo(); viewGarden._rest && viewGarden._rest(); });
+}
+function openHotel() {
+  const g = gLoad(); if (!g.pup) return; let days = 3;
+  const draw = () => { const m = showSheet(`<h2 style="margin-top:0">🏨 Pet hotel</h2><div>Going away? ${esc(g.pup.name)} can stay at the pet hotel for up to 7 days. It is fed and cared for, so it won't go to the shelter, but it won't learn or grow its bond while away.</div>
+      <div class="hdays">${[1, 2, 3, 4, 5, 6, 7].map(d => `<button class="chip${d === days ? ' on' : ''}" data-d="${d}">${d} day${d > 1 ? 's' : ''}</button>`).join('')}</div>
+      <div class="row"><button class="btn sec" id="hoCancel" style="margin:0">${t('close')}</button><button class="btn" id="hoGo" style="margin:0">Check in · free</button></div>`);
+    m.querySelectorAll('[data-d]').forEach(b => b.onclick = () => { days = +b.dataset.d; draw(); });
+    m.querySelector('#hoCancel').onclick = closeSheet;
+    m.querySelector('#hoGo').onclick = () => { const g2 = gLoad(); g2.vac = { from: Date.now(), until: Date.now() + days * 864e5 }; gSave(g2); closeSheet(); viewGarden(); }; };
+  draw();
+}
+function viewHotel() {
+  const g = gLoad(), p = g.pup; pupCollar = g.wear || null; setHeader('🏨 Pet hotel', true); setTab('home');
+  app.innerHTML = `<div class="garden big hotelsc"><div class="hsign">🏨 Paws Inn · Pet hotel</div><div class="pupwrap"><div class="pup">${regenB('sleep', 'sleep', p.color, g.wear || null)}</div></div></div>
+    <div class="card" style="text-align:center"><b>${esc(p.name)} is relaxing at the pet hotel</b><div class="muted">Pick-up: ${new Date(g.vac.until).toLocaleString('en-CA', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</div></div>
+    <button class="btn" id="hoBack">Pick up ${esc(p.name)} now</button>`;
+  $('#hoBack').onclick = () => { const g2 = gLoad(); if (g2.vac) g2.vac.until = Date.now(); gSave(g2); viewGarden(); };
+}
+/* ---------- shelter: no care for 24 hours. Pay 10 coins to bring the puppy home ---------- */
+function viewShelter() {
+  const g = gLoad(), p = g.pup; pupCollar = g.wear || null; setHeader('🏠 Pup shelter', true); setTab('home');
+  const can = (g.coins || 0) >= SHELTER_FEE;
+  app.innerHTML = `<div class="garden big shelsc"><div class="ssign">🏠 Calgary Pup Shelter</div><div class="pupwrap"><div class="pup">${regenB('sit', 'sad', p.color, g.wear || null)}</div></div>
+      <div class="sbars"></div><div class="snote">No one took care<br>of me for a day 🥺</div></div>
+    <div class="card"><b>${esc(p.name)} is at the shelter</b><div style="margin-top:4px">${esc(p.name)} went without care for over a day (no food, water or visits), so the shelter took it in to keep it safe.
+      Pay the fee to bring it home. Skills are kept; your bond drops 1 level.</div><div class="muted" style="margin-top:6px">${cn(tf('shopCoins', g.coins || 0))}</div></div>
+    <button class="btn" id="shBack" ${can ? '' : 'disabled'}>Bring ${esc(p.name)} home · ${SHELTER_FEE} ${COIN_SVG}</button>
+    ${can ? '' : `<div class="muted" style="text-align:center;margin-top:6px">Not enough coins? Log prices to earn coins (1 each, up to ${COIN_CAP} a day).</div>`}`;
+  $('#shBack').onclick = () => { const g2 = gLoad(); if ((g2.coins || 0) < SHELTER_FEE) return;
+    g2.coins -= SHELTER_FEE; const L = bondOf(g2).L; if (L > 1) g2.xp = xpAt(L - 1); delete g2.shelter; delete g2.sick;
+    g2.lastVisit = Date.now(); g2.lastFed = Date.now(); g2.recentFeeds = 1; g2.waterAt = Date.now(); g2.poos = []; g2.pendingPoo = 0; g2.joyV = 30; g2.joyAt = Date.now(); // the shelter fed and cleaned it
+    gSave(g2); toast(`🏡 ${p.name} is home! It missed you.`, 3000); viewGarden(); };
+}
 
 /* ---------- First visit: adopt a puppy at the pet shop (pick colour, then a name) ---------- */
 function viewAdopt() {
@@ -1839,7 +2062,7 @@ function viewAdopt() {
     $('#adBack').onclick = shop;
     $('#adDone').onclick = () => {
       const name = $('#adName').value.trim(); if (!name) return toast(t('adoptNeedName'));
-      const g = gLoad(); if (g.pup && g.pup.name) return viewGarden(); const first = true; g.pup = { color, name, adopted: Date.now() };
+      const g = gLoad(); if (g.pup && g.pup.name) return viewGarden(); const first = true; g.pup = newPup(color, name); delete g.sick; delete g.shelter; delete g.vac;
       if (first) { g.lastFed = g.lastFed || Date.now(); g.lastPet = Date.now(); g.lastVisit = Date.now(); } // a new puppy starts happy
       gSave(g); pupColor = color; setAppIcon(color);
       app.innerHTML = `<div class="shop small"><div class="pups one"><div class="pupbox on r-jump">${regenSvg('sit', 'super', color)}<span class="cushion"></span></div></div><div class="fx" id="gFx"></div></div>
@@ -1903,6 +2126,10 @@ async function notify(title, body, tag, url) {
 }
 // what the puppy needs right now (null if he's fine)
 function petNeed() { const g = gLoad(); if (!g.pup) return null; const m = gMood(g), n = g.pup.name;
+  if (m === 'shelter') return { k: 'needShelter', msg: `${n} is waiting for you at the shelter.` };
+  if (m === 'sick') return { k: 'needSick', msg: `${n} is sick and needs you.` };
+  if (!onVacation(g) && g.lastVisit && H(g.lastVisit) >= SHELTER_H) return { k: 'needShelter', msg: `${n} was taken to the shelter. Bring it home!` };
+  if (!onVacation(g) && g.lastVisit && H(g.lastVisit) >= 18) return { k: 'needMiss', msg: `${n} misses you! Visit soon, or it will be taken to the shelter.` };
   const k = m === 'weak' ? 'needWeak' : m === 'thirsty' ? 'needThirsty' : m === 'dirty' ? 'needDirty' : m === 'grumpy' ? 'needGrumpy' : fullness(g) < 20 ? 'needHungry' : waterLevel(g) >= 3 ? 'needWater' : '';
   return k ? { k, msg: tf(k, n) } : null; }
 function checkPet() { const need = petNeed(); if (!need || location.hash === '#garden') return;
@@ -1949,6 +2176,8 @@ function showProduct(sc) {
 
 /* ---------- What's new (shown once after each update) ---------- */
 const CHANGES = {
+  '5.2.0': [['Every puppy is now unique, with its own hidden strength, smarts, health and personality. It grows up (1 day = 2 puppy days).', 'Teach fetch: at first your puppy has no idea what the ball is for. Keep throwing!', 'Strong puppies pull the rope harder. Puppies can catch a cold after big temperature swings; rest 5 hours or give a pill.', 'Leave your puppy without care for a day and it goes to the shelter (10 coins to bring it home). Going away? Use the pet hotel.', 'New ⓘ puppy info card. All puppies were reset, so adopt a new one!'],
+            ['Every puppy is now unique, with its own hidden strength, smarts, health and personality. It grows up (1 day = 2 puppy days).', 'Teach fetch: at first your puppy has no idea what the ball is for. Keep throwing!', 'Strong puppies pull the rope harder. Puppies can catch a cold after big temperature swings; rest 5 hours or give a pill.', 'Leave your puppy without care for a day and it goes to the shelter (10 coins to bring it home). Going away? Use the pet hotel.', 'New ⓘ puppy info card. All puppies were reset, so adopt a new one!']],
   '5.1.1': [['Faster, lighter syncing: the app now downloads only prices that changed since your last visit.'],
             ['Faster, lighter syncing: the app now downloads only prices that changed since your last visit.']],
   '5.1.0': [['New catalogue: 15 departments with aisles, like Superstore and Walmart. Tap All, pick a department, then an aisle.',
