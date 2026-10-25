@@ -14,7 +14,7 @@
   const ops = []; let created = 0, updated = 0, photos = 0;
   for (const it of G.items) {
     const ref = docRef('items', it.id), cur = have[it.id];
-    for (const va of Object.values(it.variants || {})) if (va.photo && /^https?:/.test(va.photo)) va.photo = await small(va.photo);
+    for (const [vid, va] of Object.entries(it.variants || {})) if (va.photo && /^https?:/.test(va.photo) && !(cur && (cur.variants || {})[vid])) va.photo = await small(va.photo); // only shrink photos of variants we will actually add
     if (!cur) { created++; have[it.id] = { variants: it.variants, lphotos: {} }; ops.push(b => b.set(ref, { name: it.name, en: it.en, cat: it.cat, mode: it.mode, cmpUses: !!it.cmpUses, aliases: [], variants: it.variants, photo: it.photo || '', created: td, by: 'backend', updated: now })); }
     else {
       const u = { updated: now }; let n = 0;
