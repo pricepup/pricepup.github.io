@@ -387,7 +387,7 @@ label.ck{display:flex;gap:8px;align-items:center;color:var(--text);font-size:15p
 
 <script>
 'use strict';
-const APP_VERSION = '5.4.0';
+const APP_VERSION = '5.4.1';
 const $ = s => document.querySelector(s);
 const app = $('#app');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -2961,6 +2961,8 @@ function showProduct(sc) {
 
 /* ---------- What's new (shown once after each update) ---------- */
 const CHANGES = {
+  '5.4.1': [['Scanning a product you already have now opens its page: price history, latest deal and a button to log a new price.', 'After logging, you go back to that product page. New products also show their lowest price and history.'],
+            ['Scanning a product you already have now opens its page: price history, latest deal and a button to log a new price.', 'After logging, you go back to that product page. New products also show their lowest price and history.']],
   '5.4.0': [['Scanning is much simpler: one screen per product. Known products go straight to "log the price"; no more picking categories or sizes.', 'New products: snap the price tag and the product, the pup fills in the details. They are shared with everyone right away and sorted into the right item later.', 'Wrong name or picture? Tap ✏️ Edit on a scanned product. New food bowl drawing.'],
             ['Scanning is much simpler: one screen per product. Known products go straight to "log the price"; no more picking categories or sizes.', 'New products: snap the price tag and the product, the pup fills in the details. They are shared with everyone right away and sorted into the right item later.', 'Wrong name or picture? Tap ✏️ Edit on a scanned product. New food bowl drawing.']],
   '5.3.0': [['Meals are now free: fill the food bowl and your puppy eats when hungry. Treats are extras for rewards. Water is just refreshed; your puppy drinks when it wants.', 'Toilet times now follow your puppy\'s age, like a real dog. New puppies come with a 10-coin welcome gift (sign in with Google to adopt, so your puppy is never lost).', 'PricePup is for Calgary: logging a price checks your location (never saved) and shows the nearest stores first.', 'Flyer products now show their photo. Scanning a product nobody knows yet asks for a photo, so everyone sees it next time.', 'Fixes: no more repeated $/lb, wrong "Reg." prices from flyers, and the store list on Deals now uses two rows.'],
