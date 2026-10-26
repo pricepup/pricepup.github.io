@@ -1234,7 +1234,7 @@ async function viewVariant(id, vid) {
     <div class="card"><h2>${t('varHist')}（${s.rows.length}）</h2><table>
       ${s.rows.slice(0, 80).map(r => `<tr class="${isEnded(r.o) ? 'ended' : ''}"><td>${fmtDate(r.o.date)}<div class="muted">${esc(r.o.store)}${r.o.sale ? ' · ' + t('sale') : ''}${isEnded(r.o) ? ' · ' + t('ended') : ''}</div></td>
         <td class="r">${priceText(it, r.o)}<div class="muted">${fmtU(r.u)}</div></td></tr>`).join('')}</table></div>` : obs.length ? rawVariant(it, obs) : `<div class="card empty">${dog('sniff', 'glass')}<div class="muted">${t('noPrice')}</div></div>`}`;
-  $('#vAdd').onclick = () => location.hash = `#add/${encodeURIComponent(id)}/${encodeURIComponent(vid)}`;
+  $('#vAdd').onclick = () => location.hash = va.barcode ? `#product/${va.barcode}` : `#add/${encodeURIComponent(id)}/${encodeURIComponent(vid)}`; // scanned products use the quick log screen
   $('#vTrack').onclick = e => { if (!e.target.closest('[data-track]')) return; toggleTrack(id + '|' + vid); $('#vTrack').innerHTML = trackBtn(id + '|' + vid); };
   bindUnitChip(() => viewVariant(id, vid));
 }
@@ -2281,7 +2281,10 @@ function tagParse(text) {
   const name = nameL.join(' ').toLowerCase().replace(/(^|\s)\w/g, m => m.toUpperCase());
   return { name, size };
 }
-async function handleBarcode(raw) { const code = normCode(raw); if (!code) return toast(t('badCode')); location.hash = `#product/${code}`; }
+async function handleBarcode(raw) { const code = normCode(raw); if (!code) return toast(t('badCode'));
+  const hit = await findBarcode(code); // already sorted: open its product page (price history, deals, log a price)
+  if (hit) { scanCtx = { code, itemId: hit.it.id, vid: hit.vid, known: true }; location.hash = `#variant/${encodeURIComponent(hit.it.id)}/${encodeURIComponent(hit.vid)}`; return; }
+  location.hash = `#product/${code}`; }
 async function viewProduct(code) {
   setHeader('Scanned product', true); setTab('scan');
   app.innerHTML = `<div class="card empty">${dog('sniff', 'glass', 'bounce')}<div class="muted">Looking up ${esc(code)}…</div></div>`;
@@ -2293,12 +2296,15 @@ async function viewProduct(code) {
   const it = link && link.it, va = link && (it.variants || {})[link.vid];
   const name = va ? variantText(it, link.vid) : ([info.brand, info.name].filter(Boolean).join(' ') || 'Unnamed product');
   const size = va ? '' : (info.quantity || ''), photo = (va && va.photo) || info.image || info.imageBig || '';
-  const rows = (await getAll('obs')).filter(o => (link && o.itemId === it.id && o.vid === link.vid) || o.bc === code).sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.ts || 0) - (a.ts || 0)).slice(0, 8);
+  const rows = (await getAll('obs')).filter(o => (link && o.itemId === it.id && o.vid === link.vid) || o.bc === code).sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.ts || 0) - (a.ts || 0));
+  const each = o => o.price / (o.multi || 1), low = rows.length ? rows.reduce((m, o) => each(o) < each(m) ? o : m) : null, deal = rows.filter(o => o.sale && (!o.until || o.until >= today())).sort((a, b) => each(a) - each(b))[0];
   app.innerHTML = `
     <div class="card"><div class="item" style="padding:0;border:0">${thumb(photo, '📦')}<div class="main"><div class="name" style="white-space:normal">${esc(name)}</div>
       <div class="muted">${size ? esc(size) + ' · ' : ''}${link ? `<a href="#variant/${encodeURIComponent(it.id)}/${encodeURIComponent(link.vid)}" style="color:inherit">${esc(itemName(it))}</a>` : '🗂️ Not sorted yet'}</div></div>
       <button class="btn sec small" id="pEdit" style="flex:0 0 auto;margin:0">✏️ Edit</button></div></div>
-    ${rows.length ? `<div class="card"><h2>Recent prices</h2><table>${rows.map(o => `<tr><td>${esc(o.store)}<div class="muted">${fmtDate(o.date)}${o.sale ? ' · ' + t('sale') : ''}</div></td><td class="r"><b>${o.multi > 1 ? o.multi + ' for ' : ''}${money(o.price)}</b></td></tr>`).join('')}</table></div>` : ''}
+    ${low ? `<div class="card"><div class="row" style="align-items:flex-start"><div><div class="muted">${t('histLow')}</div><div class="big-num">${money(each(low))}</div><div class="muted">${esc(low.store)} · ${fmtDate(low.date)}</div></div>
+      ${deal ? `<div><div class="muted">🏷️ Current deal</div><div class="big-num">${money(each(deal))}</div><div class="muted">${esc(deal.store)}${deal.until ? ' · until ' + fmtDate(deal.until).slice(5) : ''}</div></div>` : ''}</div></div>` : ''}
+    ${rows.length ? `<div class="card"><h2>Price history (${rows.length})</h2><table>${rows.slice(0, 40).map(o => `<tr><td>${esc(o.store)}<div class="muted">${fmtDate(o.date)}${o.sale ? ' · ' + t('sale') : ''}</div></td><td class="r"><b>${o.multi > 1 ? o.multi + ' for ' : ''}${money(o.price)}</b></td></tr>`).join('')}</table></div>` : ''}
     <div class="card"><h2>Log the price</h2>
       <label>Price ($)</label><div style="display:flex;gap:8px;align-items:center"><input id="pPrice" class="big" inputmode="decimal" placeholder="0.00" style="flex:1"><button class="btn sec small" id="pTag" style="flex:0 0 auto;width:auto;margin:0">📷 Read tag</button></div><div id="pOcr" class="muted"></div>
       <label class="ck"><input id="pMultiOn" type="checkbox"> Multi-buy deal, e.g. "2 for $5"</label>
@@ -2322,7 +2328,8 @@ async function viewProduct(code) {
     if (link) { o.itemId = it.id; o.vid = link.vid; } else { o.itemId = ''; o.vid = ''; o.pname = name.slice(0, 80); o.psize = size; }
     await save('obs', o); lsSet('lastStore', store);
     if (earnCoin()) setTimeout(() => toast(withName(t('coinPlus')), 2200), 2800);
-    toast(link ? `✅ Saved ${o.multi > 1 ? o.multi + ' for ' : ''}${money(o.price)} at ${store}` : `✅ Saved. This product will be sorted into the right item soon.`, 2800); viewProduct(code);
+    toast(link ? `✅ Saved ${o.multi > 1 ? o.multi + ' for ' : ''}${money(o.price)} at ${store}` : `✅ Saved. This product will be sorted into the right item soon.`, 2800);
+    if (link) location.replace(`#variant/${encodeURIComponent(it.id)}/${encodeURIComponent(link.vid)}`); else viewProduct(code);
   };
 }
 // nobody has this barcode: two photos (price tag + product), the pup fills in the rest, the user checks
