@@ -2784,7 +2784,7 @@ function viewNewProduct(code) {
   $('#pMultiOn').onchange = () => $('#pMultiRow').classList.toggle('hidden', !$('#pMultiOn').checked);
   $('#nTag').onclick = async () => { const f = await pickFile($('#fileTag')); if (!f) return; const msg = $('#nTagMsg'); msg.textContent = t('ocrReading');
     try { const w = await getOcr(); const c0 = await prepForOcr(f, 1600); const { data } = await w.recognize(c0); ocrText = (data.text || '').slice(0, 600);
-      const tp = tagParse(ocrText), prices = extractPrices(data, c0.height, false).sort((a, b) => b.score - a.score);
+      const tp = tagParse(ocrText), prices = await readPriceTag(f, false); // several passes: big shelf prices read much better
       if (tp.name && !$('#nName').value) $('#nName').value = tp.name; if (tp.size && !$('#nSize').value) $('#nSize').value = tp.size;
       if (prices[0] && !$('#nPrice').value) { $('#nPrice').value = prices[0].price.toFixed(2); if (prices[0].multi > 1) { $('#pMultiOn').checked = true; $('#pMulti').value = prices[0].multi; $('#pMultiRow').classList.remove('hidden'); } }
       msg.textContent = tp.name || prices[0] ? '✅ Read it. Please check the details below.' : t('ocrNone'); } catch (e) { msg.textContent = t('ocrFail'); } };
