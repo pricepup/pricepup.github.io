@@ -1,5 +1,5 @@
 'use strict';
-const APP_VERSION = '5.4.1';
+const APP_VERSION = '5.4.2';
 const $ = s => document.querySelector(s);
 const app = $('#app');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -1234,7 +1234,7 @@ async function viewVariant(id, vid) {
     <div class="card"><h2>${t('varHist')}（${s.rows.length}）</h2><table>
       ${s.rows.slice(0, 80).map(r => `<tr class="${isEnded(r.o) ? 'ended' : ''}"><td>${fmtDate(r.o.date)}<div class="muted">${esc(r.o.store)}${r.o.sale ? ' · ' + t('sale') : ''}${isEnded(r.o) ? ' · ' + t('ended') : ''}</div></td>
         <td class="r">${priceText(it, r.o)}<div class="muted">${fmtU(r.u)}</div></td></tr>`).join('')}</table></div>` : obs.length ? rawVariant(it, obs) : `<div class="card empty">${dog('sniff', 'glass')}<div class="muted">${t('noPrice')}</div></div>`}`;
-  $('#vAdd').onclick = () => location.hash = va.barcode ? `#product/${va.barcode}` : `#add/${encodeURIComponent(id)}/${encodeURIComponent(vid)}`; // scanned products use the quick log screen
+  $('#vAdd').onclick = () => location.hash = va.barcode ? `#product/${va.barcode}/log` : `#add/${encodeURIComponent(id)}/${encodeURIComponent(vid)}`; // scanned products use the quick log screen
   $('#vTrack').onclick = e => { if (!e.target.closest('[data-track]')) return; toggleTrack(id + '|' + vid); $('#vTrack').innerHTML = trackBtn(id + '|' + vid); };
   bindUnitChip(() => viewVariant(id, vid));
 }
@@ -2285,12 +2285,12 @@ async function handleBarcode(raw) { const code = normCode(raw); if (!code) retur
   const hit = await findBarcode(code); // already sorted: open its product page (price history, deals, log a price)
   if (hit) { scanCtx = { code, itemId: hit.it.id, vid: hit.vid, known: true }; location.hash = `#variant/${encodeURIComponent(hit.it.id)}/${encodeURIComponent(hit.vid)}`; return; }
   location.hash = `#product/${code}`; }
-async function viewProduct(code) {
-  setHeader('Scanned product', true); setTab('scan');
+async function viewProduct(code, logMode) { // product page (history, deal, Log button); #product/<code>/log = the log form
+  setHeader(logMode ? 'Log a price' : 'Product', true); setTab('scan');
   app.innerHTML = `<div class="card empty">${dog('sniff', 'glass', 'bounce')}<div class="muted">Looking up ${esc(code)}…</div></div>`;
   const link = await findBarcode(code); let info = await bcGet(code);
   if (!info && !link) info = await findProduct(code);
-  if (location.hash !== `#product/${code}`) return;
+  if (location.hash !== `#product/${code}` + (logMode ? '/log' : '')) return;
   if (!info && !link) return viewNewProduct(code);
   info = info || {};
   const it = link && link.it, va = link && (it.variants || {})[link.vid];
@@ -2302,16 +2302,20 @@ async function viewProduct(code) {
     <div class="card"><div class="item" style="padding:0;border:0">${thumb(photo, '📦')}<div class="main"><div class="name" style="white-space:normal">${esc(name)}</div>
       <div class="muted">${size ? esc(size) + ' · ' : ''}${link ? `<a href="#variant/${encodeURIComponent(it.id)}/${encodeURIComponent(link.vid)}" style="color:inherit">${esc(itemName(it))}</a>` : '🗂️ Not sorted yet'}</div></div>
       <button class="btn sec small" id="pEdit" style="flex:0 0 auto;margin:0">✏️ Edit</button></div></div>
-    ${low ? `<div class="card"><div class="row" style="align-items:flex-start"><div><div class="muted">${t('histLow')}</div><div class="big-num">${money(each(low))}</div><div class="muted">${esc(low.store)} · ${fmtDate(low.date)}</div></div>
+    ${logMode ? '' : low ? `<div class="card"><div class="row" style="align-items:flex-start"><div><div class="muted">${t('histLow')}</div><div class="big-num">${money(each(low))}</div><div class="muted">${esc(low.store)} · ${fmtDate(low.date)}</div></div>
       ${deal ? `<div><div class="muted">🏷️ Current deal</div><div class="big-num">${money(each(deal))}</div><div class="muted">${esc(deal.store)}${deal.until ? ' · until ' + fmtDate(deal.until).slice(5) : ''}</div></div>` : ''}</div></div>` : ''}
-    ${rows.length ? `<div class="card"><h2>Price history (${rows.length})</h2><table>${rows.slice(0, 40).map(o => `<tr><td>${esc(o.store)}<div class="muted">${fmtDate(o.date)}${o.sale ? ' · ' + t('sale') : ''}</div></td><td class="r"><b>${o.multi > 1 ? o.multi + ' for ' : ''}${money(o.price)}</b></td></tr>`).join('')}</table></div>` : ''}
-    <div class="card"><h2>Log the price</h2>
+    ${logMode ? '' : `<button class="btn" id="pLog">➕ Log a price</button>`}
+    ${logMode ? '' : !rows.length ? `<div class="card empty">${dog('sniff', 'glass', 'bounce')}<div class="muted">No prices logged for this product yet. Be the first!</div></div>` : ''}
+    ${!logMode && rows.length ? `<div class="card"><h2>Price history (${rows.length})</h2><table>${rows.slice(0, 40).map(o => `<tr><td>${esc(o.store)}<div class="muted">${fmtDate(o.date)}${o.sale ? ' · ' + t('sale') : ''}</div></td><td class="r"><b>${o.multi > 1 ? o.multi + ' for ' : ''}${money(o.price)}</b></td></tr>`).join('')}</table></div>` : ''}
+    ${logMode ? `<div class="card"><h2>Log the price</h2>
       <label>Price ($)</label><div style="display:flex;gap:8px;align-items:center"><input id="pPrice" class="big" inputmode="decimal" placeholder="0.00" style="flex:1"><button class="btn sec small" id="pTag" style="flex:0 0 auto;width:auto;margin:0">📷 Read tag</button></div><div id="pOcr" class="muted"></div>
       <label class="ck"><input id="pMultiOn" type="checkbox"> Multi-buy deal, e.g. "2 for $5"</label>
       <div id="pMultiRow" class="hidden"><label>How many for this price?</label><input id="pMulti" inputmode="numeric" value="2"><div class="muted">A box with 2 inside counts as 1.</div></div>
       <label>Store</label><div class="muted" id="pGeo"></div><div class="chips storechips" id="pChains"></div><input id="pStore" class="hidden" placeholder="Other store name">
       <label class="ck"><input id="pSale" type="checkbox"> ${t('sale')}</label></div>
-    <button class="btn" id="pSave">${t('save')}</button>`;
+    <button class="btn" id="pSave">${t('save')}</button>` : ''}`;
+  $('#pEdit').onclick = () => editProduct(code, info, link, name, size);
+  if (!logMode) { $('#pLog').onclick = () => location.hash = `#product/${code}/log`; return; }
   const sp = storePicker($('#pGeo'), $('#pChains'), $('#pStore'));
   $('#pMultiOn').onchange = () => $('#pMultiRow').classList.toggle('hidden', !$('#pMultiOn').checked);
   $('#pTag').onclick = async () => { const f = await pickFile($('#fileTag')); if (!f) return; $('#pOcr').textContent = t('ocrReading');
@@ -2329,7 +2333,7 @@ async function viewProduct(code) {
     await save('obs', o); lsSet('lastStore', store);
     if (earnCoin()) setTimeout(() => toast(withName(t('coinPlus')), 2200), 2800);
     toast(link ? `✅ Saved ${o.multi > 1 ? o.multi + ' for ' : ''}${money(o.price)} at ${store}` : `✅ Saved. This product will be sorted into the right item soon.`, 2800);
-    if (link) location.replace(`#variant/${encodeURIComponent(it.id)}/${encodeURIComponent(link.vid)}`); else viewProduct(code);
+    location.replace(link ? `#variant/${encodeURIComponent(it.id)}/${encodeURIComponent(link.vid)}` : `#product/${code}`); // back to the product page with the new price
   };
 }
 // nobody has this barcode: two photos (price tag + product), the pup fills in the rest, the user checks
@@ -2519,6 +2523,8 @@ function showProduct(sc) {
 
 /* ---------- What's new (shown once after each update) ---------- */
 const CHANGES = {
+  '5.4.2': [['Scanning a product you already have now opens its product page: lowest price, current deal and price history. Tap ➕ Log a price to add a new one.', 'After logging, you go back to the product page and see your new price.'],
+            ['Scanning a product you already have now opens its product page: lowest price, current deal and price history. Tap ➕ Log a price to add a new one.', 'After logging, you go back to the product page and see your new price.']],
   '5.4.1': [['Scanning a product you already have now opens its page: price history, latest deal and a button to log a new price.', 'After logging, you go back to that product page. New products also show their lowest price and history.'],
             ['Scanning a product you already have now opens its page: price history, latest deal and a button to log a new price.', 'After logging, you go back to that product page. New products also show their lowest price and history.']],
   '5.4.0': [['Scanning is much simpler: one screen per product. Known products go straight to "log the price"; no more picking categories or sizes.', 'New products: snap the price tag and the product, the pup fills in the details. They are shared with everyone right away and sorted into the right item later.', 'Wrong name or picture? Tap ✏️ Edit on a scanned product. New food bowl drawing.'],
@@ -2628,7 +2634,7 @@ async function route(bg) {
     case 'deals': return viewDeals();
     case 'settings': return viewSettings();
     case 'variant': return viewVariant(parts[1], parts[2]);
-    case 'product': return viewProduct(normCode(parts[1] || ''));
+    case 'product': return viewProduct(normCode(parts[1] || ''), parts[2] === 'log');
     case 'garden': return viewGarden();
     case 'scan': await viewHome(); setTab('scan'); return openScanner();
     default: return viewHome();
