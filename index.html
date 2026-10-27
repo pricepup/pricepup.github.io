@@ -387,7 +387,7 @@ label.ck{display:flex;gap:8px;align-items:center;color:var(--text);font-size:15p
 
 <script>
 'use strict';
-const APP_VERSION = '5.4.4';
+const APP_VERSION = '5.4.5';
 const $ = s => document.querySelector(s);
 const app = $('#app');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -1818,6 +1818,7 @@ function gDay(g) {
   if (g.day !== today()) { g.day = today(); g.free = FREE_TREATS; g.coinsToday = 0; }
   if (g.free > FREE_TREATS) g.free = FREE_TREATS;   // older versions gave 10 a day
   g.bonus = g.bonus || 0; g.coins = g.coins || 0; g.toys = g.toys || [];
+  if (g.coins >= 99 && !lsGet('coinReset545') && typeof isAdmin === 'function' && isAdmin()) { g.coins = 0; g.coinsToday = 0; lsSet('coinReset545', '1'); gSave(g); } // 5.4.5: clear the old 99 test coins once per device
   if (g.pup && !g.waterAt) g.waterAt = Date.now();
   if (g.joyV == null) { g.joyV = g.lastFed ? clamp(100 - Math.min(H(g.lastFed), H(g.lastPet)) / 6 * 100) : 60; g.joyAt = Date.now(); } // happiness now builds up slowly
   g.xp = g.xp || 0; if (!g.xpLog || g.xpLog.day !== today()) g.xpLog = { day: today() };
@@ -2951,6 +2952,7 @@ function showProduct(sc) {
 
 /* ---------- What's new (shown once after each update) ---------- */
 const CHANGES = {
+  '5.4.5': [['Small fix: the old 99 test coins of the power user are cleared.'], ['Small fix: the old 99 test coins of the power user are cleared.']],
   '5.4.4': [['Adding a new product is now its own quick step: a photo and the name, no price needed (great for scanning at home). You get 2 coins.', 'Then you land on the product page, where you can log a price for 1 more coin.'],
             ['Adding a new product is now its own quick step: a photo and the name, no price needed (great for scanning at home). You get 2 coins.', 'Then you land on the product page, where you can log a price for 1 more coin.']],
   '5.4.3': [['Coins: logging or updating a price gives 1 coin. Adding a new product that nobody has scanned before gives 2 coins, even if you don\'t know the price yet (plus 1 if you log one).', 'Everyone earns coins the same way (up to 20 a day).'],
