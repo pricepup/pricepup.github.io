@@ -387,7 +387,7 @@ label.ck{display:flex;gap:8px;align-items:center;color:var(--text);font-size:15p
 
 <script>
 'use strict';
-const APP_VERSION = '5.4.2';
+const APP_VERSION = '5.4.3';
 const $ = s => document.querySelector(s);
 const app = $('#app');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -446,7 +446,7 @@ const I18N = {
   eachP:['每件','Each'], uAuto:['自動單位','Auto unit'], unitPref:['單位價顯示','Unit price display'],
   meas_w:['重量','weight'], meas_v:['容量','volume'], meas_pc:['件數','count'], meas_use:['次數','uses'],
   gFull:['飽肚','Full'], gJoy:['開心','Happy'], gPetBtn:['摸摸 Regen','Pet Regen'], gFeedBtn:['餵零食','Give a treat'],
-  gHint:['🦴 每日 3 粒免費零食 · 🪙 記錄價錢賺金幣 · 💧 每 12 個鐘換水','🦴 3 free treats a day · 🪙 log a price = 1 coin · 💧 change water every 12 h'],
+  gHint:['🦴 每日 3 粒免費零食 · 🪙 記錄價錢賺金幣 · 💧 每 12 個鐘換水','🦴 3 free treats a day · 🪙 log a price = 1 coin, new product = 2 · 💧 change water every 12 h'],
   gWxCredit:['天氣資料：Open-Meteo.com','Weather data: Open-Meteo.com'], gFeels:['體感','feels'],
   gWeak:['好肚餓…冇晒力…','So hungry… no energy…'], gWeakPet:['…（輕輕搖咗下尾）','…(a tiny tail wag)'], gRevive:['有力喇！多謝你救咗我！','Energy’s back! You saved me!'],
   gGrumpy:['哼！咁耐都唔嚟睇我…','Hmph! You haven’t visited for ages…'], gGrumpPet:['…唔好以為摸一下就算','…one pat won’t fix it'],
@@ -461,7 +461,7 @@ const I18N = {
   gWater:['清水','Water'], gPetShort:['摸摸','Pet'], gFeedShort:['零食','Treat'], gWaterBtn:['換水','Water'], gToyBtn:['玩具','Toys'], gShopBtn:['商店','Shop'],
   gWaterDirty:['💧 水開始污糟喇，記得幫 Regen 換水。','💧 The water is getting dirty — change it for Regen.'], gWaterBad:['💧 水太污糟，Regen 唔肯飲，佢好口渴！快啲換水。','💧 The water is too dirty — Regen won’t drink and is thirsty! Change it now.'],
   gEating:['Regen 食緊','Regen is eating'], gChewing:['Regen 咬緊玩具','Regen is chewing'], gBusy:['等 Regen 做完先～','Wait till Regen is done~'], gBusyChew:['Regen 玩緊咬咬玩具，佢想自己玩一陣～','Regen is busy with the chew toy — let him play~'],
-  shopTitle:['花園商店','Garden shop'], shopHint:['每記錄一個價錢賺 1 個金幣（每日最多 20 個）。每件玩具可以玩 10 次。','Log a price to earn 1 coin (up to 20 a day). Each toy lasts 10 plays.'],
+  shopTitle:['花園商店','Garden shop'], shopHint:['每記錄一個價錢賺 1 個金幣（每日最多 20 個）。每件玩具可以玩 10 次。','Log a price: 1 coin. Add a new product: 2 coins, even without a price (up to 20 a day). Each toy lasts 10 plays.'],
   shop_treat1:['1 粒零食','1 treat'], shop_treat5:['5 粒零食','5 treats'], shop_ball:['波波','Ball'], shop_rope:['拔河繩','Tug rope'], shop_chew:['咬咬玩具','Chew toy'],
   toyTitle:['玩具箱','Toy box'], toyOld:['舊咗又污糟，要買過新嘅','Old and dirty — time for a new one'], toyBin:['掉咗佢','Throw away'], toyPlay:['玩！','Play!'],
   toyNone:['仲未有玩具，去商店買啦！','No toys yet — get one at the shop!'], gToyWeak:['Regen 太肚餓，冇力玩，先餵佢食嘢啦。','Regen is too hungry to play — give a treat first.'],
@@ -484,6 +484,8 @@ const I18N = {
   apName:['Product name','Product name'], apSize:['Size','Size'], apSave:['Save product','Save product'], apSaved:['Saved: ','Saved: '], apThanks:['🐾 Thanks! Now pick the item it belongs to.','🐾 Thanks! Now pick the item it belongs to.'],
   notFound2:['Barcode not found in any database.','Barcode not found in any database.'],
   coinPlus:['🪙 +1 金幣！可以去花園商店買嘢俾 Regen','🪙 +1 coin! Spend it at the garden shop for Regen'],
+  coinPlus2:['🪙 +2 金幣！多謝你加咗新產品','🪙 +2 coins for adding a new product! Spend them at the garden shop for Regen'],
+  coinPlus3:['🪙 +3 金幣！新產品 2 個 + 記價 1 個','🪙 +3 coins: 2 for the new product + 1 for the price!'],
   treatPlus:['🦴 +1 零食俾 Regen！','🦴 +1 treat for Regen!'],
   curTitle:['🏷️ 而家嘅特價同最新價錢','🏷️ Current deals & latest prices'], curHint:['傳單有效期內嘅特價，同近 7 日記錄嘅價錢，最抵排先','Valid flyer deals and prices logged in the last 7 days, cheapest first'],
   curNone:['而家冇有效特價，近 7 日亦冇人記錄價錢','No valid deals now and no prices logged in the last 7 days'], logged:['記錄','logged'],
@@ -1723,7 +1725,7 @@ function showGuide(i) {
 }
 
 /* ---------- Puppy garden (pet, feed, water, toys, coins, poo, live Calgary weather + day/night) ---------- */
-const FREE_TREATS = 3, COIN_CAP = 20;           // 3 free treats a day; logging a price earns 1 coin (max 20 a day)
+const FREE_TREATS = 3, COIN_CAP = 20;           // 3 free treats a day; a price log earns 1 coin, a new product 2 more (max 20 a day)
 const GKEY = 'garden';
 const H = ms => (Date.now() - (ms || 0)) / 36e5;
 
@@ -1818,7 +1820,6 @@ function gDay(g) {
   if (g.free > FREE_TREATS) g.free = FREE_TREATS;   // older versions gave 10 a day
   g.bonus = g.bonus || 0; g.coins = g.coins || 0; g.toys = g.toys || [];
   if (g.pup && !g.waterAt) g.waterAt = Date.now();
-  if (typeof isAdmin === 'function' && isAdmin()) g.coins = 99; // power user: always 99 coins for testing
   if (g.joyV == null) { g.joyV = g.lastFed ? clamp(100 - Math.min(H(g.lastFed), H(g.lastPet)) / 6 * 100) : 60; g.joyAt = Date.now(); } // happiness now builds up slowly
   g.xp = g.xp || 0; if (!g.xpLog || g.xpLog.day !== today()) g.xpLog = { day: today() };
   if (g.pup && g.bowl === undefined) g.bowl = BOWL_MAX; // 5.3: meals moved to a free food bowl
@@ -1835,7 +1836,7 @@ async function gSync() { // newest copy wins (phone vs cloud)
   } catch (e) {} }
   return g;
 }
-function earnCoin() { const g = gLoad(); if ((g.coinsToday || 0) >= COIN_CAP) return false; g.coins++; g.coinsToday = (g.coinsToday || 0) + 1; gSave(g); return true; }
+function earnCoin(n = 1) { const g = gLoad(), left = COIN_CAP - (g.coinsToday || 0); n = Math.min(n, left); if (n <= 0) return 0; g.coins += n; g.coinsToday = (g.coinsToday || 0) + n; gSave(g); return n; } // 1 coin per price log, 2 for adding a new product
 // golden coin (drawn, so it looks the same on every phone)
 const COIN_SVG = '<svg class="coin" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10.5" fill="#f5b70a" stroke="#a86b00" stroke-width="2"/><circle cx="12" cy="12" r="7" fill="#ffd54a" stroke="#d99a00" stroke-width="1.5"/><path d="M12.00 7.40 L13.18 10.38 L16.37 10.58 L13.90 12.62 L14.70 15.72 L12.00 14.00 L9.30 15.72 L10.10 12.62 L7.63 10.58 L10.82 10.38z" fill="#e8a200"/><path d="M7 6 q2 -2 4.5 -2.3" stroke="#fff6c8" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg>';
 const cn = s => String(s).replace(/🪙/g, COIN_SVG);
@@ -2654,7 +2655,7 @@ function viewShelter() {
     <div class="card"><b>${esc(p.name)} is at the shelter</b><div style="margin-top:4px">${esc(p.name)} went without care for over a day (no food, water or visits), so the shelter took it in to keep it safe.
       Pay the fee to bring it home. Skills are kept; your bond drops 1 level.</div><div class="muted" style="margin-top:6px">${cn(tf('shopCoins', g.coins || 0))}</div></div>
     <button class="btn" id="shBack" ${can ? '' : 'disabled'}>Bring ${esc(p.name)} home · ${SHELTER_FEE} ${COIN_SVG}</button>
-    ${can ? '' : `<div class="muted" style="text-align:center;margin-top:6px">Not enough coins? Log prices to earn coins (1 each, up to ${COIN_CAP} a day).</div>`}`;
+    ${can ? '' : `<div class="muted" style="text-align:center;margin-top:6px">Not enough coins? Log a price for 1 coin; add a new product for 2 more (up to ${COIN_CAP} a day).</div>`}`;
   $('#shBack').onclick = () => { const g2 = gLoad(); if ((g2.coins || 0) < SHELTER_FEE) return;
     g2.coins -= SHELTER_FEE; const L = bondOf(g2).L; if (L > 1) g2.xp = xpAt(L - 1); delete g2.shelter; delete g2.sick;
     g2.lastVisit = Date.now(); g2.lastFed = Date.now(); g2.recentFeeds = 1; g2.waterAt = Date.now(); g2.poos = []; g2.pendingPoo = 0; g2.joyV = 30; g2.joyAt = Date.now(); // the shelter fed and cleaned it
@@ -2809,7 +2810,8 @@ function viewNewProduct(code) {
     const info = await bcPut(code, { name, brand: $('#nBrand').value.trim(), quantity: $('#nSize').value.trim(), image: photo, src: 'user', status: 'unsorted', ocr: ocrText });
     if (price > 0) { const multi = $('#pMultiOn').checked ? Math.max(2, parseInt($('#pMulti').value) || 2) : 1;
       await save('obs', { id: newId(), itemId: '', vid: '', bc: code, pname: [info.brand, info.name].filter(Boolean).join(' ').slice(0, 80), psize: info.quantity, price: Math.round(price * 100) / 100, multi, per: 'pack', store, date: today(), sale: false, note: '', src: 'app', by: fbUser ? fbUser.uid : '', ts: Date.now() });
-      lsSet('lastStore', store); if (earnCoin()) setTimeout(() => toast(withName(t('coinPlus')), 2200), 2800); }
+      lsSet('lastStore', store); }
+    { const c = earnCoin(price > 0 ? 3 : 2); if (c) setTimeout(() => toast(withName(t(c >= 3 ? 'coinPlus3' : c > 1 ? 'coinPlus2' : 'coinPlus')), 2400), 2800); } // new product: 2 coins, +1 more if a price was logged
     toast('🐾 Thanks! Saved for everyone. It will be sorted into the right item soon.', 3000); location.replace(`#product/${code}`);
   };
 }
@@ -2965,6 +2967,8 @@ function showProduct(sc) {
 
 /* ---------- What's new (shown once after each update) ---------- */
 const CHANGES = {
+  '5.4.3': [['Coins: logging or updating a price gives 1 coin. Adding a new product that nobody has scanned before gives 2 coins, even if you don\'t know the price yet (plus 1 if you log one).', 'Everyone earns coins the same way (up to 20 a day).'],
+            ['Coins: logging or updating a price gives 1 coin. Adding a new product that nobody has scanned before gives 2 coins, even if you don\'t know the price yet (plus 1 if you log one).', 'Everyone earns coins the same way (up to 20 a day).']],
   '5.4.2': [['Scanning a product you already have now opens its product page: lowest price, current deal and price history. Tap ➕ Log a price to add a new one.', 'After logging, you go back to the product page and see your new price.'],
             ['Scanning a product you already have now opens its product page: lowest price, current deal and price history. Tap ➕ Log a price to add a new one.', 'After logging, you go back to the product page and see your new price.']],
   '5.4.1': [['Scanning a product you already have now opens its page: price history, latest deal and a button to log a new price.', 'After logging, you go back to that product page. New products also show their lowest price and history.'],
