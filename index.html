@@ -387,7 +387,7 @@ label.ck{display:flex;gap:8px;align-items:center;color:var(--text);font-size:15p
 
 <script>
 'use strict';
-const APP_VERSION = '5.4.3';
+const APP_VERSION = '5.4.4';
 const $ = s => document.querySelector(s);
 const app = $('#app');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -485,7 +485,6 @@ const I18N = {
   notFound2:['Barcode not found in any database.','Barcode not found in any database.'],
   coinPlus:['🪙 +1 金幣！可以去花園商店買嘢俾 Regen','🪙 +1 coin! Spend it at the garden shop for Regen'],
   coinPlus2:['🪙 +2 金幣！多謝你加咗新產品','🪙 +2 coins for adding a new product! Spend them at the garden shop for Regen'],
-  coinPlus3:['🪙 +3 金幣！新產品 2 個 + 記價 1 個','🪙 +3 coins: 2 for the new product + 1 for the price!'],
   treatPlus:['🦴 +1 零食俾 Regen！','🦴 +1 treat for Regen!'],
   curTitle:['🏷️ 而家嘅特價同最新價錢','🏷️ Current deals & latest prices'], curHint:['傳單有效期內嘅特價，同近 7 日記錄嘅價錢，最抵排先','Valid flyer deals and prices logged in the last 7 days, cheapest first'],
   curNone:['而家冇有效特價，近 7 日亦冇人記錄價錢','No valid deals now and no prices logged in the last 7 days'], logged:['記錄','logged'],
@@ -2779,40 +2778,25 @@ async function viewProduct(code, logMode) { // product page (history, deal, Log 
     location.replace(link ? `#variant/${encodeURIComponent(it.id)}/${encodeURIComponent(link.vid)}` : `#product/${code}`); // back to the product page with the new price
   };
 }
-// nobody has this barcode: two photos (price tag + product), the pup fills in the rest, the user checks
+// nobody has this barcode: register the product only (photo + name). No price needed, so it works at home too.
+// After saving (+2 coins) the user lands on the product page, where "Log a price" is a separate step (+1 coin).
 function viewNewProduct(code) {
   setHeader('New product', true); setTab('scan');
-  let photo = '', ocrText = '';
-  app.innerHTML = `<div class="card"><b>🐾 You're the first to scan this!</b><div class="muted">Snap the price tag and the product. The pup fills in the details; it will be sorted into the right item later, and everyone scanning it next time will see it.</div></div>
-    <div class="card"><h2>1 · Price tag</h2><button class="btn sec" id="nTag" style="margin:0">📷 Snap the price tag</button><div id="nTagMsg" class="muted" style="margin-top:6px"></div></div>
-    <div class="card"><h2>2 · Product photo</h2><div style="display:flex;gap:10px;align-items:center"><div id="nThumb" style="flex:0 0 54px">${thumb('', '📷')}</div><button class="btn sec small" id="nPhoto" style="flex:1;margin:0">📷 Take a clear photo of the product</button></div></div>
-    <div class="card"><h2>3 · Check the details</h2><label>Product name</label><input id="nName" placeholder="e.g. Shin Ramyun Black">
-      <div class="row"><div><label>Brand</label><input id="nBrand" placeholder="e.g. Nongshim"></div><div><label>Size</label><input id="nSize" placeholder="e.g. 10 x 130 g"></div></div>
-      <label>Price ($)</label><input id="nPrice" class="big" inputmode="decimal" placeholder="0.00">
-      <label class="ck"><input id="pMultiOn" type="checkbox"> Multi-buy deal, e.g. "2 for $5"</label><div id="pMultiRow" class="hidden"><label>How many for this price?</label><input id="pMulti" inputmode="numeric" value="2"></div>
-      <label>Store</label><div class="muted" id="pGeo"></div><div class="chips storechips" id="pChains"></div><input id="pStore" class="hidden" placeholder="Other store name"></div>
-    <button class="btn" id="nSave">Save</button>`;
-  const sp = storePicker($('#pGeo'), $('#pChains'), $('#pStore'));
-  $('#pMultiOn').onchange = () => $('#pMultiRow').classList.toggle('hidden', !$('#pMultiOn').checked);
-  $('#nTag').onclick = async () => { const f = await pickFile($('#fileTag')); if (!f) return; const msg = $('#nTagMsg'); msg.textContent = t('ocrReading');
-    try { const w = await getOcr(); const c0 = await prepForOcr(f, 1600); const { data } = await w.recognize(c0); ocrText = (data.text || '').slice(0, 600);
-      const tp = tagParse(ocrText), prices = await readPriceTag(f, false); // several passes: big shelf prices read much better
-      if (tp.name && !$('#nName').value) $('#nName').value = tp.name; if (tp.size && !$('#nSize').value) $('#nSize').value = tp.size;
-      if (prices[0] && !$('#nPrice').value) { $('#nPrice').value = prices[0].price.toFixed(2); if (prices[0].multi > 1) { $('#pMultiOn').checked = true; $('#pMulti').value = prices[0].multi; $('#pMultiRow').classList.remove('hidden'); } }
-      msg.textContent = tp.name || prices[0] ? '✅ Read it. Please check the details below.' : t('ocrNone'); } catch (e) { msg.textContent = t('ocrFail'); } };
+  let photo = '';
+  app.innerHTML = `<div class="card"><b>🐾 You're the first to scan this!</b><div class="muted">Add this product so everyone can find it. No price needed. You get 2 coins, and you can log a price on the next screen if you have one.</div></div>
+    <div class="card"><h2>1 · Product photo</h2><div style="display:flex;gap:10px;align-items:center"><div id="nThumb" style="flex:0 0 54px">${thumb('', '📷')}</div><button class="btn sec small" id="nPhoto" style="flex:1;margin:0">📷 Take a clear photo of the product</button></div></div>
+    <div class="card"><h2>2 · Product details</h2><label>Product name</label><input id="nName" placeholder="e.g. Shin Ramyun Black">
+      <div class="row"><div><label>Brand</label><input id="nBrand" placeholder="e.g. Nongshim"></div><div><label>Size</label><input id="nSize" placeholder="e.g. 10 x 130 g"></div></div></div>
+    <button class="btn" id="nSave">Save product · 🪙 +2</button>`;
   $('#nPhoto').onclick = async () => { const f = await pickFile($('#filePhoto')); if (!f) return; photo = await thumbFrom(f); $('#nThumb').innerHTML = thumb(photo); };
   $('#nSave').onclick = async () => {
-    const name = $('#nName').value.trim(); if (!name) return toast('Type the product name (or snap the price tag)');
     if (!photo) return toast('📷 Please take a clear photo of the product first. Everyone who scans it later will see it.', 3600);
-    const price = parseFloat($('#nPrice').value), store = sp.get();
-    if (price > 0 && !store) return toast('Pick the store first');
-    const ok = price > 0 ? await checkCalgary() : true; if (!ok) return;
-    const info = await bcPut(code, { name, brand: $('#nBrand').value.trim(), quantity: $('#nSize').value.trim(), image: photo, src: 'user', status: 'unsorted', ocr: ocrText });
-    if (price > 0) { const multi = $('#pMultiOn').checked ? Math.max(2, parseInt($('#pMulti').value) || 2) : 1;
-      await save('obs', { id: newId(), itemId: '', vid: '', bc: code, pname: [info.brand, info.name].filter(Boolean).join(' ').slice(0, 80), psize: info.quantity, price: Math.round(price * 100) / 100, multi, per: 'pack', store, date: today(), sale: false, note: '', src: 'app', by: fbUser ? fbUser.uid : '', ts: Date.now() });
-      lsSet('lastStore', store); }
-    { const c = earnCoin(price > 0 ? 3 : 2); if (c) setTimeout(() => toast(withName(t(c >= 3 ? 'coinPlus3' : c > 1 ? 'coinPlus2' : 'coinPlus')), 2400), 2800); } // new product: 2 coins, +1 more if a price was logged
-    toast('🐾 Thanks! Saved for everyone. It will be sorted into the right item soon.', 3000); location.replace(`#product/${code}`);
+    const name = $('#nName').value.trim(); if (!name) return toast('Type the product name');
+    $('#nSave').disabled = true;
+    await bcPut(code, { name, brand: $('#nBrand').value.trim(), quantity: $('#nSize').value.trim(), image: photo, src: 'user', status: 'unsorted' });
+    const c = earnCoin(2);
+    toast(c ? withName(t(c > 1 ? 'coinPlus2' : 'coinPlus')) : '🐾 Thanks! Saved for everyone.', 3000);
+    if (location.hash === `#product/${code}`) viewProduct(code); else location.replace(`#product/${code}`); // product page: tap "Log a price" if you have one
   };
 }
 // fix a wrong name, size or picture: saved to the shared barcode record (and the linked product)
@@ -2967,6 +2951,8 @@ function showProduct(sc) {
 
 /* ---------- What's new (shown once after each update) ---------- */
 const CHANGES = {
+  '5.4.4': [['Adding a new product is now its own quick step: a photo and the name, no price needed (great for scanning at home). You get 2 coins.', 'Then you land on the product page, where you can log a price for 1 more coin.'],
+            ['Adding a new product is now its own quick step: a photo and the name, no price needed (great for scanning at home). You get 2 coins.', 'Then you land on the product page, where you can log a price for 1 more coin.']],
   '5.4.3': [['Coins: logging or updating a price gives 1 coin. Adding a new product that nobody has scanned before gives 2 coins, even if you don\'t know the price yet (plus 1 if you log one).', 'Everyone earns coins the same way (up to 20 a day).'],
             ['Coins: logging or updating a price gives 1 coin. Adding a new product that nobody has scanned before gives 2 coins, even if you don\'t know the price yet (plus 1 if you log one).', 'Everyone earns coins the same way (up to 20 a day).']],
   '5.4.2': [['Scanning a product you already have now opens its product page: lowest price, current deal and price history. Tap ➕ Log a price to add a new one.', 'After logging, you go back to the product page and see your new price.'],
