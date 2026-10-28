@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#fff3e3">
 <script>(function(){var c='';try{c=((JSON.parse(localStorage.getItem('garden')||'{}').pup)||{}).color||''}catch(e){}var s=(c==='white'||c==='brown')?'-'+c:'';document.write('<link rel="manifest" href="manifest'+s+'.webmanifest"><link rel="icon" href="icon'+s+'-192.png"><link rel="apple-touch-icon" href="icon'+s+'-192.png">')})()</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -15,7 +15,7 @@
 @media (prefers-color-scheme:dark){:root{--bg:#241b16;--card:#31261f;--text:#fbefe3;--muted:#c9ad97;--line:#4a3a2f;--accent:#f39a5d;--accent-dk:#c4743d;--accent-text:#2a1a10;--soft:#4a3527;
   --good:#7fd6a1;--good-bg:#1f3a2a;--bad:#ffab91;--bad-bg:#45271d;--eq-bg:#43361f;--head:#2e231c;--shadow:0 3px 0 rgba(0,0,0,.35)}}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{margin:0;background:var(--bg);color:var(--text);font:16px/1.45 system-ui,-apple-system,"Noto Sans TC",sans-serif}
+html{touch-action:manipulation;-webkit-text-size-adjust:100%}.coinpop{position:fixed;inset:0;z-index:90;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;background:radial-gradient(circle,rgba(255,244,205,.95) 0,rgba(255,248,230,.85) 45%,rgba(255,248,230,.6) 100%);animation:cpfade .25s ease-out}.coinpop.out{animation:cpgone .5s ease-in forwards}.cp-box{position:relative;width:180px;height:180px;animation:cppop .6s cubic-bezier(.2,1.6,.4,1)}.cp-coin{width:100%;height:100%;filter:drop-shadow(0 8px 14px rgba(160,100,0,.35));animation:cpflip .5s ease-in-out .55s}.cp-plus{position:absolute;z-index:2;top:-6px;right:-18px;background:#e07a3f;color:#fff;font:800 26px/1 system-ui,-apple-system,sans-serif;padding:7px 11px;border-radius:999px;border:3px solid #fff;box-shadow:0 4px 10px rgba(0,0,0,.18);animation:cpplus .5s cubic-bezier(.2,1.8,.4,1) .25s both}.cp-sp{position:absolute;animation:cptw .7s ease-in-out infinite both}.cp-why{margin-top:14px;background:var(--card,#fff);color:var(--text,#333);font-weight:700;padding:8px 14px;border-radius:14px;box-shadow:0 4px 12px rgba(0,0,0,.12);animation:cpfade .4s ease-out .3s both}@keyframes cppop{0%{transform:scale(.2) translateY(60px);opacity:0}100%{transform:none;opacity:1}}@keyframes cpflip{0%,100%{transform:scaleX(1)}50%{transform:scaleX(.15)}}@keyframes cpplus{0%{transform:scale(0)}100%{transform:scale(1)}}@keyframes cptw{0%,100%{transform:scale(.3) rotate(0);opacity:.3}50%{transform:scale(1.15) rotate(20deg);opacity:1}}@keyframes cpfade{from{opacity:0}to{opacity:1}}@keyframes cpgone{to{opacity:0;transform:translateY(-40px)}}@media (prefers-reduced-motion:reduce){.cp-box,.cp-coin,.cp-sp,.cp-plus{animation:none}}html,body{margin:0;background:var(--bg);color:var(--text);font:16px/1.45 system-ui,-apple-system,"Noto Sans TC",sans-serif}
 body{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='90' height='90'%3E%3Cg fill='%23e07a3f' opacity='.07'%3E%3Cellipse cx='20' cy='26' rx='7' ry='6'/%3E%3Ccircle cx='11' cy='16' r='3'/%3E%3Ccircle cx='17' cy='11' r='3'/%3E%3Ccircle cx='24' cy='11' r='3'/%3E%3Ccircle cx='30' cy='16' r='3'/%3E%3Cellipse cx='65' cy='71' rx='7' ry='6'/%3E%3Ccircle cx='56' cy='61' r='3'/%3E%3Ccircle cx='62' cy='56' r='3'/%3E%3Ccircle cx='69' cy='56' r='3'/%3E%3Ccircle cx='75' cy='61' r='3'/%3E%3C/g%3E%3C/svg%3E")}
 .brand{font-family:"Baloo 2",system-ui,sans-serif}
 header.top{position:sticky;top:0;z-index:5;background:var(--head);border-bottom:2px solid var(--line);padding:8px 12px;display:flex;align-items:center;gap:8px}
@@ -387,7 +387,7 @@ label.ck{display:flex;gap:8px;align-items:center;color:var(--text);font-size:15p
 
 <script>
 'use strict';
-const APP_VERSION = '5.4.5';
+const APP_VERSION = '5.5.0';
 const $ = s => document.querySelector(s);
 const app = $('#app');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -1042,8 +1042,11 @@ async function openScanner(cb) {
   const det = await getDetector();
   msg.textContent = t('scanAim');
   if (!det) { try { await loadZx(); } catch (e) { msg.textContent = t('scanNo'); return; } }
-  try { scanStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false }); }
-  catch (e) { msg.textContent = t('scanCam'); return; }
+  clearTimeout(warmTimer); const wt = warmStream && warmStream.getVideoTracks()[0];
+  if (wt && wt.readyState === 'live') { scanStream = warmStream; wt.enabled = true; } // 5.5: reuse the camera from the last scan (no new permission prompt)
+  else { try { scanStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false }); }
+  catch (e) { msg.textContent = t('scanCam'); return; } }
+  warmStream = scanStream;
   const v = $('#scanVideo'); v.srcObject = scanStream; await v.play().catch(() => {});
   const caps = scanStream.getVideoTracks()[0].getCapabilities ? scanStream.getVideoTracks()[0].getCapabilities() : {};
   $('#torchBtn').style.display = caps.torch ? '' : 'none';
@@ -1061,11 +1064,15 @@ async function openScanner(cb) {
 }
 function closeScanner() {
   clearTimeout(scanTimer);
-  if (scanStream) { scanStream.getTracks().forEach(tr => tr.stop()); scanStream = null; }
+  if (scanStream) { const tr = scanStream.getVideoTracks()[0]; if (torchOn) { try { tr.applyConstraints({ advanced: [{ torch: false }] }); } catch (e) {} } try { tr.enabled = false; } catch (e) {} scanStream = null; clearTimeout(warmTimer); warmTimer = setTimeout(stopWarm, 120000); }
   $('#scanVideo').srcObject = null;
   $('#scanner').classList.add('hidden');
   torchOn = false;
 }
+['gesturestart', 'gesturechange'].forEach(ev => document.addEventListener(ev, e => e.preventDefault(), { passive: false })); // 5.5: no zooming
+let warmStream = null, warmTimer = null; // keep the camera for 2 minutes after a scan, then let it go
+function stopWarm() { clearTimeout(warmTimer); if (warmStream && warmStream !== scanStream) { warmStream.getTracks().forEach(tr => tr.stop()); warmStream = null; } }
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && !scanStream) stopWarm(); });
 $('#torchBtn').onclick = async () => { if (!scanStream) return; torchOn = !torchOn; try { await scanStream.getVideoTracks()[0].applyConstraints({ advanced: [{ torch: torchOn }] }); } catch (e) {} };
 $('#closeScanBtn').onclick = () => { closeScanner(); if (location.hash === '#scan') location.hash = '#home'; };
 $('#noCodeBtn').onclick = () => { closeScanner(); location.hash = '#pick/'; };
@@ -1095,7 +1102,7 @@ async function bcGet(code) {
 async function bcPut(code, info) {
   const d = { name: info.name || '', brand: info.brand || '', quantity: info.quantity || '', image: info.image || '', imageBig: info.imageBig || '', cats: info.cats || '',
     catsList: (info.catsList || []).slice(0, 8), src: info.src || 'off', ts: Date.now(), by: fbUser ? fbUser.uid : '' };
-  if (info.status) d.status = info.status; if (info.ocr) d.ocr = String(info.ocr).slice(0, 600); if (info.edited) d.edited = info.edited;
+  if (info.status) d.status = info.status; if (info.ocr) d.ocr = String(info.ocr).slice(0, 600); if (info.edited) d.edited = info.edited; if (info.byWeight) d.byWeight = true;
   bcLocalPut(code, d);
   if (syncOn()) fb.F.setDoc(bcRef(code), d).catch(e => console.warn('barcode save', e.code));
   return d;
@@ -1533,7 +1540,7 @@ async function viewAdd(id, preVid) {
                 sale: $('#aSale').checked, note: $('#aNote').value.trim(), src: 'app', by: fbUser ? fbUser.uid : '', ts: Date.now() };
     const v = verdict(await getOne('items', id), o, sum);
     await save('obs', o);
-    if (earnCoin()) setTimeout(() => toast(withName(t('coinPlus')), 2200), 3300);
+    if (earnCoin()) setTimeout(() => coinPop(1, 'Thanks for logging a price!'), 900);
     if (o.store) lsSet('lastStore', o.store);
     sessionStorage.removeItem('pp_pending');
     toast(v.cls === 'good' ? t('savedLow') : v.cls === 'eq' ? t('savedEq') : t('saved'), 3200);
@@ -1547,20 +1554,24 @@ async function viewDeals() {
   const map = Object.fromEntries(items.map(i => [i.id, i]));
   const td = today();
   const all = obs.filter(o => o.sale && daysAgo(o.date) <= 14 && (!o.until || o.until >= td) && map[o.itemId]);
-  const stores = [...new Set(all.map(o => o.store))].sort();
+  const stores = [...new Set(all.map(o => o.store))].sort(); let atStore = '';
+  if (dealNear) { const km = Object.fromEntries(dealNear.map(x => [x.c, x.km])), k = s => km[chainOf(s) || s] ?? 99; stores.sort((a, b) => k(a) - k(b));
+    const s0 = stores.find(s => k(s) <= .5); if (s0) { atStore = s0; if (!dealPicked) dealStore = s0; } } // 5.5: at a store (GPS) -> its deals first
   if (dealStore && !stores.includes(dealStore)) dealStore = '';
   const deals = all.filter(o => !dealStore || o.store === dealStore).map(o => {
     const it = map[o.itemId]; const each = eachPrice(o); const off = o.reg > 0 ? 1 - each / o.reg : 0;
     return { o, it, off, u: unitPrice(it, o) };
   }).sort((a, b) => b.off - a.off);
-  app.innerHTML = `<div class="card muted">${t('dealsHint')}<div class="chips scroll" id="dStores" style="margin-top:8px">${['', ...stores].map(s => `<button class="chip ${s === dealStore ? 'on' : ''}" data-s="${esc(s)}">${s ? esc(s) : t('allStores')}</button>`).join('')}</div></div><div class="card">${deals.length ? deals.slice(0, 200).map(d => `
+  app.innerHTML = `<div class="card muted">${atStore && dealStore === atStore ? `<div style="font-weight:700;color:var(--text)">📍 You're at ${esc(atStore)}: here are its deals.</div>` : t('dealsHint')}<div class="chips scroll" id="dStores" style="margin-top:8px">${['', ...stores].map(s => `<button class="chip ${s === dealStore ? 'on' : ''}" data-s="${esc(s)}">${s ? esc(s) : t('allStores')}</button>`).join('')}</div></div><div class="card">${deals.length ? deals.slice(0, 200).map(d => `
     <a class="item" href="#item/${encodeURIComponent(d.it.id)}">${thumb(obsPhoto(d.it, d.o), itemEmoji(d.it))}
       <div class="main"><div class="name">${esc(itemName(d.it))}</div><div class="muted">${esc(obsText(d.it, d.o))}</div><div class="muted">${esc(d.o.store)} · ${fmtDate(d.o.date)}${d.o.until ? '–' + fmtDate(d.o.until).slice(5) : ''}${isUpcoming(d.o) ? ` <span class="tag up">${fmtDate(d.o.date).slice(5)} ${t('starts')}</span>` : ''}</div></div>
       <div class="price">${priceText(d.it, d.o)}<div class="muted">${d.off > 0 ? `<span class="tag">-${Math.round(d.off * 100)}%</span><br>${t('reg')} ${money(d.o.reg)}` : ''}${d.u && d.it.mode !== 'weight' ? '<br>' + fmtU(d.u) : ''}</div></div></a>`).join('')
     : `<div class="empty">${dog('sleep', 'z')}<div class="muted">${t('noDeals')}</div></div>`}</div>`;
-  $('#dStores').querySelectorAll('.chip').forEach(b => b.onclick = () => { dealStore = b.dataset.s; viewDeals(); });
+  $('#dStores').querySelectorAll('.chip').forEach(b => b.onclick = () => { dealStore = b.dataset.s; dealPicked = true; viewDeals(); });
+  if (Date.now() - dealNearAt > 3 * 60e3) { dealNearAt = Date.now(); locGranted().then(ok => ok && getPos().then(p => { if (!inCalgary(p)) return; dealNear = nearestChains(p); if (location.hash === '#deals') viewDeals(); })).catch(() => {}); }
 }
-let dealStore = '';
+let dealStore = '', dealPicked = false, dealNear = null, dealNearAt = 0;
+const locGranted = async () => { try { return (await navigator.permissions.query({ name: 'geolocation' })).state === 'granted'; } catch (e) { return !!lsGet('locAsked'); } }; // never pop a location prompt just for deals
 
 async function viewSettings() {
   setHeader(t('setTitle')); setTab('settings');
@@ -1811,7 +1822,7 @@ const onVacation = g => !!(g && g.vac && g.vac.until > Date.now());
 function shelterCheck(g) { if (!g.pup || g.shelter || onVacation(g)) return;
   const last = Math.max(g.lastVisit || 0, (g.vac && g.vac.until) || 0); if (last && H(last) >= SHELTER_H) g.shelter = { at: last + SHELTER_H * 36e5 }; }
 const xpAt = L => { let x = 0, need = 40; for (let i = 1; i < L; i++) { x += need; need += 20; } return x; };
-function gLoad() { let g = {}; try { g = JSON.parse(lsGet(GKEY) || '{}'); } catch (e) {} return gPoo(gDay(g)); }
+function gLoad() { let g = {}; try { g = JSON.parse(lsGet(GKEY) || '{}'); } catch (e) {} if (g.uid && fbUser && g.uid !== fbUser.uid) g = {}; return gPoo(gDay(g)); } // 5.5: a puppy saved on this phone by another account is not yours
 function gDay(g) {
   if (g.pup && (g.pup.v || 0) < PUP_V) { const keep = { coins: g.coins, toys: g.toys, bonus: g.bonus, day: g.day, free: g.free, coinsToday: g.coinsToday, updated: g.updated };
     Object.keys(g).forEach(k => delete g[k]); Object.assign(g, keep); }
@@ -1827,7 +1838,7 @@ function gDay(g) {
     for (const k in g.pup.sk) { const v = g.pup.sk[k]; if (v > 0 && at[k] && (Date.now() - at[k]) / 864e5 > 7) g.pup.sk[k] = Math.max(v >= 60 ? 60 : 0, v - 2); } }
   return g;
 }
-function gSave(g) { g.updated = Date.now(); lsSet(GKEY, JSON.stringify(g)); if (syncOn()) fb.F.setDoc(favRef(), { garden: g }, { merge: true }).catch(() => {}); }
+function gSave(g) { g.updated = Date.now(); if (fbUser) g.uid = fbUser.uid; lsSet(GKEY, JSON.stringify(g)); if (syncOn()) fb.F.setDoc(favRef(), { garden: g }, { merge: true }).catch(() => {}); }
 async function gSync() { // newest copy wins (phone vs cloud)
   let g = gLoad();
   if (syncOn()) { try { const s = await fb.F.getDoc(favRef()); const r = s.exists() && s.data().garden;
@@ -1836,6 +1847,19 @@ async function gSync() { // newest copy wins (phone vs cloud)
   } catch (e) {} }
   return g;
 }
+// 5.5 coin reward: a big gold coin pops up with "+1" / "+2" and twinkling sparkles
+function coinPop(n, why) { document.querySelectorAll('.coinpop').forEach(e => e.remove());
+  const sp = (x, y, s, d) => `<svg class="cp-sp" style="left:${x}%;top:${y}%;width:${s}px;height:${s}px;animation-delay:${d}s" viewBox="0 0 20 20"><path d="M10 0 C11 7 13 9 20 10 C13 11 11 13 10 20 C9 13 7 11 0 10 C7 9 9 7 10 0Z" fill="#e5383b"/></svg>`;
+  const el = document.createElement('div'); el.className = 'coinpop';
+  el.innerHTML = `<div class="cp-box"><svg class="cp-coin" viewBox="0 0 200 200" aria-hidden="true">
+      <ellipse cx="112" cy="104" rx="80" ry="86" fill="#f0a52b"/><path d="M150 40 h14 M168 62 h12 M176 90 h10 M178 118 h10 M172 146 h12 M158 170 h12" stroke="#e08f1c" stroke-width="5" stroke-linecap="round"/>
+      <circle cx="96" cy="104" r="84" fill="#f9c935"/><circle cx="96" cy="104" r="62" fill="none" stroke="#e8a92f" stroke-width="7" stroke-dasharray="300 40" stroke-linecap="round" transform="rotate(-60 96 104)"/>
+      <path d="M96 62 v84 M118 82 c0 -12 -10 -18 -22 -18 c-13 0 -22 7 -22 18 c0 24 46 14 46 38 c0 12 -10 19 -24 19 c-13 0 -24 -7 -24 -19" fill="none" stroke="#e3a32b" stroke-width="9" stroke-linecap="round"/>
+      <ellipse cx="62" cy="58" rx="16" ry="9" fill="#fff" opacity=".35" transform="rotate(-35 62 58)"/></svg>
+    <div class="cp-plus">+${n}</div>${sp(-6, 4, 34, 0)}${sp(60, -16, 22, .25)}${sp(2, 80, 26, .45)}${sp(90, 74, 20, .15)}${sp(46, -14, 16, .35)}${sp(-16, 46, 16, .6)}</div>
+    ${why ? `<div class="cp-why">${esc(why)}</div>` : ''}`;
+  document.body.appendChild(el); navigator.vibrate && navigator.vibrate([30, 60, 30]);
+  setTimeout(() => el.classList.add('out'), 1900); setTimeout(() => el.remove(), 2400); }
 function earnCoin(n = 1) { const g = gLoad(), left = COIN_CAP - (g.coinsToday || 0); n = Math.min(n, left); if (n <= 0) return 0; g.coins += n; g.coinsToday = (g.coinsToday || 0) + n; gSave(g); return n; } // 1 coin per price log, 2 for adding a new product
 // golden coin (drawn, so it looks the same on every phone)
 const COIN_SVG = '<svg class="coin" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10.5" fill="#f5b70a" stroke="#a86b00" stroke-width="2"/><circle cx="12" cy="12" r="7" fill="#ffd54a" stroke="#d99a00" stroke-width="1.5"/><path d="M12.00 7.40 L13.18 10.38 L16.37 10.58 L13.90 12.62 L14.70 15.72 L12.00 14.00 L9.30 15.72 L10.10 12.62 L7.63 10.58 L10.82 10.38z" fill="#e8a200"/><path d="M7 6 q2 -2 4.5 -2.3" stroke="#fff6c8" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg>';
@@ -1859,8 +1883,8 @@ function gMood(g) {
 }
 const clamp = x => Math.max(0, Math.min(100, Math.round(x)));
 const fullness = g => g.lastFed ? clamp(100 - H(g.lastFed) / emptyH(g) * 100) : 0; // one meal fills the puppy up
-// happiness: a stored level that fades about 12 points an hour; care adds a little at a time
-const JOY_DECAY = 12;
+// happiness: a stored level that fades about 6 points an hour; care adds a little at a time
+const JOY_DECAY = 6; // 5.5: was 12, puppies were sad every morning
 const baseJoy = g => clamp((g.joyV == null ? 60 : g.joyV) - H(g.joyAt) * JOY_DECAY * (g.pup && g.pup.per === 'independent' ? .75 : 1));
 const joy = g => clamp(baseJoy(g) - (g.poos || []).length * 20 - (waterLevel(g) >= 4 ? 20 : 0) - (isSick(g) ? 15 : 0));
 function addJoy(g, n) { g.joyV = Math.min(100, baseJoy(g) + n); g.joyAt = Date.now(); }
@@ -2198,6 +2222,12 @@ async function viewGarden() {
   const care = (kind, joyN) => { g = gLoad(); const per = g.pup && g.pup.per; // personality: cuddly pups love pets, playful ones love toys, shy ones warm up slowly
     if (kind === 'pet' && joyN) joyN = per === 'cuddly' ? joyN + 1 : per === 'shy' ? 1 : joyN; if (kind === 'toy' && per === 'playful') joyN += 4;
     if (joyN) addJoy(g, joyN); const up = addXp(g, kind); gSave(g); bars(); if (up) later(600, bondUp); };
+  // 5.5 keeping him company: +1 happiness a minute while you're here and playing (2 min without a tap = not counted; max 10 a visit, 20 a day)
+  clearInterval(window.__compT); if (!window.__touchHook) { window.__touchHook = 1; document.addEventListener('pointerdown', () => { window.__lastTouch = Date.now(); }, true); }
+  let compVisit = 0; window.__lastTouch = Date.now();
+  window.__compT = setInterval(() => { if (location.hash !== '#garden') return clearInterval(window.__compT); if (document.visibilityState !== 'visible' || Date.now() - (window.__lastTouch || 0) > 120000) return;
+    const g2 = gLoad(); if (!g2.pup || gMood(g2) === 'shelter') return; if (g2.compDay !== today()) { g2.compDay = today(); g2.compToday = 0; }
+    if (compVisit >= 10 || (g2.compToday || 0) >= 20 || baseJoy(g2) >= 100) return; compVisit++; g2.compToday = (g2.compToday || 0) + 1; addJoy(g2, 1); gSave(g2); bars(); if (Math.random() < .4) fx('💕', 1); }, 60000);
   const poos = () => { g = gLoad(); const box = $('#gPoos'); if (!box) return;
     box.innerHTML = g.poos.map((p, i) => `<button class="poobtn${p.k === 'pee' ? ' pee' : ''}" data-i="${i}" style="left:${p.x}%" aria-label="${p.k === 'pee' ? 'pee' : 'poo'}">${p.k === 'pee' ? PEE_SVG : pooSvg()}</button>`).join('');
     const pd = $('#gPad'); if (pd) { pd.className = 'pad' + ((g.padUses || 0) >= 4 ? ' full' : (g.padUses || 0) ? ' used' : ''); }
@@ -2716,6 +2746,21 @@ function storePicker(geoEl, chipsEl, otherEl) {
 }
 async function checkCalgary() { try { const p = await getPos(); if (!inCalgary(p)) { toast("🗺️ PricePup is for Calgary only for now. Prices logged outside Calgary aren't counted.", 4200); return false; } return true; } catch (e) { toast(geoMsg(e), 4200); return false; } }
 // read a shelf tag: product name lines, size ("10 x 130 g") and the price
+// 5.5 size: a number + a unit, or "sold by weight" (priced per lb / kg)
+const SIZE_UNITS = ['g', 'kg', 'mL', 'L', 'lb', 'EA'];
+function qtySplit(q) { q = String(q || '').trim(); if (!q || /weight/i.test(q)) return { n: '', u: 'g' };
+  const U = s => { s = (s || '').toLowerCase(); return /^(g|gr|grams?)$/.test(s) ? 'g' : s === 'kg' ? 'kg' : s === 'ml' ? 'mL' : s === 'l' ? 'L' : /^lbs?$/.test(s) ? 'lb' : s === 'oz' ? 'oz' : /^(ea|ct|count|pk|pack|pcs?|rolls?|rol|bags?|sheets?|cups?)$/.test(s) ? 'EA' : ''; };
+  let m = q.match(/(\d+(?:[.,]\d+)?)\s*[x×X]\s*(\d+(?:[.,]\d+)?)\s*([a-zA-Z]+)/);
+  if (m && U(m[3]) && U(m[3]) !== 'EA') { let n = parseFloat(m[1].replace(',', '.')) * parseFloat(m[2].replace(',', '.')), u = U(m[3]); if (u === 'oz') { n *= 28.35; u = 'g'; } return { n: String(+n.toFixed(2)), u }; }
+  m = q.match(/(\d+(?:[.,]\d+)?)\s*([a-zA-Z]+)?/); if (!m) return { n: '', u: 'g' };
+  let u = U(m[2]) || 'EA', n = parseFloat(m[1].replace(',', '.')); if (u === 'oz') { n = Math.round(n * 28.35); u = 'g'; }
+  return { n: String(n), u }; }
+function sizeHTML(p, q, byW) { const { n, u } = qtySplit(q);
+  return `<div id="${p}SizeRow"${byW ? ' class="hidden"' : ''}><label>Size</label><div style="display:flex;gap:8px"><input id="${p}SizeN" inputmode="decimal" placeholder="e.g. 500" value="${esc(n)}" style="flex:1.4"><select id="${p}SizeU" style="flex:1">${SIZE_UNITS.map(x => `<option${x === u ? ' selected' : ''}>${x}</option>`).join('')}</select></div><div class="muted">EA = pieces, cups, rolls or bags in the pack.</div></div>
+    <label class="ck"><input id="${p}ByW" type="checkbox"${byW ? ' checked' : ''}> Sold by weight (priced per lb or kg), e.g. loose fruit and veg</label>`; }
+function sizeWire(p, root = document) { const w = root.querySelector('#' + p + 'ByW'); w.onchange = () => root.querySelector('#' + p + 'SizeRow').classList.toggle('hidden', w.checked); }
+function sizeGet(p, root = document) { const byW = root.querySelector('#' + p + 'ByW').checked, n = parseFloat((root.querySelector('#' + p + 'SizeN').value || '').replace(',', '.')), u = root.querySelector('#' + p + 'SizeU').value;
+  return byW ? { quantity: 'Sold by weight', byWeight: true } : { quantity: n > 0 ? `${+n} ${u}` : '', byWeight: false }; }
 function tagParse(text) {
   const lines = (text || '').split('\n').map(s => s.replace(/[|_~=]+/g, ' ').replace(/\s+/g, ' ').trim()).filter(s => s.length > 1);
   const sm = (text || '').match(/(\d+)\s*[x×X]\s*(\d+(?:[.,]\d+)?)\s*(g|kg|ml|mL|l|L|lb|oz)\b/) || (text || '').match(/(\d+(?:[.,]\d+)?)\s*(g|kg|ml|mL|l|L|lb|oz)\b/);
@@ -2739,20 +2784,22 @@ async function viewProduct(code, logMode) { // product page (history, deal, Log 
   const it = link && link.it, va = link && (it.variants || {})[link.vid];
   const name = va ? variantText(it, link.vid) : ([info.brand, info.name].filter(Boolean).join(' ') || 'Unnamed product');
   const size = va ? '' : (info.quantity || ''), photo = (va && va.photo) || info.image || info.imageBig || '';
+  const byW = !!(info.byWeight || (va && va.byWeight)); // sold by weight: prices are per lb / kg
   const rows = (await getAll('obs')).filter(o => (link && o.itemId === it.id && o.vid === link.vid) || o.bc === code).sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.ts || 0) - (a.ts || 0));
-  const each = o => o.price / (o.multi || 1), low = rows.length ? rows.reduce((m, o) => each(o) < each(m) ? o : m) : null, deal = rows.filter(o => o.sale && (!o.until || o.until >= today())).sort((a, b) => each(a) - each(b))[0];
+  const each = o => o.price / (o.multi || 1) / (o.per === 'kg' ? 2.2046 : 1), low = rows.length ? rows.reduce((m, o) => each(o) < each(m) ? o : m) : null, deal = rows.filter(o => o.sale && (!o.until || o.until >= today())).sort((a, b) => each(a) - each(b))[0];
   app.innerHTML = `
     <div class="card"><div class="item" style="padding:0;border:0">${thumb(photo, '📦')}<div class="main"><div class="name" style="white-space:normal">${esc(name)}</div>
       <div class="muted">${size ? esc(size) + ' · ' : ''}${link ? `<a href="#variant/${encodeURIComponent(it.id)}/${encodeURIComponent(link.vid)}" style="color:inherit">${esc(itemName(it))}</a>` : '🗂️ Not sorted yet'}</div></div>
       <button class="btn sec small" id="pEdit" style="flex:0 0 auto;margin:0">✏️ Edit</button></div></div>
-    ${logMode ? '' : low ? `<div class="card"><div class="row" style="align-items:flex-start"><div><div class="muted">${t('histLow')}</div><div class="big-num">${money(each(low))}</div><div class="muted">${esc(low.store)} · ${fmtDate(low.date)}</div></div>
-      ${deal ? `<div><div class="muted">🏷️ Current deal</div><div class="big-num">${money(each(deal))}</div><div class="muted">${esc(deal.store)}${deal.until ? ' · until ' + fmtDate(deal.until).slice(5) : ''}</div></div>` : ''}</div></div>` : ''}
+    ${logMode ? '' : low ? `<div class="card"><div class="row" style="align-items:flex-start"><div><div class="muted">${t('histLow')}</div><div class="big-num">${money(each(low))}${byW ? '/lb' : ''}</div><div class="muted">${esc(low.store)} · ${fmtDate(low.date)}</div></div>
+      ${deal ? `<div><div class="muted">🏷️ Current deal</div><div class="big-num">${money(each(deal))}${byW ? '/lb' : ''}</div><div class="muted">${esc(deal.store)}${deal.until ? ' · until ' + fmtDate(deal.until).slice(5) : ''}</div></div>` : ''}</div></div>` : ''}
     ${logMode ? '' : `<button class="btn" id="pLog">➕ Log a price</button>`}
     ${logMode ? '' : !rows.length ? `<div class="card empty">${dog('sniff', 'glass', 'bounce')}<div class="muted">No prices logged for this product yet. Be the first!</div></div>` : ''}
-    ${!logMode && rows.length ? `<div class="card"><h2>Price history (${rows.length})</h2><table>${rows.slice(0, 40).map(o => `<tr><td>${esc(o.store)}<div class="muted">${fmtDate(o.date)}${o.sale ? ' · ' + t('sale') : ''}</div></td><td class="r"><b>${o.multi > 1 ? o.multi + ' for ' : ''}${money(o.price)}</b></td></tr>`).join('')}</table></div>` : ''}
+    ${!logMode && rows.length ? `<div class="card"><h2>Price history (${rows.length})</h2><table>${rows.slice(0, 40).map(o => `<tr><td>${esc(o.store)}<div class="muted">${fmtDate(o.date)}${o.sale ? ' · ' + t('sale') : ''}</div></td><td class="r"><b>${o.multi > 1 ? o.multi + ' for ' : ''}${money(o.price)}${o.per === 'lb' || o.per === 'kg' ? '/' + o.per : ''}</b></td></tr>`).join('')}</table></div>` : ''}
     ${logMode ? `<div class="card"><h2>Log the price</h2>
-      <label>Price ($)</label><div style="display:flex;gap:8px;align-items:center"><input id="pPrice" class="big" inputmode="decimal" placeholder="0.00" style="flex:1"><button class="btn sec small" id="pTag" style="flex:0 0 auto;width:auto;margin:0">📷 Read tag</button></div><div id="pOcr" class="muted"></div>
-      <label class="ck"><input id="pMultiOn" type="checkbox"> Multi-buy deal, e.g. "2 for $5"</label>
+      ${byW ? `<div class="chips" id="pPer"><button type="button" class="chip on" data-p="lb">per lb</button><button type="button" class="chip" data-p="kg">per kg</button></div>` : ''}
+      <label>Price ($${byW ? ' per <span id="pPerL">lb</span>' : ''})</label><input id="pPrice" class="big" inputmode="decimal" placeholder="0.00">
+      <label class="ck${byW ? ' hidden' : ''}"><input id="pMultiOn" type="checkbox"> Multi-buy deal, e.g. "2 for $5"</label>
       <div id="pMultiRow" class="hidden"><label>How many for this price?</label><input id="pMulti" inputmode="numeric" value="2"><div class="muted">A box with 2 inside counts as 1.</div></div>
       <label>Store</label><div class="muted" id="pGeo"></div><div class="chips storechips" id="pChains"></div><input id="pStore" class="hidden" placeholder="Other store name">
       <label class="ck"><input id="pSale" type="checkbox"> ${t('sale')}</label></div>
@@ -2761,21 +2808,18 @@ async function viewProduct(code, logMode) { // product page (history, deal, Log 
   if (!logMode) { $('#pLog').onclick = () => location.hash = `#product/${code}/log`; return; }
   const sp = storePicker($('#pGeo'), $('#pChains'), $('#pStore'));
   $('#pMultiOn').onchange = () => $('#pMultiRow').classList.toggle('hidden', !$('#pMultiOn').checked);
-  $('#pTag').onclick = async () => { const f = await pickFile($('#fileTag')); if (!f) return; $('#pOcr').textContent = t('ocrReading');
-    try { await getOcr(); const c = await readPriceTag(f, false); if (!c.length) { $('#pOcr').textContent = t('ocrNone'); return; }
-      const x = c[0]; $('#pPrice').value = x.price.toFixed(2); if (x.multi > 1) { $('#pMultiOn').checked = true; $('#pMulti').value = x.multi; $('#pMultiRow').classList.remove('hidden'); }
-      $('#pOcr').textContent = `✅ Read ${x.multi > 1 ? x.multi + ' for ' : ''}${money(x.price)}. Please check it.`; } catch (e) { $('#pOcr').textContent = t('ocrFail'); } };
+  let per = 'lb'; if (byW) $('#pPer').querySelectorAll('.chip').forEach(b => b.onclick = () => { per = b.dataset.p; $('#pPer').querySelectorAll('.chip').forEach(x => x.classList.toggle('on', x === b)); $('#pPerL').textContent = per; });
   $('#pEdit').onclick = () => editProduct(code, info, link, name, size);
   $('#pSave').onclick = async () => {
     const price = parseFloat($('#pPrice').value); if (!(price > 0)) return toast(t('needPrice'));
     const store = sp.get(); if (!store) return toast('Pick the store first');
     if (!(await checkCalgary())) return;
     const multi = $('#pMultiOn').checked ? Math.max(2, parseInt($('#pMulti').value) || 2) : 1;
-    const o = { id: newId(), price: Math.round(price * 100) / 100, multi, per: 'pack', store, date: today(), sale: $('#pSale').checked, note: '', src: 'app', by: fbUser ? fbUser.uid : '', ts: Date.now(), bc: code };
+    const o = { id: newId(), price: Math.round(price * 100) / 100, multi: byW ? 1 : multi, per: byW ? per : 'pack', store, date: today(), sale: $('#pSale').checked, note: '', src: 'app', by: fbUser ? fbUser.uid : '', ts: Date.now(), bc: code };
     if (link) { o.itemId = it.id; o.vid = link.vid; } else { o.itemId = ''; o.vid = ''; o.pname = name.slice(0, 80); o.psize = size; }
     await save('obs', o); lsSet('lastStore', store);
-    if (earnCoin()) setTimeout(() => toast(withName(t('coinPlus')), 2200), 2800);
-    toast(link ? `✅ Saved ${o.multi > 1 ? o.multi + ' for ' : ''}${money(o.price)} at ${store}` : `✅ Saved. This product will be sorted into the right item soon.`, 2800);
+    if (earnCoin()) setTimeout(() => coinPop(1, 'Thanks for logging a price!'), 900);
+    toast(link ? `✅ Saved ${o.multi > 1 ? o.multi + ' for ' : ''}${money(o.price)}${byW ? '/' + per : ''} at ${store}` : `✅ Saved. This product will be sorted into the right item soon.`, 2800);
     location.replace(link ? `#variant/${encodeURIComponent(it.id)}/${encodeURIComponent(link.vid)}` : `#product/${code}`); // back to the product page with the new price
   };
 }
@@ -2783,20 +2827,29 @@ async function viewProduct(code, logMode) { // product page (history, deal, Log 
 // After saving (+2 coins) the user lands on the product page, where "Log a price" is a separate step (+1 coin).
 function viewNewProduct(code) {
   setHeader('New product', true); setTab('scan');
-  let photo = '';
+  let photo = '', ocrText = '';
   app.innerHTML = `<div class="card"><b>🐾 You're the first to scan this!</b><div class="muted">Add this product so everyone can find it. No price needed. You get 2 coins, and you can log a price on the next screen if you have one.</div></div>
     <div class="card"><h2>1 · Product photo</h2><div style="display:flex;gap:10px;align-items:center"><div id="nThumb" style="flex:0 0 54px">${thumb('', '📷')}</div><button class="btn sec small" id="nPhoto" style="flex:1;margin:0">📷 Take a clear photo of the product</button></div></div>
-    <div class="card"><h2>2 · Product details</h2><label>Product name</label><input id="nName" placeholder="e.g. Shin Ramyun Black">
-      <div class="row"><div><label>Brand</label><input id="nBrand" placeholder="e.g. Nongshim"></div><div><label>Size</label><input id="nSize" placeholder="e.g. 10 x 130 g"></div></div></div>
+    <div class="card"><h2>2 · Product details</h2>
+      <button class="btn sec small" id="nTag" style="margin:0">🏷️ Snap the price tag to fill in the name (optional)</button><div id="nTagMsg" class="muted" style="margin-top:6px"></div>
+      <label>Product name</label><input id="nName" placeholder="e.g. Shin Ramyun Black">
+      <label>Brand</label><input id="nBrand" placeholder="e.g. Nongshim">
+      ${sizeHTML('n', '', false)}</div>
     <button class="btn" id="nSave">Save product · 🪙 +2</button>`;
+  sizeWire('n');
   $('#nPhoto').onclick = async () => { const f = await pickFile($('#filePhoto')); if (!f) return; photo = await thumbFrom(f); $('#nThumb').innerHTML = thumb(photo); };
+  $('#nTag').onclick = async () => { const f = await pickFile($('#fileTag')); if (!f) return; const msg = $('#nTagMsg'); msg.textContent = t('ocrReading');
+    try { const w = await getOcr(); const c0 = await prepForOcr(f, 1600); const { data } = await w.recognize(c0); ocrText = (data.text || '').slice(0, 600); const tp = tagParse(ocrText);
+      if (tp.name && !$('#nName').value) $('#nName').value = tp.name;
+      if (tp.size && !$('#nSizeN').value) { const q = qtySplit(tp.size); $('#nSizeN').value = q.n; $('#nSizeU').value = q.u; }
+      if (/\/\s*(lb|kg)\b|per\s*(lb|kg)\b/i.test(ocrText)) { $('#nByW').checked = true; $('#nSizeRow').classList.add('hidden'); }
+      msg.textContent = tp.name ? '✅ Read it. Please check the name below.' : t('ocrNone'); } catch (e) { msg.textContent = t('ocrFail'); } };
   $('#nSave').onclick = async () => {
     if (!photo) return toast('📷 Please take a clear photo of the product first. Everyone who scans it later will see it.', 3600);
-    const name = $('#nName').value.trim(); if (!name) return toast('Type the product name');
-    $('#nSave').disabled = true;
-    await bcPut(code, { name, brand: $('#nBrand').value.trim(), quantity: $('#nSize').value.trim(), image: photo, src: 'user', status: 'unsorted' });
-    const c = earnCoin(2);
-    toast(c ? withName(t(c > 1 ? 'coinPlus2' : 'coinPlus')) : '🐾 Thanks! Saved for everyone.', 3000);
+    const name = $('#nName').value.trim(); if (!name) return toast('Type the product name (or snap the price tag)');
+    const sg = sizeGet('n'); $('#nSave').disabled = true;
+    await bcPut(code, { name, brand: $('#nBrand').value.trim(), quantity: sg.quantity, byWeight: sg.byWeight, image: photo, src: 'user', status: 'unsorted', ocr: ocrText });
+    const c = earnCoin(2); if (c) setTimeout(() => coinPop(c, 'Thanks for adding a new product!'), 500); else toast('🐾 Thanks! Saved for everyone.', 3000);
     if (location.hash === `#product/${code}`) viewProduct(code); else location.replace(`#product/${code}`); // product page: tap "Log a price" if you have one
   };
 }
@@ -2804,13 +2857,13 @@ function viewNewProduct(code) {
 function editProduct(code, info, link, name, size) {
   let photo = '';
   const m = showSheet(`<h2 style="margin-top:0">✏️ Edit product</h2><div class="muted">Fix the name, size or picture. Everyone who scans it will see your fix.</div>
-    <label>Product name</label><input id="eName" value="${esc(info.name || name || '')}"><div class="row"><div><label>Brand</label><input id="eBrand" value="${esc(info.brand || '')}"></div><div><label>Size</label><input id="eSize" value="${esc(info.quantity || size || '')}"></div></div>
+    <label>Product name</label><input id="eName" value="${esc(info.name || name || '')}"><label>Brand</label><input id="eBrand" value="${esc(info.brand || '')}">${sizeHTML('e', info.quantity || size || '', info.byWeight)}
     <div style="display:flex;gap:10px;align-items:center;margin-top:10px"><div id="eThumb" style="flex:0 0 54px">${thumb(info.image || '', '📷')}</div><button class="btn sec small" id="ePhoto" style="flex:1;margin:0">📷 New photo</button></div>
     <div class="row" style="margin-top:12px"><button class="btn sec" id="eCancel" style="margin:0">${t('close')}</button><button class="btn" id="eSave" style="margin:0">${t('save')}</button></div>`);
-  m.querySelector('#eCancel').onclick = closeSheet;
+  m.querySelector('#eCancel').onclick = closeSheet; sizeWire('e', m);
   m.querySelector('#ePhoto').onclick = async () => { const f = await pickFile($('#filePhoto')); if (!f) return; photo = await thumbFrom(f); m.querySelector('#eThumb').innerHTML = thumb(photo); };
   m.querySelector('#eSave').onclick = async () => { const nm = m.querySelector('#eName').value.trim(); if (!nm) return toast(t('needName'));
-    await bcPut(code, { ...info, name: nm, brand: m.querySelector('#eBrand').value.trim(), quantity: m.querySelector('#eSize').value.trim(), image: photo || info.image || '', src: info.src || 'user', edited: Date.now() });
+    await bcPut(code, { ...info, name: nm, brand: m.querySelector('#eBrand').value.trim(), ...(({ quantity, byWeight }) => ({ quantity, byWeight }))(sizeGet('e', m)), image: photo || info.image || '', src: info.src || 'user', edited: Date.now() });
     if (link) { const fresh = await getOne('items', link.it.id), va = (fresh.variants || {})[link.vid]; if (va) { va.desc = nm; va.brand = m.querySelector('#eBrand').value.trim(); if (photo) va.photo = photo; await save('items', fresh); } }
     closeSheet(); toast('✅ Thanks! Product updated.', 2200); viewProduct(code); };
 }
@@ -2922,13 +2975,18 @@ async function checkVersion() {
   try { const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' }); if (!r.ok) return; const v = (await r.json()).v;
     const vnum = x => (x || '0').split('.').map(Number).reduce((s, y) => s * 1000 + y, 0);
     if (!v || vnum(v) <= vnum(APP_VERSION) || verAsked === v) return; verAsked = v;
+    const r0 = location.hash.slice(1).split('/')[0], ae = document.activeElement, busy = (ae && /INPUT|TEXTAREA|SELECT/.test(ae.tagName)) || !$('#scanner').classList.contains('hidden') || !!document.querySelector('.sheet:not(.hidden)');
+    if (!busy && ['', 'home', 'items', 'deals', 'settings', 'garden', 'item', 'variant', 'product'].includes(r0) && !sessionStorage.getItem('autoUpd' + v)) { // 5.5: update by itself once, no button needed
+      sessionStorage.setItem('autoUpd' + v, '1'); toast('🐾 Updating to ' + v + '…', 3000);
+      try { for (const reg of await navigator.serviceWorker.getRegistrations()) await reg.unregister(); for (const k of await caches.keys()) if (/pricepup/.test(k)) await caches.delete(k); } catch (e) {}
+      location.replace(location.pathname + '?v=' + v + location.hash); return; }
     const m = showSheet(`<div style="text-align:center">${dog('happy', 'party', 'bounce')}</div><h2 style="text-align:center">${t('updTitle')}</h2>
       <div class="muted" style="text-align:center;margin-bottom:12px">${tf('updBody', v, APP_VERSION)}</div>
       <button class="btn" id="updGo">${t('updBtn')}</button><button class="btn sec" id="updLater">${t('updLater')}</button>`);
     m.querySelector('#updLater').onclick = closeSheet;
     m.querySelector('#updGo').onclick = async () => { m.querySelector('#updGo').disabled = true; m.querySelector('#updGo').textContent = t('updDoing');
       try { for (const reg of await navigator.serviceWorker.getRegistrations()) await reg.unregister(); for (const k of await caches.keys()) if (/pricepup/.test(k)) await caches.delete(k); } catch (e) {}
-      location.reload(); };
+      location.replace(location.pathname + '?v=' + v + location.hash); };
   } catch (e) {}
 }
 
@@ -2952,6 +3010,8 @@ function showProduct(sc) {
 
 /* ---------- What's new (shown once after each update) ---------- */
 const CHANGES = {
+  '5.5.0': [['New products: type the size as a number and pick the unit (g, kg, mL, L, lb, EA), or tick "Sold by weight" for loose fruit and veg. Snap the price tag to fill in the name for you.', 'Logging a price is just the number now. Sold-by-weight products ask for the price per lb or kg.', 'The camera stays ready for 2 minutes after a scan, so you can scan several things in a row.', 'At a store? Deals opens that store first.', 'Your puppy\'s happiness fades more slowly, and spending time with him makes him a little happier.', 'The app updates itself when there is a new version.', 'No more zooming in by accident when you tap twice.'],
+            ['New products: type the size as a number and pick the unit (g, kg, mL, L, lb, EA), or tick "Sold by weight" for loose fruit and veg. Snap the price tag to fill in the name for you.', 'Logging a price is just the number now. Sold-by-weight products ask for the price per lb or kg.', 'The camera stays ready for 2 minutes after a scan, so you can scan several things in a row.', 'At a store? Deals opens that store first.', 'Your puppy\'s happiness fades more slowly, and spending time with him makes him a little happier.', 'The app updates itself when there is a new version.', 'No more zooming in by accident when you tap twice.']],
   '5.4.5': [['Small fix: the old 99 test coins of the power user are cleared.'], ['Small fix: the old 99 test coins of the power user are cleared.']],
   '5.4.4': [['Adding a new product is now its own quick step: a photo and the name, no price needed (great for scanning at home). You get 2 coins.', 'Then you land on the product page, where you can log a price for 1 more coin.'],
             ['Adding a new product is now its own quick step: a photo and the name, no price needed (great for scanning at home). You get 2 coins.', 'Then you land on the product page, where you can log a price for 1 more coin.']],
