@@ -387,7 +387,7 @@ label.ck{display:flex;gap:8px;align-items:center;color:var(--text);font-size:15p
 
 <script>
 'use strict';
-const APP_VERSION = '5.6.1';
+const APP_VERSION = '5.6.2';
 const $ = s => document.querySelector(s);
 const app = $('#app');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -1608,7 +1608,7 @@ async function viewSettings() {
 }
 
 /* ---------- 5.6 Feedback (users -> super user) and Support (Ko-fi) ---------- */
-const KOFI_URL = ''; // Silver's Ko-fi page; the Support card stays hidden while this is empty
+const KOFI_URL = 'https://ko-fi.com/pricepup'; // Silver's Ko-fi page; the Support card stays hidden while this is empty
 function feedbackSheet() {
   if (!fbUser) { toast('Please sign in with Google first (in Settings), so we can read your message.', 3400); return; }
   const m = showSheet(`<h2 style="margin-top:0">💬 Tell us how we can improve</h2><div class="muted">Ideas, problems, anything. Only the PricePup team can read it.</div>
@@ -3042,6 +3042,7 @@ function showProduct(sc) {
 
 /* ---------- What's new (shown once after each update) ---------- */
 const CHANGES = {
+  '5.6.2': [['New: Support PricePup in Settings. PricePup is free with no ads; if it saves you money, you can buy us a coffee on Ko-fi.'], ['New: Support PricePup in Settings. PricePup is free with no ads; if it saves you money, you can buy us a coffee on Ko-fi.']],
   '5.6.1': [['New app icon: the pup now has dark smiling eyes.'], ['New app icon: the pup now has dark smiling eyes.']],
   '5.6.0': [['New: tell us how we can improve PricePup. Find it in Settings: type a message and send it, we read every one.', 'New: Support PricePup in Settings, if you\'d like to help keep it running.'],
             ['New: tell us how we can improve PricePup. Find it in Settings: type a message and send it, we read every one.', 'New: Support PricePup in Settings, if you\'d like to help keep it running.']],
