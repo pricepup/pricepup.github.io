@@ -1,5 +1,5 @@
 'use strict';
-const APP_VERSION = '5.6.0';
+const APP_VERSION = '5.6.1';
 const $ = s => document.querySelector(s);
 const app = $('#app');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -2600,6 +2600,7 @@ function showProduct(sc) {
 
 /* ---------- What's new (shown once after each update) ---------- */
 const CHANGES = {
+  '5.6.1': [['New app icon: the pup now has dark smiling eyes.'], ['New app icon: the pup now has dark smiling eyes.']],
   '5.6.0': [['New: tell us how we can improve PricePup. Find it in Settings: type a message and send it, we read every one.', 'New: Support PricePup in Settings, if you\'d like to help keep it running.'],
             ['New: tell us how we can improve PricePup. Find it in Settings: type a message and send it, we read every one.', 'New: Support PricePup in Settings, if you\'d like to help keep it running.']],
   '5.5.0': [['New products: type the size as a number and pick the unit (g, kg, mL, L, lb, EA), or tick "Sold by weight" for loose fruit and veg. Snap the price tag to fill in the name for you.', 'Logging a price is just the number now. Sold-by-weight products ask for the price per lb or kg.', 'The camera stays ready for 2 minutes after a scan, so you can scan several things in a row.', 'At a store? Deals opens that store first.', 'Your puppy\'s happiness fades more slowly, and spending time with him makes him a little happier.', 'The app updates itself when there is a new version.', 'No more zooming in by accident when you tap twice.'],
