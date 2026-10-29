@@ -1,5 +1,5 @@
 'use strict';
-const APP_VERSION = '5.5.0';
+const APP_VERSION = '5.6.0';
 const $ = s => document.querySelector(s);
 const app = $('#app');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -1147,6 +1147,9 @@ async function viewSettings() {
     ${isAdmin() ? `<div class="card"><h2>🗂️ Unsorted products</h2><div id="unsortedBody" class="muted">…</div></div>` : ''}
     ${isAdmin() ? `<div class="card"><h2>📊 ${t('usageTitle')}</h2><div class="muted">${t('usageHint')}</div><div id="usageBody"></div>
       <div class="row" style="margin-top:8px"><button class="btn sec small" id="usageBtn">${t('usageLoad')}</button><a class="btn sec small" style="text-align:center;text-decoration:none" target="_blank" rel="noopener" href="https://console.firebase.google.com/project/${FB_CONFIG.projectId}/firestore/databases/-default-/usage">${t('usageConsole')}</a></div></div>` : ''}
+    <div class="card"><h2>💬 Feedback</h2><div class="muted">Tell us how we can improve PricePup. We read every message.</div><button class="btn" id="sFeedback" style="margin-top:10px">Tell us how we can improve</button></div>
+    ${KOFI_URL ? `<div class="card"><h2>❤️ Support PricePup</h2><div class="muted">PricePup is free, with no ads. If it saves you money, you can buy us a coffee to help keep it running.</div><a class="btn" style="display:block;text-align:center;text-decoration:none;margin-top:10px" href="${KOFI_URL}" target="_blank" rel="noopener">☕ Support us on Ko-fi</a></div>` : ''}
+    ${isAdmin() ? `<div class="card"><h2 id="fbHead">📬 Feedback from users</h2><div id="fbBody" class="muted">…</div></div>` : ''}
     <button class="btn sec" id="sGuide">${t('guide')}</button>
     <div class="empty">${dog('sleep', 'z')}<div class="muted"><span class="brand" style="font-weight:800;font-size:16px">${LANG === 'zh' ? '格價狗 PricePup' : 'PricePup'}</span> v${APP_VERSION}<br>${t('credit')}</div></div>`;
   $('#sGuide').onclick = () => showGuide(0);
@@ -1159,7 +1162,36 @@ async function viewSettings() {
   if ($('#sSignOut')) $('#sSignOut').onclick = signOutSync;
   if ($('#usageBtn')) { $('#usageBtn').onclick = () => loadUsage(true); if (usageTok()) loadUsage(false); }
   if ($('#usersBody')) loadUsers(); if ($('#unsortedBody')) loadUnsorted();
+  $('#sFeedback').onclick = feedbackSheet; if ($('#fbBody')) loadFeedback();
 }
+
+/* ---------- 5.6 Feedback (users -> super user) and Support (Ko-fi) ---------- */
+const KOFI_URL = ''; // Silver's Ko-fi page; the Support card stays hidden while this is empty
+function feedbackSheet() {
+  if (!fbUser) { toast('Please sign in with Google first (in Settings), so we can read your message.', 3400); return; }
+  const m = showSheet(`<h2 style="margin-top:0">💬 Tell us how we can improve</h2><div class="muted">Ideas, problems, anything. Only the PricePup team can read it.</div>
+    <textarea id="fbText" rows="6" maxlength="1000" placeholder="Type your message…" style="margin-top:10px;resize:vertical"></textarea><div class="muted" id="fbCount" style="text-align:right">0 / 1000</div>
+    <div class="row" style="margin-top:8px"><button class="btn sec" id="fbCancel" style="margin:0">${t('close')}</button><button class="btn" id="fbSend" style="margin:0">Send</button></div>`);
+  const ta = m.querySelector('#fbText'); ta.oninput = () => { m.querySelector('#fbCount').textContent = ta.value.length + ' / 1000'; };
+  m.querySelector('#fbCancel').onclick = closeSheet;
+  m.querySelector('#fbSend').onclick = async () => { const text = ta.value.trim(); if (text.length < 2) return toast('Please type a message first');
+    const b = m.querySelector('#fbSend'); b.disabled = true; b.textContent = 'Sending…';
+    try { await fb.F.setDoc(docRef('feedback', newId()), { text: text.slice(0, 1000), by: fbUser.uid, email: fbUser.email || '', name: fbUser.displayName || '', app: APP_VERSION, ts: Date.now(), read: false, updated: Date.now() });
+      closeSheet(); toast('🐾 Thank you! We read every message.', 3000); }
+    catch (e) { b.disabled = false; b.textContent = 'Send'; toast('Could not send it: ' + (e.code || e.message), 3600); } };
+}
+async function loadFeedback() { const box = $('#fbBody'); if (!box) return;
+  try { const list = (await fb.F.getDocsFromServer(col('feedback'))).docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (b.ts || 0) - (a.ts || 0));
+    const nNew = list.filter(x => !x.read).length; $('#fbHead').textContent = `📬 Feedback from users${nNew ? ` (${nNew} new)` : ''}`;
+    box.innerHTML = list.length ? list.slice(0, 50).map(x => `<div class="fbmsg"><div class="muted">${x.read ? '' : '🔴 '}<b>${esc(x.name || 'Someone')}</b> · ${fmtWhen(x.ts)} · v${esc(x.app || '?')}</div><div class="fbtext">${esc(x.text)}</div>${x.email ? `<div class="muted">${esc(x.email)}</div>` : ''}</div>`).join('') : '<div class="muted">No feedback yet.</div>';
+    const unread = list.filter(x => !x.read); if (unread.length) { const b = fb.F.writeBatch(fb.db); unread.forEach(x => b.update(docRef('feedback', x.id), { read: true, updated: Date.now() })); await b.commit(); }
+    fbBadge(0);
+  } catch (e) { box.innerHTML = `<span style="color:var(--bad)">${esc(e.code || e.message)}</span>`; } }
+function fbBadge(n) { const a = document.querySelector('.tabs a[data-tab="settings"]'); if (a) a.classList.toggle('dot', n > 0); }
+async function checkFeedback() { if (!fbUser || !isAdmin() || !syncOn()) return; // super user: red dot on Settings + a notification for new messages
+  try { const q = await fb.F.getDocsFromServer(fb.F.query(col('feedback'), fb.F.where('read', '==', false))); const n = q.size; fbBadge(n);
+    const newest = Math.max(0, ...q.docs.map(d => d.data().ts || 0));
+    if (n && newest > +(lsGet('fbNotified') || 0)) { lsSet('fbNotified', String(newest)); notify('PricePup', `💬 ${n} new feedback message${n > 1 ? 's' : ''}. Open Settings to read.`, 'feedback', '#settings'); } } catch (e) {} }
 
 /* ---------- Latest flyer week + admin usage ---------- */
 async function loadUsers() {
@@ -2524,7 +2556,7 @@ function checkPet() { const need = petNeed(); if (!need || location.hash === '#g
   if (Date.now() - (at[need.k] || 0) < 3 * 36e5) return; at[need.k] = Date.now(); lsSet('notiAt', JSON.stringify(at));
   notify(tf('needTitle', gLoad().pup.name), need.msg, 'pet', '#garden'); }
 setInterval(checkPet, 10 * 60e3);
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') checkPet(); else { checkVersion(); checkTrack(); } });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') checkPet(); else { checkVersion(); checkTrack(); checkFeedback(); } });
 navigator.serviceWorker && navigator.serviceWorker.addEventListener && navigator.serviceWorker.addEventListener('message', e => { if (e.data && e.data.url) location.hash = e.data.url; });
 
 /* ---------- Version check: make sure everyone is on the latest app ---------- */
@@ -2568,6 +2600,8 @@ function showProduct(sc) {
 
 /* ---------- What's new (shown once after each update) ---------- */
 const CHANGES = {
+  '5.6.0': [['New: tell us how we can improve PricePup. Find it in Settings: type a message and send it, we read every one.', 'New: Support PricePup in Settings, if you\'d like to help keep it running.'],
+            ['New: tell us how we can improve PricePup. Find it in Settings: type a message and send it, we read every one.', 'New: Support PricePup in Settings, if you\'d like to help keep it running.']],
   '5.5.0': [['New products: type the size as a number and pick the unit (g, kg, mL, L, lb, EA), or tick "Sold by weight" for loose fruit and veg. Snap the price tag to fill in the name for you.', 'Logging a price is just the number now. Sold-by-weight products ask for the price per lb or kg.', 'The camera stays ready for 2 minutes after a scan, so you can scan several things in a row.', 'At a store? Deals opens that store first.', 'Your puppy\'s happiness fades more slowly, and spending time with him makes him a little happier.', 'The app updates itself when there is a new version.', 'No more zooming in by accident when you tap twice.'],
             ['New products: type the size as a number and pick the unit (g, kg, mL, L, lb, EA), or tick "Sold by weight" for loose fruit and veg. Snap the price tag to fill in the name for you.', 'Logging a price is just the number now. Sold-by-weight products ask for the price per lb or kg.', 'The camera stays ready for 2 minutes after a scan, so you can scan several things in a row.', 'At a store? Deals opens that store first.', 'Your puppy\'s happiness fades more slowly, and spending time with him makes him a little happier.', 'The app updates itself when there is a new version.', 'No more zooming in by accident when you tap twice.']],
   '5.4.5': [['Small fix: the old 99 test coins of the power user are cleared.'], ['Small fix: the old 99 test coins of the power user are cleared.']],
@@ -2705,5 +2739,5 @@ window.addEventListener('hashchange', () => route());
   if (!lsGet('guided')) { lsSet('seenVer', APP_VERSION); setTimeout(() => showGuide(0), 600); }
   else setTimeout(showWhatsNew, 800);
   setTimeout(() => { if (lsGet('guided') && !document.getElementById('sheet')) firstLocation(); }, 3500);
-  setTimeout(checkVersion, 2500); checkTrack(); setTimeout(checkPet, 4000);
+  setTimeout(checkVersion, 2500); checkTrack(); setTimeout(checkPet, 4000); setTimeout(checkFeedback, 6000); setTimeout(checkFeedback, 20000);
 })();
