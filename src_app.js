@@ -1,5 +1,5 @@
 'use strict';
-const APP_VERSION = '1.0.0';
+const APP_VERSION = '1.0.1';
 const $ = s => document.querySelector(s);
 const app = $('#app');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -2600,6 +2600,7 @@ function showProduct(sc) {
 
 /* ---------- What's new (shown once after each update) ---------- */
 const CHANGES = {
+  '1.0.1': [['The pup now has dark smiling eyes everywhere in the app, to match the new icon.'], ['The pup now has dark smiling eyes everywhere in the app, to match the new icon.']],
   '1.0.0': [['Welcome to PricePup 1.0, a free grocery price app for Calgary.', "Scan a barcode or search to see a product's price history, the all-time low and this week's deals across 14 Calgary stores.", 'Log a price you see in store and help everyone save. Adopt a puppy, earn coins for every price you share, and keep him happy.', 'Ideas or problems? Tell us in Settings. We read every message.'],
             ['Welcome to PricePup 1.0, a free grocery price app for Calgary.', "Scan a barcode or search to see a product's price history, the all-time low and this week's deals across 14 Calgary stores.", 'Log a price you see in store and help everyone save. Adopt a puppy, earn coins for every price you share, and keep him happy.', 'Ideas or problems? Tell us in Settings. We read every message.']],
 };
