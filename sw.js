@@ -1,5 +1,5 @@
 // 格價簿 service worker: offline app shell + cache OCR library files.
-const VERSION = 'pricepup-v1.0.2';
+const VERSION = 'pricepup-v1.1.0';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
