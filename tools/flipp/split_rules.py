@@ -24,7 +24,7 @@ SPLIT = {
  'body-wash': [('bar-soap','番梘／洗手液','Bar soap & hand soap',r'bar soap|\bbars?\b|hand soap|hand wash|softsoap'),('body-wash','沐浴露','Body wash',r'')],
  'shampoo': [('shampoo','洗頭水','Shampoo',r'shampoo'),('conditioner','護髮素','Conditioner',r'condition'),('shampoo','洗頭水','Shampoo',r'')],
  'toothpaste': [('mouthwash','漱口水','Mouthwash',r'mouthwash|listerine|rinse'),('toothpaste','牙膏','Toothpaste',r'')],
- 'noodles': [('instant-noodles','即食麵','Instant noodles',r'instant|ramen|cup noodle|nissin|shin|maggi|mama|indomie|nongshim|buldak|mr\.? noodle|top ramen'),
+ 'noodles': [('instant-noodles','即食麵','Instant noodles',r'instant|ramen|pot noodle|cup noodle|nissin|shin|maggi|mama|indomie|nongshim|buldak|mr\.? noodle|top ramen'),
              ('rice-noodles','米粉／河粉','Rice noodles & vermicelli',r'rice noodle|vermicelli|rice stick|pho'),('noodles','麵條','Noodles',r'')],
  'dips': [('hummus','鷹嘴豆泥','Hummus',r'hummus'),('dips','沾醬','Dips',r'')],
  'deli-meat': [('ham','火腿','Ham',r'\bham\b'),('salami','薩拉米／意式凍肉','Salami & Italian cold cuts',r'salami|pepperoni|prosciutto|capicol|mortadella'),
