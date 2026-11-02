@@ -387,7 +387,7 @@ label.ck{display:flex;gap:8px;align-items:center;color:var(--text);font-size:15p
 
 <script>
 'use strict';
-const APP_VERSION = '1.1.2';
+const APP_VERSION = '1.1.3';
 const $ = s => document.querySelector(s);
 const app = $('#app');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -2719,18 +2719,16 @@ function viewHotel() {
     <button class="btn" id="hoBack">Pick up ${esc(p.name)} now</button>`;
   $('#hoBack').onclick = () => { const g2 = gLoad(); if (g2.vac) g2.vac.until = Date.now(); gSave(g2); viewGarden(); };
 }
-/* ---------- shelter: no care for 24 hours. Pay 10 coins to bring the puppy home ---------- */
+/* ---------- shelter: no care for 24 hours. Bringing the puppy home is free (1.1.3) ---------- */
 function viewShelter() {
   const g = gLoad(), p = g.pup; pupCollar = g.wear || null; setHeader('🏠 Pup shelter', true); setTab('home');
-  const can = (g.coins || 0) >= SHELTER_FEE;
   app.innerHTML = `<div class="garden big shelsc"><div class="ssign">🏠 Calgary Pup Shelter</div><div class="pupwrap"><div class="pup">${regenB('sit', 'sad', p.color, g.wear || null)}</div></div>
       <div class="sbars"></div><div class="snote">No one took care<br>of me for a day 🥺</div></div>
     <div class="card"><b>${esc(p.name)} is at the shelter</b><div style="margin-top:4px">${esc(p.name)} went without care for over a day (no food, water or visits), so the shelter took it in to keep it safe.
-      Pay the fee to bring it home. Skills are kept; your bond drops 1 level.</div><div class="muted" style="margin-top:6px">${cn(tf('shopCoins', g.coins || 0))}</div></div>
-    <button class="btn" id="shBack" ${can ? '' : 'disabled'}>Bring ${esc(p.name)} home · ${SHELTER_FEE} ${COIN_SVG}</button>
-    ${can ? '' : `<div class="muted" style="text-align:center;margin-top:6px">Not enough coins? Log a price for 1 coin; add a new product for 2 more (up to ${COIN_CAP} a day).</div>`}`;
-  $('#shBack').onclick = () => { const g2 = gLoad(); if ((g2.coins || 0) < SHELTER_FEE) return;
-    g2.coins -= SHELTER_FEE; const L = bondOf(g2).L; if (L > 1) g2.xp = xpAt(L - 1); delete g2.shelter; delete g2.sick;
+      Bring it home for free. Skills are kept; your bond drops 1 level.</div></div>
+    <button class="btn" id="shBack">🏡 Bring ${esc(p.name)} home</button>`;
+  $('#shBack').onclick = () => { const g2 = gLoad(); if (!g2.shelter) return viewGarden();
+    const L = bondOf(g2).L; if (L > 1) g2.xp = xpAt(L - 1); delete g2.shelter; delete g2.sick;
     g2.lastVisit = Date.now(); g2.lastFed = Date.now(); g2.recentFeeds = 1; g2.waterAt = Date.now(); g2.poos = []; g2.pendingPoo = 0; g2.joyV = 30; g2.joyAt = Date.now(); // the shelter fed and cleaned it
     gSave(g2); toast(`🏡 ${p.name} is home! It missed you.`, 3000); viewGarden(); };
 }
@@ -3054,6 +3052,7 @@ function showProduct(sc) {
 
 /* ---------- What's new (shown once after each update) ---------- */
 const CHANGES = {
+  '1.1.3': [['Bringing your puppy home from the shelter is now free.'], ['Bringing your puppy home from the shelter is now free.']],
   '1.1.2': [['Found a mistake in a product? Tap ✏️ Edit on its page to correct the name, brand, size, barcode or photo for everyone, and get 1 coin for helping.', 'Friends no longer repeats the invite (it lives in Settings), and the 👥 Friends button no longer covers the time in your puppy\'s room. The puppy\'s status box is now small (just the level): tap it to see everything.'], ['Found a mistake in a product? Tap ✏️ Edit on its page to correct the name, brand, size, barcode or photo for everyone, and get 1 coin for helping.', 'Friends no longer repeats the invite (it lives in Settings), and the 👥 Friends button no longer covers the time in your puppy\'s room. The puppy\'s status box is now small (just the level): tap it to see everything.']],
   '1.1.1': [['Friends moved into your puppy\'s world: tap 👥 Friends in the room or the backyard.', 'Add any PricePup user as a friend with their friend code, or scan their QR. They accept, and you can visit each other\'s gardens.', 'Tapping a deal now opens that exact product, not the whole item.'], ['Friends moved into your puppy\'s world: tap 👥 Friends in the room or the backyard.', 'Add any PricePup user as a friend with their friend code, or scan their QR. They accept, and you can visit each other\'s gardens.', 'Tapping a deal now opens that exact product, not the whole item.']],
   '1.1.0': [['New: the backyard! Tap the door in your puppy\'s room to go outside: play fetch, dig for treats and go potty on the lawn.', 'New: walks. With a collar and bond level 5, take your puppy for a walk on a leash. Young puppies are wild: steer them away from chocolate, grapes and other things dogs must not eat.', 'New: friends. Invite friends with your link (you both get 10 coins), ask to visit their garden, play with their puppy, leave gifts or play a prank.', 'Share a great price with a friend from any product page. And a new Privacy page in Settings.'],
