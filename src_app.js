@@ -1,5 +1,5 @@
 'use strict';
-const APP_VERSION = '1.2.2';
+const APP_VERSION = '1.2.3';
 const $ = s => document.querySelector(s);
 const app = $('#app');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
