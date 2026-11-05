@@ -87,12 +87,12 @@ h2{font-size:17px;margin:0 0 8px}
 .seg button.on{border-color:var(--accent);background:var(--soft);color:var(--accent-dk)}
 #syncBadge{font-size:13px;font-weight:700;text-decoration:none;padding:5px 9px;border-radius:999px;background:var(--card);border:2px solid var(--line);color:var(--muted);white-space:nowrap}
 #syncBadge.ok{color:var(--good);border-color:var(--good-bg)}#syncBadge.warn{color:var(--bad)}
-.dog .ear{transform-box:fill-box;transform-origin:50% 8%;animation:wag 1.4s ease-in-out infinite alternate}
-.dog .ear.r{animation-delay:-.7s}
+.dog .ear,.dog .earL,.dog .earR{transform-box:fill-box;transform-origin:50% 8%;animation:wag 1.4s ease-in-out infinite alternate}
+.dog .ear.r,.dog .earR{animation-delay:-.7s}
 @keyframes wag{from{transform:rotate(-6deg)}to{transform:rotate(6deg)}}
 .bounce{animation:bounce 1.6s ease-in-out infinite}
 @keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
-@media (prefers-reduced-motion:reduce){.dog .ear,.bounce{animation:none}}
+@media (prefers-reduced-motion:reduce){.dog .ear,.dog .earL,.dog .earR,.bounce{animation:none}}
 .chip.on{background:var(--accent);color:var(--accent-text)}
 .item .main .muted .tag{margin-left:0}
 .star{flex:0 0 auto;background:none;border:0;font-size:24px;line-height:1;color:var(--muted);padding:6px 2px 6px 6px;cursor:pointer;font-family:system-ui,sans-serif}
@@ -387,7 +387,7 @@ label.ck{display:flex;gap:8px;align-items:center;color:var(--text);font-size:15p
 
 <script>
 'use strict';
-const APP_VERSION = '1.2.5';
+const APP_VERSION = '1.3.0';
 const $ = s => document.querySelector(s);
 const app = $('#app');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -637,51 +637,19 @@ const DOG_PAL = {
   white: { fur: '#f7f3ec', furHi: '#ffffff', earC: '#e6dccb', muzzle: '#ffffff', rim: '#b9ab98', light: '#3b2a20', mln: '#8a7a6a' },
   brown: { fur: '#c98a4b', furHi: '#ddaa72', earC: '#9a5f2c', muzzle: '#ecc896', rim: '#7a4a22', light: '#3b2a20', mln: '#7a4a22' }
 };
+// 1.3.0: the small mascot uses the same felt head as the garden puppy
 function dog(mood = 'happy', acc = '', cls = '') {
-  const P = DOG_PAL[typeof pupColor === 'string' ? pupColor : 'black'] || DOG_PAL.black;
-  const fur = P.fur, furHi = P.furHi, earC = P.earC, muzzle = P.muzzle, rim = P.rim, mln = P.mln, ink = '#141416',
-        eye = '#8a5426', light = P.light, pink = '#ff8fa3', collar = '#2f6fdc', tag = '#2fa36b';
-  const ln = (d, c = light, w = 3) => `<path d="${d}" stroke="${c}" stroke-width="${w}" fill="none" stroke-linecap="round"/>`;
-  const openEyes = (y = 57, r = 6.2) => `
-    <circle cx="48" cy="${y}" r="${r}" fill="${eye}"/><circle cx="72" cy="${y}" r="${r}" fill="${eye}"/>
-    <circle cx="48" cy="${y + .6}" r="${r * .55}" fill="${ink}"/><circle cx="72" cy="${y + .6}" r="${r * .55}" fill="${ink}"/>
-    <circle cx="50" cy="${y - 2.2}" r="2" fill="#fff"/><circle cx="74" cy="${y - 2.2}" r="2" fill="#fff"/>`;
-  const eyes = {
-    happy: ln('M42 58q6-7 12 0M66 58q6-7 12 0', light, 3.6),
-    normal: openEyes(),
-    sniff: openEyes(59, 5.6),
-    sad: openEyes(59, 5.4) + ln('M40 50l11 -4M80 50l-11 -4', '#77777f', 2.6),
-    sleep: ln('M42 59q6 5 12 0M66 59q6 5 12 0', light, 3)
-  }[mood] || '';
-  const mouth = {
-    happy: ln('M52 80q8 8 16 0', mln) + `<path d="M56 82q4 13 8 0z" fill="${pink}"/>`,
-    normal: ln('M53 80q7 5 14 0', mln), sniff: ln('M55 81q5 3 10 0', mln),
-    sad: ln('M53 84q7-6 14 0', mln), sleep: ln('M56 81q4 2 8 0', mln)
-  }[mood] || '';
+  const ex = { happy: 'happy', normal: 'open', sniff: 'open', sad: 'sad', sleep: 'sleep' }[mood] || 'happy';
   const extra = {
-    glass: `<circle cx="94" cy="93" r="14" fill="rgba(190,225,255,.55)" stroke="#3b2a20" stroke-width="5"/><path d="M104 103l11 11" stroke="#d98f4e" stroke-width="8" stroke-linecap="round"/><path d="M87 87q4-5 9-4" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round"/>`,
-    tag: `<g transform="rotate(-18 22 98)"><path d="M8 88h22l9 10-9 10H8z" fill="#ffd166" stroke="#3b2a20" stroke-width="3" stroke-linejoin="round"/><circle cx="31" cy="98" r="2.5" fill="#3b2a20"/><text x="18" y="104" font-size="15" font-weight="800" text-anchor="middle" fill="#3b2a20" font-family="Arial">$</text></g>`,
-    z: `<text x="92" y="22" font-size="16" font-weight="800" fill="#d98f4e" font-family="Arial">z</text><text x="104" y="12" font-size="12" font-weight="800" fill="#d98f4e" font-family="Arial">z</text>`,
-    party: `<path d="M14 30l6 4M10 42h8M106 30l-6 4M110 42h-8" stroke="#ffb703" stroke-width="3.5" stroke-linecap="round"/><circle cx="18" cy="22" r="3" fill="#ff8fa3"/><circle cx="102" cy="21" r="3" fill="#8ecae6"/>`,
-    tear: `<path d="M78 66q3 6 0 9q-3-3 0-9z" fill="#8ecae6"/>`
+    glass: `<g filter="url(#dgs)"><circle cx="180" cy="182" r="26" fill="rgba(190,225,255,.6)" stroke="#3b2a20" stroke-width="9"/><path d="M199 201l18 18" stroke="#3b2a20" stroke-width="18" stroke-linecap="round"/><path d="M199 201l18 18" stroke="#d98f4e" stroke-width="10" stroke-linecap="round"/></g><path d="M167 170q8 -10 18 -8" stroke="#fff" stroke-width="5" fill="none" stroke-linecap="round"/>`,
+    tag: `<g transform="rotate(-18 44 196)" filter="url(#dgs)"><path d="M16 176h44l18 20-18 20H16z" fill="#ffd166" stroke="#3b2a20" stroke-width="5" stroke-linejoin="round"/><circle cx="62" cy="196" r="5" fill="#3b2a20"/><text x="36" y="208" font-size="30" font-weight="800" text-anchor="middle" fill="#3b2a20" font-family="Arial">$</text></g>`,
+    z: `<text x="184" y="76" font-size="32" font-weight="800" fill="#d98f4e" font-family="Arial">z</text><text x="206" y="58" font-size="24" font-weight="800" fill="#d98f4e" font-family="Arial">z</text>`,
+    party: `<path d="M26 70l12 8M20 94h16M214 70l-12 8M220 94h-16" stroke="#ffb703" stroke-width="7" stroke-linecap="round"/><circle cx="34" cy="54" r="6" fill="#ff8fa3"/><circle cx="206" cy="52" r="6" fill="#8ecae6"/>`,
+    tear: `<path d="M160 118q6 12 0 18q-6 -6 0 -18z" fill="#8ecae6" stroke="#3b2a20" stroke-width="2"/>`
   }[acc] || '';
-  return `<svg class="dog ${cls}" viewBox="0 0 120 120" aria-hidden="true">
-    <path d="M40 90 Q60 104 80 90 L80 98 Q60 112 40 98 Z" fill="${fur}"/>
-    <ellipse cx="60" cy="60" rx="31" ry="33" fill="${fur}" stroke="${rim}" stroke-width="2"/>
-    <ellipse cx="52" cy="40" rx="10" ry="5" fill="${furHi}" opacity=".7"/>
-    <g class="ear l"><path d="M48 30 C42 19 30 17 22 22 C14 27 10 39 11 51 C12 59 19 61 23 55 C27 49 31 43 37 39 C42 36 46 34 48 30 Z" fill="${earC}" stroke="${rim}" stroke-width="2" stroke-linejoin="round"/>
-      <path d="M45 27 C39 21 30 20 23 25" stroke="${furHi}" stroke-width="3" fill="none" stroke-linecap="round"/></g>
-    <g class="ear r"><path d="M72 30 C78 19 90 17 98 22 C106 27 110 39 109 51 C108 59 101 61 97 55 C93 49 89 43 83 39 C78 36 74 34 72 30 Z" fill="${earC}" stroke="${rim}" stroke-width="2" stroke-linejoin="round"/>
-      <path d="M75 27 C81 21 90 20 97 25" stroke="${furHi}" stroke-width="3" fill="none" stroke-linecap="round"/></g>
-    <ellipse cx="60" cy="76" rx="16" ry="12" fill="${muzzle}"/>
-    ${eyes}
-    <path d="M53 68 Q60 64 67 68 Q66 74 60 75 Q54 74 53 68 Z" fill="${ink}"/><ellipse cx="57.5" cy="67.6" rx="2.6" ry="1.3" fill="#fff" opacity=".55"/>
-    <ellipse cx="38" cy="73" rx="5.5" ry="3.2" fill="${pink}" opacity=".35"/><ellipse cx="82" cy="73" rx="5.5" ry="3.2" fill="${pink}" opacity=".35"/>
-    ${mouth}
-    <path d="M38 89 Q60 101 82 89" stroke="${collar}" stroke-width="6" fill="none" stroke-linecap="round"/>
-    <circle cx="60" cy="96" r="2" fill="#c9ccd3"/><circle cx="60" cy="104" r="7" fill="${tag}" stroke="#1f7a4f" stroke-width="1.5"/>
-    <g fill="#e9fff3"><ellipse cx="60" cy="106" rx="2.6" ry="2.1"/><circle cx="56.6" cy="102.6" r="1.1"/><circle cx="59" cy="101.4" r="1.1"/><circle cx="61.4" cy="101.4" r="1.1"/><circle cx="63.6" cy="102.6" r="1.1"/></g>
-    ${extra}</svg>`;
+  const svg = regenB('face', ex, undefined, { c: 'blue', t: 'green' });
+  return svg.replace('<svg class="regen" viewBox="0 0 240 240"', `<svg class="dog ${cls}" viewBox="14 36 212 212"`)
+    .replace('</svg>', `<defs><filter id="dgs" filterUnits="userSpaceOnUse" x="0" y="0" width="240" height="240"><feDropShadow dx="0" dy="1.8" stdDeviation="1.6" flood-opacity=".35"/></filter></defs>${extra}</svg>`);
 }
 
 
@@ -2118,12 +2086,26 @@ function bowlSvg(cx, y, w, level = 2, part = 'all', ryK = .13) { // part: 'back'
   const lip = `<path d="M${cx - rx} ${y} A${rx} ${ry} 0 0 0 ${cx + rx} ${y} L${cx + rx * .82} ${y + ry * .25} A${rx * .82} ${ry * .62} 0 0 1 ${cx - rx * .82} ${y + ry * .25} Z" fill="#c9463a" stroke="${ink}" stroke-width="${sw}" stroke-linejoin="round"/>`;
   return `<g class="fbowl">${part === 'back' ? back : part === 'front' ? body + lip : body + back}</g>`;
 }
+// 1.3.0 felt look (designer's paper-cut style) for the same puppy shapes
+const FELT = {
+  black: { fur: '#47454e', ear: '#2f2e34', face: '#7d7c82', earHi: '#3d3c43', earIn: '#e2959b', ink: '#1b1a1e', cheek: '#d98c92', tongue: '#ec8e84' },
+  white: { fur: '#f3eee6', ear: '#e4d8c6', face: '#ffffff', earHi: '#f8f3eb', earIn: '#f0a7ae', ink: '#3a2e26', cheek: '#f0a3a8', tongue: '#ec8e84' },
+  brown: { fur: '#c4874b', ear: '#9a5f2c', face: '#ecd2a8', earHi: '#d39a5e', earIn: '#e8a19a', ink: '#3a2414', cheek: '#e48f86', tongue: '#ec8e84' },
+};
+const feltDefs = id => `<filter id="${id}s" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse" x="-20" y="-20" width="280" height="280"><feDropShadow dx="0" dy="1.8" stdDeviation="1.6" flood-color="#000" flood-opacity=".38"/></filter>
+<filter id="${id}t" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse" x="-20" y="-20" width="280" height="280"><feDropShadow dx="0" dy="1" stdDeviation=".8" flood-color="#000" flood-opacity=".3"/></filter>
+<filter id="${id}f" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse" x="-20" y="-20" width="280" height="280"><feTurbulence type="fractalNoise" baseFrequency="1.4" numOctaves="3" seed="5" result="n"/><feColorMatrix in="n" type="saturate" values="0" result="g"/><feComposite in="SourceGraphic" in2="g" operator="arithmetic" k2="1" k3=".09" k4="-.045" result="t"/><feComposite in="t" in2="SourceGraphic" operator="in"/></filter>`;
+const feltCollar = (cl, id) => { const c = COLLAR_COLS[cl.c] || COLLAR_COLS.blue, t = TAG_COLS[cl.t] || TAG_COLS.gold, ink = '#1b1a1e', paw = '#c9e6b4';
+  return `<g filter="url(#${id}s)"><path d="M90 140 q30 12 60 0" stroke="${ink}" stroke-width="13.5" fill="none" stroke-linecap="round"/><path d="M90 140 q30 12 60 0" stroke="${c}" stroke-width="8.5" fill="none" stroke-linecap="round"/></g>
+  <path d="M120 146 v4" stroke="#b9bcc2" stroke-width="2.4"/><g filter="url(#${id}s)"><circle cx="120" cy="156" r="8.5" fill="${t}" stroke="${ink}" stroke-width="3"/></g>
+  <g fill="${paw}" opacity=".85"><ellipse cx="120" cy="158.3" rx="2.8" ry="2.3"/><circle cx="116.4" cy="154.6" r="1.25"/><circle cx="118.8" cy="152.9" r="1.25"/><circle cx="121.2" cy="152.9" r="1.25"/><circle cx="123.6" cy="154.6" r="1.25"/></g>`; };
 function regenB(pose, expr, color, collar) {
   if (collar === undefined) collar = color ? null : pupCollar;
   if (pose === 'eat') collar = null; // face is inside the bowl: the collar tag would poke out under it // the garden puppy wears its collar; shop/adoption pictures don't
-  const pc = PUP_COLORS[color || pupColor] || PUP_COLORS.black;
-  const ink = '#15151a', fur = pc.fur, ear = pc.ear, face = pc.face, W = 6;
-  const L = (d, f = 'none', w = W) => `<path d="${d}" fill="${f}" stroke="${ink}" stroke-width="${w}" stroke-linejoin="round" stroke-linecap="round"/>`;
+  const pc = FELT[color || pupColor] || FELT.black;
+  const ink = pc.ink, fur = pc.fur, ear = pc.ear, face = pc.face, W = 6;
+  const fid = 'fe' + (regenB.n = (regenB.n || 0) + 1);
+  const L = (d, f = 'none', w = W) => `<path d="${d}" fill="${f}" stroke="${ink}" stroke-width="${f === 'none' ? w : w * 1.15}" stroke-linejoin="round" stroke-linecap="round"${f === 'none' ? '' : ` paint-order="stroke" filter="url(#${fid}s)"`}/>`;
   const eye = (x, y) => {
     if (expr === 'happy' || expr === 'super' || expr === 'eat' || expr === 'tug') return L(`M${x - 8} ${y + 2} q8 -10 16 0`, 'none', 5);
     if (expr === 'dead') return L(`M${x - 7} ${y - 7} l14 14 M${x + 7} ${y - 7} l-14 14`, 'none', 5);
@@ -2136,46 +2118,50 @@ function regenB(pose, expr, color, collar) {
   };
   const mouth = {
     open: L('M108 124 q6 6 12 0 q6 6 12 0', 'none', 4.5),
-    happy: L('M106 122 q7 7 14 0 q7 7 14 0', 'none', 4.5) + `<path d="M113 127 q7 14 14 0 z" fill="#ff7a59" stroke="${ink}" stroke-width="3.5" stroke-linejoin="round"/>`,
-    super: L('M104 121 q8 8 16 0 q8 8 16 0', 'none', 4.5) + `<path d="M112 127 q8 16 16 0 z" fill="#ff7a59" stroke="${ink}" stroke-width="3.5" stroke-linejoin="round"/>`,
+    happy: L('M106 122 q7 7 14 0 q7 7 14 0', 'none', 4.5) + `<path d="M113 127 q7 14 14 0 z" fill="${pc.tongue}" stroke="${ink}" stroke-width="3.5" stroke-linejoin="round"/>`,
+    super: L('M104 121 q8 8 16 0 q8 8 16 0', 'none', 4.5) + `<path d="M112 127 q8 16 16 0 z" fill="${pc.tongue}" stroke="${ink}" stroke-width="3.5" stroke-linejoin="round"/>`,
     eat: `<ellipse cx="120" cy="127" rx="7" ry="5" fill="${ink}"/>`,
-    thirsty: L('M106 122 q7 7 14 0 q7 7 14 0', 'none', 4.5) + `<path d="M112 126 q8 30 16 0 z" fill="#ff7a59" stroke="${ink}" stroke-width="3.5" stroke-linejoin="round"/><path d="M120 130 v12" stroke="#d9583d" stroke-width="2.5" stroke-linecap="round"/>`,
+    thirsty: L('M106 122 q7 7 14 0 q7 7 14 0', 'none', 4.5) + `<path d="M112 126 q8 30 16 0 z" fill="${pc.tongue}" stroke="${ink}" stroke-width="3.5" stroke-linejoin="round"/><path d="M120 130 v12" stroke="#d9583d" stroke-width="2.5" stroke-linecap="round"/>`,
     tug: L('M106 124 q14 5 28 0', 'none', 5) + `<path d="M110 124 l3 5 l3 -4 l4 5 l4 -5 l3 4 l3 -5" fill="#fff" stroke="${ink}" stroke-width="2" stroke-linejoin="round"/>`,
-    dead: L('M108 124 q12 6 24 0', 'none', 4.5) + `<path d="M124 126 q4 18 12 12 q4 -4 0 -14 z" fill="#ff7a59" stroke="${ink}" stroke-width="3.5" stroke-linejoin="round"/>`,
+    dead: L('M108 124 q12 6 24 0', 'none', 4.5) + `<path d="M124 126 q4 18 12 12 q4 -4 0 -14 z" fill="${pc.tongue}" stroke="${ink}" stroke-width="3.5" stroke-linejoin="round"/>`,
     sick: L('M108 131 q6 -6 12 0 q6 6 12 0', 'none', 4.5),
     strain: L('M104 123 q16 -5 32 0', 'none', 5) + `<path d="M107 123 l3 6 l3 -5 l4 6 l4 -6 l4 6 l4 -6 l3 5 l3 -6" fill="#fff" stroke="${ink}" stroke-width="2" stroke-linejoin="round"/>`,
-    sleepy: L('M112 126 q8 3 16 0', 'none', 4), yawn1: `<ellipse cx="120" cy="127" rx="8" ry="7" fill="#5a1d1d" stroke="${ink}" stroke-width="3.5"/><ellipse cx="120" cy="131" rx="5" ry="2.6" fill="#ff7a59"/>`,
-    bigyawn: `<ellipse cx="120" cy="128" rx="14" ry="12.5" fill="#5a1d1d" stroke="${ink}" stroke-width="4"/><path d="M110 120 l2.5 4 l2.5 -4 M125 120 l2.5 4 l2.5 -4" fill="#fff" stroke="${ink}" stroke-width="1.5" stroke-linejoin="round"/><path d="M111 136 q9 -8 18 0 q-4 3.5 -9 3.5 q-5 0 -9 -3.5 z" fill="#ff7a59" stroke="${ink}" stroke-width="2.5" stroke-linejoin="round"/>`,
-    lick: L('M110 124 q10 5 20 0', 'none', 4) + `<path d="M122 126 q8 1 9 9 q-6 4 -10 -4 z" fill="#ff7a59" stroke="${ink}" stroke-width="2.5" stroke-linejoin="round"/>`,
+    sleepy: L('M112 126 q8 3 16 0', 'none', 4), yawn1: `<ellipse cx="120" cy="127" rx="8" ry="7" fill="#5a1d1d" stroke="${ink}" stroke-width="3.5"/><ellipse cx="120" cy="131" rx="5" ry="2.6" fill="${pc.tongue}"/>`,
+    bigyawn: `<ellipse cx="120" cy="128" rx="14" ry="12.5" fill="#5a1d1d" stroke="${ink}" stroke-width="4"/><path d="M110 120 l2.5 4 l2.5 -4 M125 120 l2.5 4 l2.5 -4" fill="#fff" stroke="${ink}" stroke-width="1.5" stroke-linejoin="round"/><path d="M111 136 q9 -8 18 0 q-4 3.5 -9 3.5 q-5 0 -9 -3.5 z" fill="${pc.tongue}" stroke="${ink}" stroke-width="2.5" stroke-linejoin="round"/>`,
+    lick: L('M110 124 q10 5 20 0', 'none', 4) + `<path d="M122 126 q8 1 9 9 q-6 4 -10 -4 z" fill="${pc.tongue}" stroke="${ink}" stroke-width="2.5" stroke-linejoin="round"/>`,
     eatdown: '', sad: L('M110 130 q10 -8 20 0', 'none', 4.5), sleep: L('M114 126 q6 3 12 0', 'none', 4), grumpy: L('M110 128 h20', 'none', 4.5)
   }[expr];
   const head = (tx = 0, ty = 0, rot = 0, s = 1) => `<g class="hd" transform="translate(${tx} ${ty}) rotate(${rot} 120 100) translate(120 100) scale(${s}) translate(-120 -100)"><g class="hdi">
     ${L('M120 46 C156 46 172 70 172 98 C172 128 150 144 120 144 C90 144 68 128 68 98 C68 70 84 46 120 46 Z', fur)}
-    <ellipse cx="120" cy="118" rx="27" ry="20" fill="${face}"/>
-    <g class="earL">${L('M100 48 C90 31 70 28 57 36 C44 44 37 62 39 81 C41 93 52 97 59 87 C66 78 72 69 82 62 C90 58 97 55 100 48 Z', ear, 5.5)}<path d="M95 44 C85 35 70 33 59 41" stroke="${pc.earHi}" stroke-width="5" fill="none" stroke-linecap="round"/></g>
-    <g class="earR">${L('M140 48 C150 31 170 28 183 36 C196 44 203 62 201 81 C199 93 188 97 181 87 C174 78 168 69 158 62 C150 58 143 55 140 48 Z', ear, 5.5)}<path d="M145 44 C155 35 170 33 181 41" stroke="${pc.earHi}" stroke-width="5" fill="none" stroke-linecap="round"/></g>
+    <ellipse cx="120" cy="119" rx="31" ry="22.5" fill="${face}" filter="url(#${fid}t)"/>
+    <g class="earL"><g transform="translate(-5 7) rotate(-9 92 52)">${L('M100 48 C90 31 70 28 57 36 C44 44 37 62 39 81 C41 93 52 97 59 87 C66 78 72 69 82 62 C90 58 97 55 100 48 Z', ear, 5.5)}<path d="M95 44 C85 35 70 33 59 41" stroke="${pc.earHi}" stroke-width="5" fill="none" stroke-linecap="round"/></g></g>
+    <g class="earR"><g transform="translate(5 7) rotate(9 148 52)">${L('M140 48 C150 31 170 28 183 36 C196 44 203 62 201 81 C199 93 188 97 181 87 C174 78 168 69 158 62 C150 58 143 55 140 48 Z', ear, 5.5)}<path d="M145 44 C155 35 170 33 181 41" stroke="${pc.earHi}" stroke-width="5" fill="none" stroke-linecap="round"/></g></g>
 
     ${eye(96, 94)}${eye(144, 94)}
-    <ellipse cx="84" cy="114" rx="8" ry="5" fill="#ff8fa3" opacity=".5"/><ellipse cx="156" cy="114" rx="8" ry="5" fill="#ff8fa3" opacity=".5"/>
+    <ellipse cx="84" cy="114" rx="9" ry="6" fill="${pc.cheek}" filter="url(#${fid}t)"/><ellipse cx="156" cy="114" rx="9" ry="6" fill="${pc.cheek}" filter="url(#${fid}t)"/>
     <path d="M111 108 q9 -6 18 0 q-2 8 -9 9 q-7 -1 -9 -9z" fill="${ink}"/><circle cx="116" cy="108" r="2" fill="#fff" opacity=".8"/>
     ${expr === 'sad' || expr === 'thirsty' || expr === 'sick' ? L('M86 78 l12 -4M154 78 l-12 -4', 'none', 4.5) : ''}${expr === 'strain' ? L('M84 74 l14 6M156 74 l-14 6', 'none', 5) : ''}${expr === 'sick' ? '<ellipse cx="84" cy="114" rx="10" ry="6" fill="#ff5a5a" opacity=".45"/><ellipse cx="156" cy="114" rx="10" ry="6" fill="#ff5a5a" opacity=".45"/>' : ''}${expr === 'thirsty' ? '<path d="M170 66 q-7 11 0 15 q7 -4 0 -15z" fill="#8fd0ff" stroke="#15151a" stroke-width="2.5"/>' : ''}${mouth}
-    ${collar ? collarSvg(collar) : ''}</g></g>`;
+    ${collar ? feltCollar(collar, fid) : ''}</g></g>`;
   const tail = d => `<g class="tail">${L(d, 'none', 14)}<path d="${d}" stroke="${fur}" stroke-width="6" fill="none" stroke-linecap="round"/></g>`;
   const shadow = `<ellipse cx="120" cy="222" rx="60" ry="6" fill="rgba(60,40,20,.14)"/>`;
   let body = '', hd = head(), front = '';
   const FOOD = '<path d="M96 203 q6 -7 12 0 M116 202 q6 -7 12 0 M134 203 q6 -6 10 0" fill="#e9b872" stroke="#15151a" stroke-width="3"/>', FOOD2 = '<path d="M82 198 q6 -8 12 0 M146 198 q6 -8 12 0 M158 197 q4 -6 8 0" fill="#e9b872" stroke="#15151a" stroke-width="3"/>';
   let lean = '', out = '';
+  const fleg = d => `<g filter="url(#${fid}t)"><path d="${d}" stroke="${ink}" stroke-width="17" fill="none" stroke-linecap="round"/><path d="${d}" stroke="${fur}" stroke-width="10" fill="none" stroke-linecap="round"/></g>`;
+  const fpaw = (x, y, r = 0, c = fur) => `<g transform="translate(${x} ${y}) rotate(${r})" filter="url(#${fid}t)"><ellipse rx="15" ry="9.5" fill="${c}" stroke="${ink}" stroke-width="5"/><path d="M-4 -2 v6 M4 -2 v6" stroke="${ink}" stroke-width="2.5" stroke-linecap="round"/></g>`;
   const leg = d => L(d, 'none', 14) + `<path d="${d}" stroke="${fur}" stroke-width="6" fill="none" stroke-linecap="round"/>`;
-  if (pose === 'paw') { // sit and give a paw
-    body = shadow + tail('M152 196 C174 194 180 176 174 160') + L('M98 118 C86 146 80 190 84 216 L156 216 C160 190 154 146 142 118 Z', fur) +
-      L('M106 176 L106 214', 'none', 5) + L('M84 216 h72', 'none', 6);
-    front = leg('M130 176 C140 172 146 166 150 160') + `<g transform="translate(152 156)"><circle r="21" fill="${fur}" stroke="${ink}" stroke-width="5"/><ellipse cx="0" cy="5" rx="9" ry="7.5" fill="#ff9fb2" stroke="${ink}" stroke-width="2.5"/><circle cx="-10" cy="-7" r="4" fill="#ff9fb2" stroke="${ink}" stroke-width="2"/><circle cx="-3" cy="-12" r="4" fill="#ff9fb2" stroke="${ink}" stroke-width="2"/><circle cx="5" cy="-12" r="4" fill="#ff9fb2" stroke="${ink}" stroke-width="2"/><circle cx="12" cy="-7" r="4" fill="#ff9fb2" stroke="${ink}" stroke-width="2"/></g>`;
+  if (pose === 'face') { // mascot: just the head and collar
+    body = ''; hd = head(0, 14, 0, 1.12);
+  } else if (pose === 'paw') { // sit and give a paw
+    body = shadow + tail('M152 196 C174 194 180 176 174 160') + L('M98 118 C86 146 80 190 84 216 L156 216 C160 190 154 146 142 118 Z', fur) + `<path d="M120 150 C132 150 138 166 138 184 C138 200 130 212 120 212 C110 212 102 200 102 184 C102 166 108 150 120 150 Z" fill="${face}" filter="url(#${fid}t)"/>` +
+      fleg('M106 172 L106 206') + fpaw(104, 210);
+    front = fleg('M134 170 C150 160 162 146 168 128') + `<g transform="translate(172 118) rotate(18) scale(.85)"><circle r="21" fill="${fur}" stroke="${ink}" stroke-width="5"/><ellipse cx="0" cy="5" rx="9" ry="7.5" fill="#ff9fb2" stroke="${ink}" stroke-width="2.5"/><circle cx="-10" cy="-7" r="4" fill="#ff9fb2" stroke="${ink}" stroke-width="2"/><circle cx="-3" cy="-12" r="4" fill="#ff9fb2" stroke="${ink}" stroke-width="2"/><circle cx="5" cy="-12" r="4" fill="#ff9fb2" stroke="${ink}" stroke-width="2"/><circle cx="12" cy="-7" r="4" fill="#ff9fb2" stroke="${ink}" stroke-width="2"/></g>`;
     hd = head(0, 0, -8, 1);
-  } else if (pose === 'beg') { // up on the hind legs, front view: paws held up in front of the chest, drooping at the wrist
-    const mitt = (x, flip) => `<g transform="translate(${x} -40) scale(${flip ? -1.3 : 1.3} 1.3)"><path d="M-12 144 C-16 156 -14 168 -8 176 C-4 184 8 186 12 178 C16 170 12 160 6 150 Z" fill="${fur}" stroke="${ink}" stroke-width="4.5" stroke-linejoin="round"/><path d="M-4 181 v-5 M3 182 v-6" stroke="${ink}" stroke-width="2.5" stroke-linecap="round"/></g>`;
+  } else if (pose === 'beg') { // up on the hind legs, front view: front legs held up as two felt columns in front of the chest
     body = shadow + tail('M150 206 C172 204 178 188 172 174') + L('M98 96 C84 132 84 186 92 214 L148 214 C156 186 156 132 142 96 Z', fur) +
-      `<ellipse cx="104" cy="214" rx="14" ry="6.5" fill="${fur}" stroke="${ink}" stroke-width="4.5"/><ellipse cx="136" cy="214" rx="14" ry="6.5" fill="${fur}" stroke="${ink}" stroke-width="4.5"/>`;
-    front = mitt(104, false) + mitt(136, true);
+      `<path d="M120 128 C134 128 140 146 140 166 C140 186 132 200 120 200 C108 200 100 186 100 166 C100 146 106 128 120 128 Z" fill="${face}" filter="url(#${fid}t)"/>` +
+      fpaw(100, 214, 0) + fpaw(140, 214, 0);
+    front = fleg('M106 140 C104 152 104 164 106 176') + fleg('M134 140 C136 152 136 164 134 176') + fpaw(105, 180, -6) + fpaw(135, 180, 6);
     hd = head(0, -30, 0, 1);
   } else if (pose === 'bow') { // play bow, 3/4 view: head low in front, front paws stretched out, bottom and tail up behind
     const paw = (x, y, r = 0, f = fur) => `<g transform="translate(${x} ${y}) rotate(${r})"><ellipse rx="15" ry="9" fill="${f}" stroke="${ink}" stroke-width="4.5"/><path d="M-5 -2 v6 M2 -3 v7 M9 -2 v5" stroke="${ink}" stroke-width="2.5" stroke-linecap="round"/></g>`;
@@ -2185,11 +2171,34 @@ function regenB(pose, expr, color, collar) {
       leg('M90 178 C76 190 62 198 50 204') + leg('M124 184 C126 194 128 202 130 208');
     front = paw(44, 206, -12) + paw(132, 212, 4) + `<ellipse cx="205" cy="212" rx="14" ry="8" fill="${fur}" stroke="${ink}" stroke-width="4.5"/>`;
     hd = head(-18, 46, -4, .9);
-  } else if (pose === 'roll' || pose === 'dead') { // on its back, legs up
-    body = shadow + tail('M176 204 C196 208 206 198 204 186') +
-      L('M74 206 C70 176 110 166 140 166 C170 166 186 180 184 202 C182 216 80 218 74 206 Z', fur) + `<ellipse cx="132" cy="190" rx="34" ry="12" fill="${face}"/>` +
-      leg('M104 172 L96 146') + leg('M124 168 L122 140') + leg('M150 168 L156 142') + leg('M170 176 L184 154');
-    hd = head(-62, 74, pose === 'dead' ? -100 : -80, .78);
+  } else if (pose === 'roll' || pose === 'dead') { // on its back, belly up
+    const dd = pose === 'dead';
+    body = shadow + tail(dd ? 'M180 204 C198 210 210 206 214 198' : 'M176 204 C196 208 206 198 204 186') +
+      L('M74 206 C70 176 110 166 140 166 C170 166 186 180 184 202 C182 216 80 218 74 206 Z', fur) + `<ellipse cx="132" cy="188" rx="36" ry="13" fill="${face}" filter="url(#${fid}t)"/>`;
+    if (dd) body = shadow + fleg('M101 172 L101 134') + fpaw(101, 128) + fleg('M150 170 L150 132') + fpaw(150, 127) + body.slice(shadow.length) +
+      fleg('M121 178 L121 134') + fpaw(121, 128) + fleg('M170 178 L170 135') + fpaw(170, 129);
+    else body = shadow + fleg('M104 160 C102 144 106 132 116 130 C126 129 132 134 133 142') + fleg('M156 170 L160 136') + fpaw(160, 131, 12) + body.slice(shadow.length) +
+      fleg('M122 176 L122 146 C122 136 128 132 135 135') + fleg('M174 182 L189 150') + fpaw(191, 145, 30);
+    hd = head(-62, 74, dd ? -100 : -80, .78);
+  } else if (pose === 'dig' || pose === 'dig2') {
+    const f = pose === 'dig2', dirtC = '#a8733f', dirtD = '#7d5129', dark = '#3b2412';
+    // back of the head going into the hole: head shape + ears, no face; clipped at the ground so it sinks in
+    const back = `<g transform="translate(80 200) rotate(${f ? -6 : 4}) scale(.74) translate(-120 -100)">` +
+      L('M100 48 C90 31 70 28 57 36 C44 44 37 62 39 81 C41 93 52 97 59 87 C66 78 72 69 82 62 C90 58 97 55 100 48 Z', ear, 5.5) +
+      L('M140 48 C150 31 170 28 183 36 C196 44 203 62 201 81 C199 93 188 97 181 87 C174 78 168 69 158 62 C150 58 143 55 140 48 Z', ear, 5.5) +
+      L('M120 46 C156 46 172 70 172 98 C172 128 150 144 120 144 C90 144 68 128 68 98 C68 70 84 46 120 46 Z', fur) +
+      `<path d="M98 60 C108 52 132 52 142 60" stroke="${pc.earHi}" stroke-width="6" fill="none" stroke-linecap="round"/></g>`;
+    body = shadow + `<path d="M172 216 C176 198 200 190 222 196 C234 200 238 210 236 216 Z" fill="${dirtC}" stroke="${ink}" stroke-width="4.5" stroke-linejoin="round"/>` +
+      `<ellipse cx="80" cy="203" rx="56" ry="15" fill="${dirtC}" stroke="${ink}" stroke-width="4.5"/><ellipse cx="80" cy="202" rx="44" ry="9.5" fill="${dark}"/>` +
+      tail(f ? 'M196 104 C214 86 216 62 204 48' : 'M194 104 C204 80 200 58 186 46') +
+      fleg('M170 172 L166 205') + fpaw(165, 211, 0, ear) +
+      L('M98 168 C104 124 146 96 178 96 C206 96 216 122 212 152 C206 170 186 180 162 184 C140 188 112 186 98 168 Z', fur) +
+      fleg('M198 162 L202 205') + fpaw(203, 211);
+    hd = `<defs><clipPath id="${fid}c"><path d="M0 0 H240 V202 H136 C136 210 24 210 24 202 H0 Z"/></clipPath></defs><g clip-path="url(#${fid}c)">${back}</g>`;
+    front = `<path d="M24 203 C26 214 134 214 136 203 C134 222 26 222 24 203 Z" fill="${dirtC}" stroke="${ink}" stroke-width="4" stroke-linejoin="round"/>` +
+      fleg(f ? 'M114 178 C110 188 108 194 108 200' : 'M114 178 C118 188 122 194 126 198') + fpaw(f ? 108 : 127, f ? 204 : 202, f ? -8 : 18) +
+      `<g fill="${dirtC}" stroke="${ink}" stroke-width="3">${(f ? [[148, 200, 4], [160, 194, 5.5], [222, 132, 4], [231, 158, 5]] : [[142, 197, 5], [154, 190, 4], [226, 148, 4.5], [233, 174, 3.5]]).map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}"/>`).join('')}</g>` +
+      `<path d="${f ? 'M132 204 C140 198 148 194 154 192 M212 150 C214 140 216 134 218 130' : 'M132 202 C138 196 144 192 148 190 M216 166 C218 158 220 152 222 148'}" stroke="${dirtD}" stroke-width="3" fill="none" stroke-linecap="round" stroke-dasharray="3 6"/>`;
   } else if (pose === 'squat') { // toilet: crouched, tail up
     body = shadow + tail('M154 178 C176 166 182 146 172 128') + L('M96 132 C82 156 78 196 84 216 L158 216 C164 196 158 156 144 132 Z', fur) +
       L('M104 186 L102 214', 'none', 5) + L('M136 186 L138 214', 'none', 5) + L('M80 216 h80', 'none', 6);
@@ -2197,34 +2206,35 @@ function regenB(pose, expr, color, collar) {
   } else if (pose === 'pull') { // tug of war: leaning back, front paws braced towards the rope
     body = tail('M92 196 C70 194 62 178 68 162') +
       L('M98 118 C86 146 80 190 84 216 L150 216 C156 190 152 146 140 118 Z', fur) +
-      L('M84 216 h66', 'none', 6) + L('M126 176 L156 214', 'none', 9) + L('M110 180 L136 216', 'none', 9);
+      L('M84 216 h66', 'none', 6) + fleg('M126 176 L156 214') + fleg('M110 180 L136 216');
     hd = head(-6, 6, 4, .95); lean = 'transform="rotate(-10 100 216)"'; out = shadow;
   } else if (pose === 'sit' || pose === 'eatup' || pose === 'chewup') {
     body = shadow + tail('M152 196 C174 194 180 176 174 160') +
-      L('M98 118 C86 146 80 190 84 216 L156 216 C160 190 154 146 142 118 Z', fur) +
-      L('M106 176 L106 214', 'none', 5) + L('M134 176 L134 214', 'none', 5) + L('M84 216 h72', 'none', 6);
+      L('M98 118 C86 146 80 190 84 216 L156 216 C160 190 154 146 142 118 Z', fur) + `<path d="M120 150 C132 150 138 166 138 184 C138 200 130 212 120 212 C110 212 102 200 102 184 C102 166 108 150 120 150 Z" fill="${face}" filter="url(#${fid}t)"/>` +
+      L('M106 176 L106 210', 'none', 5) + L('M134 176 L134 210', 'none', 5) + `<ellipse cx="104" cy="213" rx="15" ry="7" fill="${fur}" stroke="${ink}" stroke-width="5" filter="url(#${fid}t)"/><ellipse cx="136" cy="213" rx="15" ry="7" fill="${fur}" stroke="${ink}" stroke-width="5" filter="url(#${fid}t)"/>`;
     if (pose === 'eatup') { body += bowlSvg(120, 198, 104, 1); hd = head(0, 38, 12, .92); }
     if (pose === 'chewup') hd = head(0, 38, 12, .92);
   } else if (pose === 'eat' || pose === 'drink' || pose === 'nose') { // head down in the bowl: we see his back and the top of his head
-    body = shadow + tail('M156 170 C178 160 184 140 176 124') + L('M74 214 C70 160 94 118 120 118 C146 118 170 160 166 214 Z', fur) + L('M88 196 L86 218', 'none', 8) + L('M152 196 L154 218', 'none', 8);
+    body = shadow + tail('M156 170 C178 160 184 140 176 124') + L('M74 214 C70 160 94 118 120 118 C146 118 170 160 166 214 Z', fur) + fleg('M88 196 L86 218') + fleg('M152 196 L154 218');
     hd = pose === 'eat' ? head(0, 76, 0, .8) : head(0, 76, 0, .8); // eating: head low over the bowl, chin just above the food
         if (pose === 'eat') body += bowlSvg(120, 198, 104, 1, 'back');
     front = pose === 'nose' ? '' : pose === 'eat' ? bowlSvg(120, 198, 104, 1, 'front') : `<ellipse cx="120" cy="199" rx="44" ry="5" fill="#6fc8ff" stroke="${ink}" stroke-width="3"/>` + L('M74 198 h92 l-11 24 h-70z', '#4f8fd6', 5);
   } else if (pose === 'run' || pose === 'run2') {
     // base: the version Silver picked (big head front-left, round body behind, chunky legs); body 10% bigger + a proper neck
     const big = x => `<g transform="translate(148 166) scale(1.1) translate(-148 -166)">${x}</g>`;
-    const neck = `<path d="M74 118 C72 136 78 154 90 166 L124 158 C116 146 110 132 108 116 Z" fill="${fur}"/>` + L('M75 120 C73 138 78 152 87 162', 'none', 6);
-    if (pose === 'run') { // running: legs stretched front and back
+    const neck = `<path d="M74 118 C72 136 78 154 90 166 L124 158 C116 146 110 132 108 116 Z" fill="${fur}"/>`;
+    if (pose === 'run') { // trotting: legs on the diagonal
       body = shadow + tail('M196 158 C216 148 222 128 216 112') +
-        L('M112 190 L84 212', 'none', 9) + L('M130 194 L116 216', 'none', 9) + L('M184 188 L208 208', 'none', 9) + L('M174 194 L184 216', 'none', 9) +
-        big(L('M92 158 C96 136 128 128 160 132 C192 136 206 152 202 172 C198 190 176 198 146 198 C116 198 88 182 92 158 Z', fur)) + neck;
-      hd = head(-28, -10, -6, .92);
-    } else { // trotting: four short legs under the body
+        fleg('M112 188 L90 204') + fpaw(85, 210, -12) + fleg('M186 188 L200 203') + fpaw(205, 209, 12) +
+        big(L('M92 158 C96 136 128 128 160 132 C192 136 206 152 202 172 C198 190 176 198 146 198 C116 198 88 182 92 158 Z', fur)) + neck +
+        fleg('M134 190 L121 207') + fpaw(118, 214, -6) + fleg('M170 190 L180 207') + fpaw(183, 214, 6);
+      hd = head(-22.5, 2.25, -6, .92);
+    } else { // standing: four straight legs
       body = shadow + tail('M196 158 C216 148 222 128 216 112') +
-        L('M108 184 L104 216', 'none', 9) + L('M182 184 L186 216', 'none', 9) +
-        big(L('M90 160 C92 138 124 130 156 132 C188 134 204 150 200 170 C196 188 174 196 146 196 C116 196 88 182 90 160 Z', fur)) +
-        L('M126 192 L128 216', 'none', 9) + L('M164 192 L162 216', 'none', 9) + neck;
-      hd = head(-30, -12, -4, .92);
+        fleg('M104 186 L103 205') + fpaw(101, 212) + fleg('M186 186 L187 205') + fpaw(188, 212) +
+        big(L('M90 160 C92 138 124 130 156 132 C188 134 204 150 200 170 C196 188 174 196 146 196 C116 196 88 182 90 160 Z', fur)) + neck +
+        fleg('M129 190 L129 207') + fpaw(129, 214) + fleg('M163 190 L163 207') + fpaw(164, 214);
+      hd = head(-24.5, .25, -4, .92);
     }
   } else {
     const sl = pose === 'sleep';
@@ -2233,8 +2243,8 @@ function regenB(pose, expr, color, collar) {
       L('M84 218 h40', 'none', 6) + L('M158 196 q10 8 8 22', 'none', 5);
     hd = head(-14, sl ? 58 : 42, sl ? -8 : 0, sl ? .9 : .95);
   }
-  if (expr === 'sick' && pose === 'lie') front += `<g transform="translate(104 92) rotate(-12)"><path d="M-30 6 C-30 -10 30 -10 30 6 C30 14 -30 14 -30 6Z" fill="#9fd8ff" stroke="${ink}" stroke-width="4"/><path d="M-6 -6 L0 -18 L6 -6" fill="#9fd8ff" stroke="${ink}" stroke-width="4" stroke-linejoin="round"/><rect x="-5" y="-22" width="10" height="7" rx="2" fill="#ff7a59" stroke="${ink}" stroke-width="3"/><path d="M-18 2 q6 -4 12 0" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round"/></g><g transform="translate(118 162) rotate(28)"><rect x="0" y="-4" width="40" height="8" rx="4" fill="#fff" stroke="${ink}" stroke-width="3"/><rect x="2" y="-1.5" width="22" height="3" rx="1.5" fill="#e53935"/><circle cx="2" cy="0" r="5" fill="#e53935" stroke="${ink}" stroke-width="3"/></g><path d="M176 112 q-6 9 0 13 q6 -4 0 -13z" fill="#8fd0ff" stroke="${ink}" stroke-width="2.5"/>`;
-  return `<svg class="regen" viewBox="0 0 240 240" aria-hidden="true">${out}<g class="rgAll" ${lean}><g class="bd">${body}</g>${hd}${front}</g></svg>`;
+  if (expr === 'sick' && pose === 'lie') front += `<g transform="translate(104 92) rotate(-12)"><path d="M-30 6 C-30 -10 30 -10 30 6 C30 14 -30 14 -30 6Z" fill="#9fd8ff" stroke="${ink}" stroke-width="4"/><path d="M-6 -6 L0 -18 L6 -6" fill="#9fd8ff" stroke="${ink}" stroke-width="4" stroke-linejoin="round"/><rect x="-5" y="-22" width="10" height="7" rx="2" fill="${pc.tongue}" stroke="${ink}" stroke-width="3"/><path d="M-18 2 q6 -4 12 0" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round"/></g><g transform="translate(118 162) rotate(28)"><rect x="0" y="-4" width="40" height="8" rx="4" fill="#fff" stroke="${ink}" stroke-width="3"/><rect x="2" y="-1.5" width="22" height="3" rx="1.5" fill="#e53935"/><circle cx="2" cy="0" r="5" fill="#e53935" stroke="${ink}" stroke-width="3"/></g><path d="M176 112 q-6 9 0 13 q6 -4 0 -13z" fill="#8fd0ff" stroke="${ink}" stroke-width="2.5"/>`;
+  return `<svg class="regen" viewBox="0 0 240 240" aria-hidden="true"><defs>${feltDefs(fid)}</defs>${out}<g class="rgAll" ${lean}><g filter="url(#${fid}f)"><g class="bd">${body}</g>${hd}${front}</g></g></svg>`;
 }
 // poo (same in both styles, cute not gross)
 const pooSvg = (ink = '#141418') => `<svg viewBox="0 0 60 50" class="poo" aria-hidden="true"><path d="M8 44 C2 44 2 34 10 33 C6 26 14 20 20 23 C18 14 30 8 34 16 C42 14 46 22 42 27 C50 28 52 38 46 40 C54 44 50 48 44 48 L12 48 C9 48 8 46 8 44 Z" fill="#8a5a33" stroke="${ink}" stroke-width="3" stroke-linejoin="round"/><path d="M14 36 q8 4 18 0M20 26 q6 3 12 0" stroke="#b07b4f" stroke-width="3" fill="none" stroke-linecap="round"/><path d="M14 8 q-4 -4 0 -8M28 6 q-4 -4 0 -8M42 8 q-4 -4 0 -8" stroke="#8aa36a" stroke-width="2.5" fill="none" stroke-linecap="round"/></svg>`;
@@ -3212,6 +3222,8 @@ function showProduct(sc) {
 
 /* ---------- What's new (shown once after each update) ---------- */
 const CHANGES = {
+  '1.3.0': [['New look: your pup has a brand-new soft felt style everywhere in the app, in black, brown and white.', 'New look: new poses for begging, high five, standing, trotting, rolling over and playing dead.', 'New look: digging in the yard now shows your pup\'s head down in the hole with dirt flying.', 'New look: new app icon to match.'], ['New look: your pup has a brand-new soft felt style everywhere in the app, in black, brown and white.', 'New look: new poses for begging, high five, standing, trotting, rolling over and playing dead.', 'New look: digging in the yard now shows your pup\'s head down in the hole with dirt flying.', 'New look: new app icon to match.']],
+  '1.2.6': [['New look: your pup\'s head now sits closer to its body when it runs and trots, so it looks more natural.'], ['New look: your pup\'s head now sits closer to its body when it runs and trots, so it looks more natural.']],
   '1.2.5': [['New: when you visit a friend, your pups now play together on their own, like real dogs. Their personalities change how they get along.', 'New: friendship grows with every visit and unlocks chasing, tug of war and napping together.', 'Fix: the shelter, pet hotel and adoption screens now fit your screen, so the buttons are always visible.'], ['New: when you visit a friend, your pups now play together on their own, like real dogs. Their personalities change how they get along.', 'New: friendship grows with every visit and unlocks chasing, tug of war and napping together.', 'Fix: the shelter, pet hotel and adoption screens now fit your screen, so the buttons are always visible.']],
   '1.2.4': [['Fix: the shelter, pet hotel and adoption screens now fit your screen, so the buttons are always visible.'], ['Fix: the shelter, pet hotel and adoption screens now fit your screen, so the buttons are always visible.']],
   '1.2.3': [['Prices now show each product\'s all-time low and its latest price, from what PricePup users log in store. Tracking alerts you when someone logs an all-time low.', 'Backyard ball game: swipe the ball up to throw it, like before. Faster swipes go farther.'], ['Prices now show each product\'s all-time low and its latest price, from what PricePup users log in store. Tracking alerts you when someone logs an all-time low.', 'Backyard ball game: swipe the ball up to throw it, like before. Faster swipes go farther.']],
@@ -3282,22 +3294,7 @@ function yardSvg(name) {
 }
 
 // 1.1.4 draft: dig pose, seen from behind (head down in the hole, bum up, dirt flying back between the legs)
-function digSvg(color, f) { const P = DOG_PAL[color] || DOG_PAL.black, ink = '#15151a', fur = P.fur, ear = P.earC;
-  const L = (d, fill, w = 5) => `<path d="${d}" fill="${fill}" stroke="${ink}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"/>`;
-  const pawL = f ? 'M86 214 C80 200 92 192 100 202' : 'M90 206 C86 196 96 190 102 198', pawR = f ? 'M154 202 C160 194 170 198 166 210' : 'M150 198 C156 190 164 194 160 204';
-  const dirt = f ? [[70, 120, 7], [56, 96, 5], [176, 104, 6], [190, 132, 4.5], [104, 70, 4], [150, 64, 5]] : [[84, 140, 5], [64, 118, 6.5], [162, 128, 5], [182, 100, 6], [120, 58, 4]];
-  return `<svg viewBox="0 0 240 240" aria-hidden="true">
-  <ellipse cx="120" cy="212" rx="78" ry="16" fill="#9a6a3c" stroke="${ink}" stroke-width="4"/><ellipse cx="120" cy="210" rx="58" ry="10" fill="#3b2412"/>
-  ${L('M74 204 C60 210 58 226 72 226 C84 226 90 214 88 204 Z', ear, 4)}${L('M166 204 C180 210 182 226 168 226 C156 226 150 214 152 204 Z', ear, 4)}
-  ${L(pawL, fur, 9)}${L(pawR, fur, 9)}
-  ${L(`M120 ${f ? 96 : 100} C${f ? '150 70 168 52 160 36' : '146 76 152 58 140 42'}`, 'none', 12)}<path d="M120 ${f ? 96 : 100} C${f ? '150 70 168 52 160 36' : '146 76 152 58 140 42'}" stroke="${fur}" stroke-width="6" fill="none" stroke-linecap="round"/>
-  ${L('M120 96 C70 96 56 150 66 184 C72 204 96 208 120 206 C144 208 168 204 174 184 C184 150 170 96 120 96 Z', fur)}
-  <path d="M120 112 C96 114 82 140 84 166" stroke="${P.furHi}" stroke-width="8" fill="none" stroke-linecap="round" opacity=".7"/>
-  ${L('M120 150 L120 196', 'none', 4)}
-  ${L('M82 184 C76 200 80 214 96 214 C108 214 110 200 104 188 Z', fur, 5)}${L('M158 184 C164 200 160 214 144 214 C132 214 130 200 136 188 Z', fur, 5)}
-  <ellipse cx="92" cy="208" rx="7" ry="4.5" fill="#f4a3b4"/><ellipse cx="148" cy="208" rx="7" ry="4.5" fill="#f4a3b4"/>
-  <g fill="#8a5a2c" stroke="${ink}" stroke-width="2.5">${dirt.map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}"/>`).join('')}</g>
-  </svg>`; }
+function digSvg(color, f) { return regenB(f ? 'dig2' : 'dig', 'happy', color || pupColor, null).replace('class="regen" ', ''); }
 /* ---------- 1.1 Backyard: ball (bought), the pup digs by itself, potty outside, walks start here. 1.1.4: tap the door to go in ---------- */
 const WALK_LV = 5, HOLE_MAX = 4, HOLE_MESS = 3;
 const walkLock = g => !(g.collars || []).length ? '🎀 Buy a collar in the shop first: walks need a collar and leash.' : !g.wear ? '🎀 Put a collar on first (tap ℹ️ on the puppy).' : bondOf(g).L < WALK_LV ? `💗 Walks unlock at bond level ${WALK_LV} (now level ${bondOf(g).L}).` : '';
@@ -3426,7 +3423,7 @@ async function viewYard() {
 
 /* ---------- 1.1 Leash walk (top view): guide an excited puppy past squirrels and things it must not eat ---------- */
 function topDog(color, leg, tailA, collar) {
-  const P = PUP_COLORS[color] || PUP_COLORS.black, ink = '#15151a', s = Math.sin(leg) * 5;
+  const P = FELT[color] || FELT.black, ink = P.ink, s = Math.sin(leg) * 5;
   const L = (cx, cy, dy) => `<ellipse cx="${cx}" cy="${cy + dy}" rx="6.5" ry="8" fill="${P.fur}" stroke="${ink}" stroke-width="3"/>`;
   const tail = `M0 52 q${10 * Math.sin(tailA)} 16 ${4 * Math.sin(tailA)} 28`;
   return `<path d="${tail}" stroke="${ink}" stroke-width="10" fill="none" stroke-linecap="round"/><path d="${tail}" stroke="${P.fur}" stroke-width="5" fill="none" stroke-linecap="round"/>
