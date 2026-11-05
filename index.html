@@ -160,7 +160,7 @@ h2{font-size:17px;margin:0 0 8px}
 .r-walk .regen .legF,.r-walk .regen .legB2,.r-zoom .regen .legF,.r-zoom .regen .legB2{transform-origin:50% 0;animation:leg .3s ease-in-out infinite alternate}
 .r-walk .regen .legB,.r-walk .regen .legF2,.r-zoom .regen .legB,.r-zoom .regen .legF2{transform-origin:50% 0;animation:leg .3s ease-in-out infinite alternate-reverse}
 .r-zoom .regen [class^=leg]{animation-duration:.12s!important}@keyframes leg{from{transform:rotate(-14deg)}to{transform:rotate(14deg)}}
-.garden .fx{position:absolute;inset:0;pointer-events:none;z-index:4}.garden .fx span{position:absolute;bottom:130px;animation:floatup 2.4s ease-out forwards}
+.garden .fx{position:absolute;inset:0;pointer-events:none;z-index:4}.garden.yard .fx,.garden.yard .wx,.garden.yard .frpill,.yhand,.ytip{z-index:300!important}.yfront{pointer-events:none}.garden.yard{isolation:isolate}.garden.yard .yin{transform-origin:50% 100%}.garden .fx span{position:absolute;bottom:130px;animation:floatup 2.4s ease-out forwards}
 @keyframes floatup{0%{opacity:0;transform:translateY(0) scale(.6)}15%{opacity:1}100%{opacity:0;transform:translateY(-170px) scale(1.2)}}
 .garden .fx .fly{position:absolute;left:-30px;top:120px;font-size:22px;animation:flyby 4s ease-in-out forwards}@keyframes flyby{25%{transform:translate(120px,-30px)}50%{transform:translate(200px,20px)}75%{transform:translate(290px,-20px)}100%{transform:translate(420px,-60px)}}
 .meter2{display:flex;align-items:center;gap:10px;margin:4px 0}.meter2 span{flex:0 0 72px;font-weight:700;font-size:14px}.meter2 .meter{flex:1;margin:0}
@@ -388,7 +388,7 @@ label.ck{display:flex;gap:8px;align-items:center;color:var(--text);font-size:15p
 
 <script>
 'use strict';
-const APP_VERSION = '1.3.1';
+const APP_VERSION = '1.3.2';
 const $ = s => document.querySelector(s);
 const app = $('#app');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -1118,8 +1118,8 @@ let warmStream = null, warmTimer = null; // keep the camera for 2 minutes after 
 function stopWarm() { clearTimeout(warmTimer); if (warmStream && warmStream !== scanStream) { warmStream.getTracks().forEach(tr => tr.stop()); warmStream = null; } }
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && !scanStream) stopWarm(); });
 $('#torchBtn').onclick = async () => { if (!scanStream) return; torchOn = !torchOn; try { await scanStream.getVideoTracks()[0].applyConstraints({ advanced: [{ torch: torchOn }] }); } catch (e) {} };
-$('#closeScanBtn').onclick = () => { closeScanner(); if (location.hash === '#scan') location.hash = '#home'; };
-$('#noCodeBtn').onclick = () => { closeScanner(); location.hash = '#pick/'; };
+$('#closeScanBtn').onclick = () => { closeScanner(); if (location.hash === '#scan') navUp('#home'); };
+$('#noCodeBtn').onclick = () => { closeScanner(); nav('#pick/', location.hash === '#scan'); };
 $('#manualGo').onclick = () => { const c = $('#manualCode').value; if (!normCode(c)) return toast(t('needCode')); const cb2 = scanCb || handleBarcode; closeScanner(); cb2(c); };
 $('#photoScanBtn').onclick = async () => {
   const det = await getDetector();
@@ -1252,9 +1252,28 @@ function extractPrices(data, H = 1, weightMode = false) {
 }
 
 /* ---------- Views ---------- */
+/* ---------- 1.3.2 navigation: every entry remembers the screen beneath it (history.state.prev). The header Back
+   goes up one level; finished screens (saved, said bye, walk done) are taken off the history so Back never returns to them ---------- */
+let navLast = null, navRepl = null;
+const H0 = h => (!h || h === '#') ? '#home' : h;
+function nav(h, replace) { if (H0(h) === H0(location.hash)) return route();
+  if (replace) { navRepl = { prev: history.state && history.state.prev }; location.replace(h); } else location.hash = h; }
+function navStamp() { if (!history.state || history.state.h !== H0(location.hash))
+    history.replaceState({ h: H0(location.hash), prev: navRepl ? navRepl.prev : (navLast !== H0(location.hash) ? navLast : null) }, '');
+  navRepl = null; navLast = H0(location.hash); }
+function navParents(h) { const [r, a = '', b = ''] = H0(h).slice(1).split('/'), I = '#item/' + a;
+  let pc = ''; try { pc = JSON.parse(sessionStorage.getItem('pp_pending') || '{}').code || ''; } catch (e) {}
+  return { item: ['#home'], variant: [I], add: b && b !== 'new' ? ['#variant/' + a + '/' + b, I] : [I], pick: ['#home'], newitem: ['#pick/' + pc, '#pick'],
+    product: b === 'log' ? ['#product/' + a, '#variant'] : ['#home'], privacy: ['#settings'], garden: ['#home'], yard: ['#garden', '#home'], walk: ['#yard'],
+    friends: ['#garden', '#yard'], visit: ['#friends'] }[r] || ['#home']; }
+function navUp(to) { const ps = to ? [to] : navParents(location.hash), prev = history.state && history.state.prev;
+  if (prev && ps.some(p => prev === p || prev.startsWith(p + '/'))) history.back(); else nav(ps[0], true); }
 function setHeader(title, back) { $('#title').textContent = title; $('#backBtn').classList.toggle('hidden', !back); $('#headDog').innerHTML = back ? '' : dog(gLoad().pup && gMood(gLoad()) === 'weak' ? 'sad' : 'happy') + gardenDot(); }
 $('#headDog').onclick = () => { if ($('#headDog').innerHTML) location.hash = '#garden'; };
-$('#backBtn').onclick = () => history.length > 1 ? history.back() : (location.hash = '#home');
+$('#backBtn').onclick = () => navUp();
+// tab bar: switching between Items / Scan / Deals / Settings doesn't pile up history (Back from a tab goes to Items)
+document.querySelectorAll('.tabs a[data-tab]').forEach(a => a.onclick = e => { e.preventDefault(); const h = a.getAttribute('href'), cur = H0(location.hash).slice(1).split('/')[0], root = ['deals', 'settings', 'scan'].includes(cur);
+  if (h === '#home' && root) return navUp('#home'); nav(h, root); });
 function setTab(tb) { document.querySelectorAll('nav.tabs a').forEach(a => a.classList.toggle('on', a.dataset.tab === tb)); }
 
 async function loadAll() {
@@ -1319,7 +1338,7 @@ async function viewHome() {
 async function viewItem(id) {
   lazyLoad(id);
   const it = await getOne('items', id);
-  if (!it) { location.hash = '#home'; return; }
+  if (!it) { nav('#home', true); return; }
   setHeader(itemName(it), true); setTab('home');
   const obs = await obsFor(id);
   const s = summarize(it, obs);
@@ -1362,7 +1381,7 @@ async function viewItem(id) {
     $('#scOther').onclick = () => location.hash = `#pick/${sc.code}`;
     app.querySelectorAll('.scprod').forEach(a => a.onclick = () => showProduct(sc));
     $('#scAll').onclick = () => { scanCtx = null; viewItem(id); };
-    app.querySelectorAll('[data-alt]').forEach(b => b.onclick = () => { scanCtx = { ...sc, itemId: b.dataset.alt, alts: [id, ...sc.alts.filter(a => a !== b.dataset.alt)] }; location.hash = `#item/${encodeURIComponent(b.dataset.alt)}`; });
+    app.querySelectorAll('[data-alt]').forEach(b => b.onclick = () => { scanCtx = { ...sc, itemId: b.dataset.alt, alts: [id, ...sc.alts.filter(a => a !== b.dataset.alt)] }; nav(`#item/${encodeURIComponent(b.dataset.alt)}`, true); });
   }
 }
 const moreBtn = (n, k) => n > k ? `<button class="btn sec small showMore" style="margin:8px 0 0">${tn('showAll', n)}</button>` : '';
@@ -1431,17 +1450,17 @@ async function viewPick(code) {
   }
   const go = id => {
     sessionStorage.setItem('pp_pending', JSON.stringify({ code: code || '', info }));
-    location.hash = `#add/${encodeURIComponent(id)}/new`;
+    nav(`#add/${encodeURIComponent(id)}/new`, true);
   };
   const render = () => {
     const q = $('#pq').value.trim().toLowerCase();
     const si = id => { const k = sug.indexOf(id); return !q && k >= 0 ? k : 99; };
     const rows = items.filter(it => !q || [it.name, it.en, ...(it.aliases || [])].join(' ').toLowerCase().includes(q)).sort((a, b) => (si(a.id) - si(b.id)) || itemName(a).localeCompare(itemName(b))).slice(0, 80);
     $('#plist').innerHTML = rows.map(it => `<a class="item" href="javascript:void 0" data-id="${esc(it.id)}">${thumb(itemPhoto(it), itemEmoji(it))}<div class="main"><div class="name">${esc(itemName(it))}${si(it.id) < 99 ? `<span class="tag">${t('suggested')}</span>` : ''}</div><div class="muted">${esc([itemSub(it), placeLabel(it)].filter(Boolean).join(' · '))}</div></div></a>`).join('') || `<div class="muted">${t('noMatch')}</div>`;
-    $('#plist').querySelectorAll('[data-id]').forEach(a => a.onclick = () => code ? go(a.dataset.id) : (location.hash = `#add/${encodeURIComponent(a.dataset.id)}`));
+    $('#plist').querySelectorAll('[data-id]').forEach(a => a.onclick = () => code ? go(a.dataset.id) : nav(`#add/${encodeURIComponent(a.dataset.id)}`, true));
   };
   $('#pq').oninput = render; render();
-  $('#pNew').onclick = () => { sessionStorage.setItem('pp_pending', JSON.stringify({ code: code || '', info, newItemName: $('#pq').value.trim() })); location.hash = '#newitem'; };
+  $('#pNew').onclick = () => { sessionStorage.setItem('pp_pending', JSON.stringify({ code: code || '', info, newItemName: $('#pq').value.trim() })); nav('#newitem', true); };
 }
 
 async function viewNewItem() {
@@ -1467,14 +1486,14 @@ async function viewNewItem() {
     const name = $('#nName').value.trim(); if (!name) return toast(t('needName'));
     const id = 'I' + Date.now().toString(36);
     await save('items', { id, name, en: name, cat: DEPT_CAT[$('#nDept').value], aisle: $('#nDept').value + '/' + $('#nAisle').value, mode, cmpUses: mode === 'pack' && $('#nUses').checked, aliases: [], variants: {}, photo: nPhoto || (pend.info && pend.info.image) || '', created: today(), by: fbUser ? fbUser.uid : '' });
-    location.replace(`#add/${encodeURIComponent(id)}/${pend.code || pend.info ? 'new' : ''}`);
+    nav(`#add/${encodeURIComponent(id)}/${pend.code || pend.info ? 'new' : ''}`, true);
   };
 }
 
 async function viewAdd(id, preVid) {
   lazyLoad(id);
   const it = await getOne('items', id);
-  if (!it) { location.hash = '#home'; return; }
+  if (!it) { nav('#home', true); return; }
   setHeader(t('addPrice'), true); setTab('home');
   const sum = summarize(it, await obsFor(id));
   const stores = [...new Set((await getAll('obs')).map(x => x.store).filter(Boolean))];
@@ -1590,7 +1609,7 @@ async function viewAdd(id, preVid) {
     if (o.store) lsSet('lastStore', o.store);
     sessionStorage.removeItem('pp_pending');
     toast(v.cls === 'good' ? t('savedLow') : v.cls === 'eq' ? t('savedEq') : t('saved'), 3200);
-    location.replace(`#item/${encodeURIComponent(id)}`);
+    navUp(preVid && preVid !== 'new' ? `#variant/${encodeURIComponent(id)}/${encodeURIComponent(preVid)}` : `#item/${encodeURIComponent(id)}`);
   };
 }
 
@@ -1754,7 +1773,7 @@ async function loadUsage(interactive) {
 async function viewVariant(id, vid) {
   lazyLoad(id);
   const it = await getOne('items', id); const va = it && (it.variants || {})[vid];
-  if (!va) { location.hash = it ? `#item/${encodeURIComponent(id)}` : '#home'; return; }
+  if (!va) { nav(it ? `#item/${encodeURIComponent(id)}` : '#home', true); return; }
   setHeader(variantText(it, vid) || itemName(it), true); setTab('home');
   const obs = (await obsFor(id)).filter(o => o.vid === vid), s = summarize(it, obs);
   const cur = s ? s.rows.filter(r => r.o.sale && isCurrent(r.o)).sort((a, b) => a.u.v - b.u.v) : [];
@@ -2226,15 +2245,15 @@ function regenB(pose, expr, color, collar) {
     const neck = `<path d="M74 118 C72 136 78 154 90 166 L124 158 C116 146 110 132 108 116 Z" fill="${fur}"/>`;
     if (pose === 'run') { // trotting: legs on the diagonal
       body = shadow + tail('M196 158 C216 148 222 128 216 112') +
-        fleg('M112 188 L90 204') + fpaw(85, 210, -12) + fleg('M186 188 L200 203') + fpaw(205, 209, 12) +
+        ('<g class="legF2">' + fleg('M112 188 L90 204') + fpaw(85, 210, -12) + '</g>') + ('<g class="legB2">' + fleg('M186 188 L200 203') + fpaw(205, 209, 12) + '</g>') +
         big(L('M92 158 C96 136 128 128 160 132 C192 136 206 152 202 172 C198 190 176 198 146 198 C116 198 88 182 92 158 Z', fur)) + neck +
-        fleg('M134 190 L121 207') + fpaw(118, 214, -6) + fleg('M170 190 L180 207') + fpaw(183, 214, 6);
+        ('<g class="legF">' + fleg('M134 190 L121 207') + fpaw(118, 214, -6) + '</g>') + ('<g class="legB">' + fleg('M170 190 L180 207') + fpaw(183, 214, 6) + '</g>');
       hd = head(-22.5, 2.25, -6, .92);
     } else { // standing: four straight legs
       body = shadow + tail('M196 158 C216 148 222 128 216 112') +
-        fleg('M104 186 L103 205') + fpaw(101, 212) + fleg('M186 186 L187 205') + fpaw(188, 212) +
+        ('<g class="legF2">' + fleg('M104 186 L103 205') + fpaw(101, 212) + '</g>') + ('<g class="legB2">' + fleg('M186 186 L187 205') + fpaw(188, 212) + '</g>') +
         big(L('M90 160 C92 138 124 130 156 132 C188 134 204 150 200 170 C196 188 174 196 146 196 C116 196 88 182 90 160 Z', fur)) + neck +
-        fleg('M129 190 L129 207') + fpaw(129, 214) + fleg('M163 190 L163 207') + fpaw(164, 214);
+        ('<g class="legF">' + fleg('M129 190 L129 207') + fpaw(129, 214) + '</g>') + ('<g class="legB">' + fleg('M163 190 L163 207') + fpaw(164, 214) + '</g>');
       hd = head(-24.5, .25, -4, .92);
     }
   } else {
@@ -2349,7 +2368,7 @@ async function viewGarden() {
   const stopWalk = () => { clearInterval(walkT); walkT = null; };
   const draw = (p, e, anim) => { if (p !== 'walk' && p !== 'run') stopWalk(); if (p !== 'sleep' && inBed) { inBed = false; drawBed(); } else if (p === 'sleep' && inBed) drawBed(); pup.innerHTML = regenSvg(p, e); pup.className = 'pup' + (anim ? ' ' + anim : ''); wrap.classList.toggle('turned', state === 'grumpy' && !play); };
   // walking / running: swap leg frames like a flip book
-  const move = (e, anim, fast) => { stopWalk(); let f = 0; draw(fast ? 'run' : 'walk', e, anim); walkT = setInterval(() => { if (!alive()) return stopWalk(); f ^= 1; pup.innerHTML = regenSvg(f ? 'run' : 'walk', e); }, fast ? 140 : 260); };
+  const move = (e, anim, fast) => { stopWalk(); let f = 0; draw(fast ? 'run' : 'walk', e, anim); wrap.classList.remove('turned'); walkT = setInterval(() => { if (!alive()) return stopWalk(); f ^= 1; pup.innerHTML = regenSvg(f ? 'run' : 'walk', e); }, fast ? 140 : 260); };
   // where the puppy stands: x/y offset from his front spot (px), size, facing right?
   const place = (x, y, s, ms, right) => { pos = { x, y }; wrap.style.transition = `transform ${ms || 0}ms linear`; wrap.style.setProperty('--gx', x + 'px'); wrap.style.setProperty('--gy', y + 'px'); wrap.style.setProperty('--gs', s); $('#gFlip').classList.toggle('right', !!right); };
   const later = (ms, fn) => setTimeout(() => { if (alive()) fn(); }, ms);
@@ -2361,7 +2380,7 @@ async function viewGarden() {
   const goTo = (sx, sy, cb, fast, e) => { const G = geo(), x = sx - G.homeX, y = sy - G.homeY, d = Math.hypot(x - pos.x, y - pos.y);
     if (d < 6) { place(x, y, depth(sy, G), 0, false); cb && cb(); return; }
     const ms = Math.max(500, d / (fast ? .3 : .1)), right = x > pos.x, tok = roamTok; move(e || 'happy', 'wagfast', fast); place(x, y, depth(sy, G), ms, right);
-    later(ms, () => { if (tok !== roamTok) return; place(x, y, depth(sy, G), 0, false); cb && cb(); }); return ms; };
+    later(ms, () => { if (tok !== roamTok) return; place(x, y, depth(sy, G), 0, right); cb && cb(); }); return ms; };
   // stop whatever he's doing on his own (wandering, napping) right where he is, so you can play with him straight away
   const cancelRoam = () => { if (!roaming) return; roaming = false; roamTok++; stopWalk();
     const m = getComputedStyle(wrap).transform, v = m && m.startsWith('matrix(') ? m.slice(7, -1).split(',').map(Number) : null;
@@ -2610,10 +2629,10 @@ async function viewGarden() {
     m.querySelector('#sickClose').onclick = closeSheet; bindPill(m, openSick); };
   $('#gNeed').onclick = () => { if (isSick(gLoad())) openSick(); };
   $('#gStats').onclick = () => { const s2 = $('#gStats'); s2.classList.toggle('min'); lsSet('gStatsOpen', s2.classList.contains('min') ? '0' : '1'); };
-  $('#gInfo').onclick = () => openPupInfo(); $('#gFr').onclick = () => { location.hash = '#friends'; };
-  $('#gDoor').onclick = () => { if (gBusy || play || chewing() || eating()) { location.replace('#yard'); return; } cancelRoam(); gBusy = true; const G = geo();
+  $('#gInfo').onclick = () => openPupInfo(); $('#gFr').onclick = () => { nav('#friends'); };
+  $('#gDoor').onclick = () => { if (gBusy || play || chewing() || eating()) { nav('#yard', true); return; } cancelRoam(); gBusy = true; const G = geo();
     goTo(G.W - 61, G.HZ - 10, () => { $('#gDoor').classList.add('open'); later(450, () => { wrap.style.transition = 'transform .35s linear'; wrap.style.setProperty('--gy', (G.HZ - 18 - G.homeY) + 'px'); wrap.style.setProperty('--gs', .36);
-      later(380, () => { sessionStorage.setItem('pupEnter', 'yard'); gBusy = false; location.replace('#yard'); }); }); }, false, 'super'); };
+      later(380, () => { sessionStorage.setItem('pupEnter', 'yard'); gBusy = false; nav('#yard', true); }); }); }, false, 'super'); };
   $('#gPad').onclick = e => { e.stopPropagation(); g = gLoad(); if (!(g.padUses || 0)) return toast('🧻 The pee pad is clean.', 1800); g.padUses = 0; gSave(g); fx('✨🧻✨', 4, 80); care('poo', 3); poos(); bars(); };
   // where the pad is, in garden coordinates (his feet)
   const padSpot = () => { const sc = $('#gScene').getBoundingClientRect(), r = $('#gPad').getBoundingClientRect(); return [r.left - sc.left + r.width / 2, r.top - sc.top + r.height * .8]; };
@@ -2689,7 +2708,7 @@ async function viewGarden() {
       <div class="row" style="margin-top:12px"><button class="btn sec" id="toyClose" style="margin:0">${t('close')}</button><button class="btn" id="toyShop" style="margin:0">🛒 ${t('gShopBtn')}</button></div>`);
     m.querySelector('#toyClose').onclick = closeSheet; m.querySelector('#toyShop').onclick = openShop;
     m.querySelectorAll('[data-bin]').forEach(b => b.onclick = () => { g = gLoad(); g.toys.splice(+b.dataset.bin, 1); gSave(g); openToys(); });
-    m.querySelectorAll('[data-out]').forEach(b => b.onclick = () => { closeSheet(); toast('🎾 Ball games are played in the backyard.', 2000); location.replace('#yard'); });
+    m.querySelectorAll('[data-out]').forEach(b => b.onclick = () => { closeSheet(); toast('🎾 Ball games are played in the backyard.', 2000); nav('#yard', true); });
     m.querySelectorAll('[data-play]').forEach(b => b.onclick = () => {
       const i = +b.dataset.play; closeSheet();
       if (state === 'weak') { toast(withName(t('gToyWeak')), 2500); return; }
@@ -2983,8 +3002,8 @@ function tagParse(text) {
 async function handleBarcode(raw) { if (/[?&]r=[a-z0-9]/i.test(String(raw || ''))) return addFriendByCode(raw); // a friend's PricePup QR
   const code = normCode(raw); if (!code) return toast(t('badCode'));
   const hit = await findBarcode(code); // already sorted: open its product page (price history, deals, log a price)
-  if (hit) { scanCtx = { code, itemId: hit.it.id, vid: hit.vid, known: true }; location.hash = `#variant/${encodeURIComponent(hit.it.id)}/${encodeURIComponent(hit.vid)}`; return; }
-  location.hash = `#product/${code}`; }
+  if (hit) { scanCtx = { code, itemId: hit.it.id, vid: hit.vid, known: true }; nav(`#variant/${encodeURIComponent(hit.it.id)}/${encodeURIComponent(hit.vid)}`, location.hash === '#scan'); return; }
+  nav(`#product/${code}`, location.hash === '#scan'); }
 async function viewProduct(code, logMode) { // product page (history, deal, Log button); #product/<code>/log = the log form
   setHeader(logMode ? 'Log a price' : 'Product', true); setTab('scan');
   app.innerHTML = `<div class="card empty">${dog('sniff', 'glass', 'bounce')}<div class="muted">Looking up ${esc(code)}…</div></div>`;
@@ -3033,7 +3052,7 @@ async function viewProduct(code, logMode) { // product page (history, deal, Log 
     await save('obs', o); lsSet('lastStore', store);
     if (earnCoin()) setTimeout(() => coinPop(1, 'Thanks for logging a price!'), 900); refStep('log');
     toast(link ? `✅ Saved ${o.multi > 1 ? o.multi + ' for ' : ''}${money(o.price)}${byW ? '/' + per : ''} at ${store}` : `✅ Saved. This product will be sorted into the right item soon.`, 2800);
-    location.replace(link ? `#variant/${encodeURIComponent(it.id)}/${encodeURIComponent(link.vid)}` : `#product/${code}`); // back to the product page with the new price
+    navUp(link ? `#variant/${encodeURIComponent(it.id)}/${encodeURIComponent(link.vid)}` : `#product/${code}`); // back to the product page with the new price
   };
 }
 // nobody has this barcode: register the product only (photo + name). No price needed, so it works at home too.
@@ -3063,7 +3082,7 @@ function viewNewProduct(code) {
     const sg = sizeGet('n'); $('#nSave').disabled = true;
     await bcPut(code, { name, brand: $('#nBrand').value.trim(), quantity: sg.quantity, byWeight: sg.byWeight, image: photo, src: 'user', status: 'unsorted', ocr: ocrText });
     const c = earnCoin(2); refStep('log'); if (c) setTimeout(() => coinPop(c, 'Thanks for adding a new product!'), 500); else toast('🐾 Thanks! Saved for everyone.', 3000);
-    if (location.hash === `#product/${code}`) viewProduct(code); else location.replace(`#product/${code}`); // product page: tap "Log a price" if you have one
+    if (location.hash === `#product/${code}`) viewProduct(code); else nav(`#product/${code}`, true); // product page: tap "Log a price" if you have one
   };
 }
 // fix a wrong name, size or picture: saved to the shared barcode record (and the linked product)
@@ -3180,7 +3199,7 @@ function checkPet() { const need = petNeed(); if (!need || location.hash === '#g
   notify(tf('needTitle', gLoad().pup.name), need.msg, 'pet', '#garden'); }
 setInterval(checkPet, 10 * 60e3);
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') checkPet(); else { checkVersion(); checkTrack(); checkFeedback(); } });
-navigator.serviceWorker && navigator.serviceWorker.addEventListener && navigator.serviceWorker.addEventListener('message', e => { if (e.data && e.data.url) location.hash = e.data.url; });
+navigator.serviceWorker && navigator.serviceWorker.addEventListener && navigator.serviceWorker.addEventListener('message', e => { if (e.data && e.data.url) nav(e.data.url); });
 
 /* ---------- Version check: make sure everyone is on the latest app ---------- */
 let verAsked = '';
@@ -3223,6 +3242,7 @@ function showProduct(sc) {
 
 /* ---------- What's new (shown once after each update) ---------- */
 const CHANGES = {
+  '1.3.2': [['Fix: your pup\'s legs now move whenever it walks or runs in the backyard and on visits, no more sliding.', 'Fix: pups get smaller the farther back they are, the same way everywhere, and a pup farther back is drawn behind the nearer one, the doghouse and the tree.', 'Fix: Back no longer takes you into a visit you already left, a price you already saved, or the camera you already closed.'], ['Fix: your pup\'s legs now move whenever it walks or runs in the backyard and on visits, no more sliding.', 'Fix: pups get smaller the farther back they are, the same way everywhere, and a pup farther back is drawn behind the nearer one, the doghouse and the tree.', 'Fix: Back no longer takes you into a visit you already left, a price you already saved, or the camera you already closed.']],
   '1.3.1': [['New: a full privacy policy page, linked from the home screen and Settings.'], ['New: a full privacy policy page, linked from the home screen and Settings.']],
   '1.3.0': [['New look: your pup has a brand-new soft felt style everywhere in the app, in black, brown and white.', 'New look: new poses for begging, high five, standing, trotting, rolling over and playing dead.', 'New look: digging in the yard now shows your pup\'s head down in the hole with dirt flying.', 'New look: new app icon to match.'], ['New look: your pup has a brand-new soft felt style everywhere in the app, in black, brown and white.', 'New look: new poses for begging, high five, standing, trotting, rolling over and playing dead.', 'New look: digging in the yard now shows your pup\'s head down in the hole with dirt flying.', 'New look: new app icon to match.']],
   '1.2.6': [['New look: your pup\'s head now sits closer to its body when it runs and trots, so it looks more natural.'], ['New look: your pup\'s head now sits closer to its body when it runs and trots, so it looks more natural.']],
@@ -3255,6 +3275,13 @@ function showWhatsNew() {
   m.querySelector('#wnOk').onclick = closeSheet;
 }
 
+// 1.3.2 one depth rule for the yard and the visit: the lawn's horizon is ~40% up the scene, so size shrinks
+// linearly towards it (y = bottom %, 6 = the front spot = full size); farther things are drawn behind nearer ones
+const depthK = y => Math.max(.3, 1 - .029 * Math.max(0, y - 6));
+const depthZ = y => 10 + Math.round((45 - y) * 2);
+// the doghouse and the tree stand on the lawn, so they sit in the depth order too (pups can walk behind them)
+function yardLayers(sc) { if (!sc) return; const W = sc.clientWidth, H = sc.clientHeight, k = Math.max(W / 360, H / 480);
+  sc.querySelectorAll('.yfront').forEach(e => { const y = (480 - +e.dataset.base) * k / H * 100; e.style.zIndex = depthZ(y); }); }
 // 1.1 backyard scene: viewBox 360x480, horizon (fence base) at y 270; safe area x 28..332.
 function yardSvg(name) {
   const ink = '#15151a';
@@ -3277,10 +3304,12 @@ function yardSvg(name) {
     <circle class="ylamp" cx="98" cy="250" r="7" fill="var(--lamp)" stroke="${ink}" stroke-width="2.5"/>
     <path d="M28 362 H104 V378 H28 Z" fill="#b9a48a" stroke="${ink}" stroke-width="3"/>
     
+  </svg><svg class="yardsvg yfront" data-base="300" viewBox="0 0 360 480" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
     <path d="M300 300 C298 268 298 248 302 222 L318 222 C320 248 320 270 324 300 Z" fill="#8a5a33" stroke="${ink}" stroke-width="3" stroke-linejoin="round"/>
     <g><circle cx="290" cy="184" r="30" fill="var(--leaf)" stroke="${ink}" stroke-width="3"/><circle cx="330" cy="176" r="32" fill="var(--leaf)" stroke="${ink}" stroke-width="3"/>
       <circle cx="310" cy="150" r="30" fill="var(--leaf)" stroke="${ink}" stroke-width="3"/><circle cx="310" cy="190" r="26" fill="var(--leaf2)"/></g>
     
+  </svg><svg class="yardsvg yfront" data-base="368" viewBox="0 0 360 480" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
     <g transform="translate(222 296)">
       <path d="M0 36 V72 H80 V36 L40 6 Z" fill="var(--dh)" stroke="${ink}" stroke-width="3" stroke-linejoin="round"/>
       <path d="M-8 40 L40 0 L88 40" fill="none" stroke="var(--dhroof)" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
@@ -3307,8 +3336,8 @@ const ballOf = g => (g.toys || []).find(y => y.type === 'ball' && y.uses < TOY_L
 const holeSvg = () => `<svg viewBox="-50 -16 120 34" aria-hidden="true"><ellipse cx="0" cy="6" rx="46" ry="13" fill="#9a6a3c" stroke="#15151a" stroke-width="3"/><ellipse cx="0" cy="4" rx="32" ry="8" fill="#3b2412"/><path d="M30 2 C40 -14 62 -12 66 4 Z" fill="#8a5a2c" stroke="#15151a" stroke-width="3" stroke-linejoin="round"/></svg>`;
 const patchSvg = () => `<svg viewBox="-44 -6 88 26" aria-hidden="true"><ellipse cx="0" cy="6" rx="40" ry="11" fill="#b07a46" stroke="#8a5a2c" stroke-width="2" stroke-dasharray="5 4"/><path d="M-14 4 l4 -6 M2 6 l3 -7 M16 4 l-3 -6" stroke="#4f9a3a" stroke-width="3" stroke-linecap="round"/></svg>`;
 async function viewYard() {
-  let g = gLoad(); if (!g.pup) { location.replace('#garden'); return; }
-  if (g.shelter || isSick(g)) { location.replace('#garden'); return; }
+  let g = gLoad(); if (!g.pup) { nav('#garden', true); return; }
+  if (g.shelter || isSick(g)) { nav('#garden', true); return; }
   setHeader(`${g.pup.name}'s backyard`, true); setTab('home'); pupColor = g.pup.color || 'black'; pupCollar = g.wear || null;
   g.lastVisit = Date.now(); g.holes = yardHoles(g); gSave(g);
   const lock = walkLock(g), ball = ballOf(g);
@@ -3318,19 +3347,30 @@ async function viewYard() {
       ${yardSvg(esc(g.pup.name.toUpperCase().slice(0, 9)))}
       <button class="ydoor" id="yIn" aria-label="Go inside"><i class="dleaf"></i><span>🏠 Inside</span></button>
       <div id="yHoles"></div><div id="yMarks"></div><div class="yball hidden" id="yBall">${toySvg('ball')}</div><div class="yhand hidden" id="yHand">${toySvg('ball')}</div><div class="balltip ytip hidden" id="yTip"></div>
-      <div class="ypup" id="yPup"><div class="pflip" id="yFlip">${regenSvg('sit', 'happy')}</div></div>
+      <div class="ypup" id="yPup"><div class="yin" id="yAn"><div class="pflip" id="yFlip">${regenSvg('sit', 'happy')}</div></div></div>
       <div class="fx" id="yFx"></div><div class="wx" id="yWx">📍 Calgary</div></div>
     <div class="yacts">
       <button class="btn sec" id="yBallBtn">🎾 Play ball<small id="yBallN">${ball ? `${TOY_LIFE - ball.uses} throws left` : 'Buy a ball in the shop'}</small></button>
       <button class="btn${lock ? ' sec locked' : ''}" id="yWalk">🦮 Go for a walk${lock ? ' 🔒' : ''}</button>
       <button class="btn sec" id="yFriends" style="grid-column:1/-1">👥 Friends</button></div>`;
-  const sc = $('#yScene'), pupEl = $('#yPup'), flip = $('#yFlip');
+  const sc = $('#yScene'), pupEl = $('#yPup'), flip = $('#yFlip'), anEl = $('#yAn'); yardLayers(sc);
   calgaryWeather().then(w => { if (!$('#yScene')) return; sc.className = 'garden big yard ' + sky(w); const t = w ? Math.round(w.temperature_2m) : null; $('#yWx').textContent = `📍 Calgary${t != null ? ' · ' + t + '°C' : ''}`;
     if (/snow|rain/.test(sc.className)) sc.querySelector('.fall').innerHTML = Array.from({ length: 26 }, (_, i) => `<i style="left:${(i * 3.9) % 100}%;animation-delay:${(i % 7) * .14}s"></i>`).join(''); }).catch(() => {});
-  let busy = false, pos = { x: 50, y: 6 }, digT = null;
-  const later = (ms, f) => setTimeout(() => { if ($('#yScene')) f(); }, ms);
-  const draw = (pose, expr, cls = '') => { clearInterval(digT); flip.innerHTML = regenSvg(pose, expr); pupEl.className = 'ypup ' + cls; };
-  const moveTo = (x, y, ms = 900) => { flip.classList.toggle('right', x > pos.x); pos = { x, y }; pupEl.style.transition = `left ${ms}ms ease, bottom ${ms}ms ease`; pupEl.style.left = x + '%'; pupEl.style.bottom = y + '%'; };
+  let busy = false, pos = { x: 50, y: 6 }, digT = null, mt = 0;
+  const alive = () => sc.isConnected; // only this visit to the yard: timers from an earlier one stop
+  const later = (ms, f) => setTimeout(() => { if (alive()) f(); }, ms);
+  // the pup's animation classes go on an inner box, so they never fight the depth scale on the outer one
+  const draw = (pose, expr, cls = '') => { clearInterval(digT); if (!/vlegs/.test(cls)) mt++; flip.innerHTML = regenSvg(pose, expr); anEl.className = 'yin ' + cls; };
+  // 1.3.2 every move: trotting legs while it moves, size and layer follow the depth, stops trotting when it arrives
+  const moveTo = (x, y, ms = 900, pose = 'run2', expr = 'happy', ease = 'ease') => { const t = ++mt, nearer = y < pos.y; if (Math.abs(x - pos.x) > .5) flip.classList.toggle('right', x > pos.x); pos = { x, y };
+    if (ms) draw(pose, expr, 'vlegs'), mt = t; pupEl.style.transition = ms ? `left ${ms}ms ${ease}, bottom ${ms}ms ${ease}, transform ${ms}ms ${ease}` : 'none';
+    pupEl.style.left = x + '%'; pupEl.style.bottom = y + '%'; pupEl.style.transform = `scale(${depthK(y)})`;
+    if (nearer || !ms) pupEl.style.zIndex = depthZ(y); else later(ms * .6, () => { pupEl.style.zIndex = depthZ(y); });
+    if (ms) later(ms, () => { if (mt === t) draw('run2', expr, ''); }); return ms; };
+  // stop right where it is (a tap or a game interrupts a stroll)
+  const freeze = () => { const cs = getComputedStyle(pupEl), r = sc.getBoundingClientRect(); mt++;
+    const x = (parseFloat(cs.left) / r.width) * 100, y = (parseFloat(cs.bottom) / r.height) * 100; if (isFinite(x) && isFinite(y)) { pos = { x, y }; } pupEl.style.transition = 'none';
+    pupEl.style.left = pos.x + '%'; pupEl.style.bottom = pos.y + '%'; pupEl.style.transform = `scale(${depthK(pos.y)})`; pupEl.style.zIndex = depthZ(pos.y); };
   const fx = (chars, n = 4, at = pos) => { const box = $('#yFx'); if (!box) return; for (let i = 0; i < n; i++) { const s = document.createElement('span'); s.textContent = [...chars][i % [...chars].length]; s.style.left = (at.x - 6 + Math.random() * 12) + '%'; s.style.bottom = (at.y + 22 + Math.random() * 8) + '%'; s.style.animationDelay = i * .12 + 's'; box.appendChild(s); setTimeout(() => s.remove(), 1800); } };
   const marks = () => { const m = $('#yMarks'); if (!m) return; m.innerHTML = yardMarks(gLoad()).map((k, i) => `<button class="ypee" data-i="${i}" style="left:${k.x}%;bottom:${k.y}%" aria-label="Pee spot from ${esc(k.by || 'a friend')}"></button>`).join('');
     m.querySelectorAll('.ypee').forEach(b => b.onclick = () => { const g2 = gLoad(); const list = yardMarks(g2); list.splice(+b.dataset.i, 1); g2.yardPee = list; addXp(g2, 'poo'); gSave(g2); fx('💦✨', 3); toast('🚿 Hosed it off. Fresh lawn!', 1600); marks(); }); };
@@ -3340,42 +3380,42 @@ async function viewYard() {
     box.querySelectorAll('.yhole').forEach(b => b.onclick = e => { e.stopPropagation(); const g2 = gLoad(), h = (g2.holes || []).find(z => z.at === +b.dataset.at); if (!h || h.fill) return;
       h.fill = Date.now(); addXp(g2, 'poo'); gSave(g2); fx('🟫✨', 3, { x: h.x, y: h.y - 14 }); const left = openHoles(g2).length; toast(left ? `🌱 Filled it in. ${left} more to go.` : '🌱 All filled in. Nice and tidy!', 1800); holes(); }); };
   marks(); holes(); moveTo(50, 6, 0);
-  if (sessionStorage.getItem('pupEnter') === 'yard') { busy = true; const yd = $('#yIn'); yd.classList.add('open'); Object.assign(pupEl.style, { transition: 'none', left: '16.5%', bottom: '26%', transform: 'scale(.42)' }); draw('run2', 'happy', 'r-walk-legs'); flip.classList.add('right'); pupEl.getBoundingClientRect();
-    Object.assign(pupEl.style, { transition: 'left 1400ms ease, bottom 1400ms ease, transform 1400ms ease', left: '50%', bottom: '6%', transform: 'scale(1)' }); pos = { x: 50, y: 6 }; later(1000, () => yd.classList.remove('open'));
+  if (sessionStorage.getItem('pupEnter') === 'yard') { busy = true; const yd = $('#yIn'); yd.classList.add('open'); moveTo(16.5, 26, 0); pupEl.getBoundingClientRect();
+    moveTo(50, 6, 1400); later(1000, () => yd.classList.remove('open'));
     later(1450, () => { flip.classList.remove('right'); draw('sit', 'happy', 'wagfast'); busy = false; }); }
   sessionStorage.removeItem('pupEnter');
   if (openHoles(g).length >= HOLE_MESS) later(900, () => toast(`🕳️ ${g.pup.name} has dug ${openHoles(gLoad()).length} holes. Tap them to fill them in and keep the yard tidy.`, 3600));
   // digging: the pup picks its own spot, digs for a few seconds, and leaves a hole
   const dig = () => { const g0 = gLoad(); if (openHoles(g0).length >= HOLE_MAX) return false; busy = true;
-    const x = 12 + Math.random() * 76, y = 2 + Math.random() * 16; draw('run2', 'super', 'r-walk-legs'); moveTo(x, y, 1300);
-    later(1350, () => { draw('nose', 'eatdown', 'r-sniff'); later(1100, () => { let f = 0; pupEl.className = 'ypup digging'; flip.innerHTML = digSvg(pupColor, 0);
-      digT = setInterval(() => { if (!$('#yScene')) return clearInterval(digT); f ^= 1; flip.innerHTML = digSvg(pupColor, f); }, 240);
+    const x = 12 + Math.random() * 76, y = 2 + Math.random() * 16; moveTo(x, y, 1300, 'run2', 'super');
+    later(1350, () => { draw('nose', 'eatdown', 'r-sniff'); later(1100, () => { let f = 0; anEl.className = 'yin digging'; flip.innerHTML = digSvg(pupColor, 0);
+      digT = setInterval(() => { if (!alive()) return clearInterval(digT); f ^= 1; flip.innerHTML = digSvg(pupColor, f); }, 240);
       later(3200, () => { clearInterval(digT); const g2 = gLoad(); g2.holes = yardHoles(g2).concat({ at: Date.now(), x: +x.toFixed(1), y: +Math.max(0, y - 2).toFixed(1) }); addJoy(g2, 2);
         const found = g2.digDay !== today() && Math.random() < .35; if (found) { g2.digDay = today(); g2.bonus = (g2.bonus || 0) + 1; }
-        gSave(g2); holes(); moveTo(Math.min(92, x + 9), y + 2, 500); draw('sit', found ? 'super' : 'happy', found ? 'r-jump wagfast' : 'wagfast');
+        gSave(g2); holes(); moveTo(Math.min(92, x + 9), y + 2, 500); later(520, () => draw('sit', found ? 'super' : 'happy', found ? 'r-jump wagfast' : 'wagfast'));
         if (found) { fx('🦴✨', 3); toast(`🦴 ${g2.pup.name} dug up a treat!`, 2200); } else fx('🟫', 2);
         later(1200, () => { busy = false; }); }); }); }); return true; };
-  const idle = () => { if (busy || !$('#yScene')) return; const r = Math.random();
+  const idle = () => { if (busy || !alive()) return; const r = Math.random();
     if (r < .16 && dig()) { later(9000 + Math.random() * 6000, idle); return; }
-    if (r < .55) { draw('run2', 'happy', 'r-walk-legs'); moveTo(16 + Math.random() * 64, 3 + Math.random() * 14, 1400); later(1450, () => { if (!busy) draw(Math.random() < .5 ? 'run2' : 'nose', 'happy', Math.random() < .5 ? 'r-sniff' : ''); }); }
+    if (r < .55) { const t = mt + 1; moveTo(16 + Math.random() * 64, 3 + Math.random() * 14, 1400); later(1450, () => { if (!busy && mt === t + 1) draw(Math.random() < .5 ? 'run2' : 'nose', 'happy', Math.random() < .5 ? 'r-sniff' : ''); }); }
     else if (r < .7) draw('lie', 'happy'); else if (r < .82) draw('nose', 'open', 'r-sniff'); else draw('sit', 'happy', 'r-wiggle wagfast');
     later(3500 + Math.random() * 3500, idle); };
   later(1800, idle);
   // potty outside: if the puppy needs to go, it goes on the lawn (that's the goal of house training)
   later(4500, () => { const g2 = gLoad(); const pee = g2.pendingPee && g2.pendingPee - Date.now() < 45 * 60e3, poo = g2.pendingPoo && g2.pendingPoo - Date.now() < 45 * 60e3; if (!pee && !poo) return;
-    const go = () => { if (busy) return later(1500, go); busy = true; draw('run2', 'happy'); moveTo(78, 10, 1200); later(1300, () => { draw('squat', 'open'); later(2200, () => { const g3 = gLoad();
+    const go = () => { if (busy) return later(1500, go); busy = true; freeze(); moveTo(78, 10, 1200); later(1300, () => { draw('squat', 'open'); later(2200, () => { const g3 = gLoad();
       if (pee) nextPee(g3); if (poo) delete g3.pendingPoo; const r = practise(g3, 'toilet', 1, TOILET_OK); addXp(g3, 'poo'); addJoy(g3, 2); gSave(g3);
       draw('sit', 'super', 'r-jump'); fx('🌿✨💖', 4); toast(`🌿 Good ${g3.pup.name}! Went potty outside${r === 'learned' ? ' — house trained!' : ''}`, 2600); later(1600, () => { busy = false; }); }); }); }; go(); });
-  pupEl.onclick = () => { if (busy) return; const g2 = gLoad(); addJoy(g2, 1); addXp(g2, 'pet'); gSave(g2); draw('sit', 'super', 'r-wiggle wagfast'); fx('💕💗', 3); };
+  pupEl.onclick = () => { if (busy) return; freeze(); const g2 = gLoad(); addJoy(g2, 1); addXp(g2, 'pet'); gSave(g2); draw('sit', 'super', 'r-wiggle wagfast'); fx('💕💗', 3); };
   // 1.2.3 ball game outdoors, same as it used to be inside: the ball appears at the bottom, swipe it up to throw
   // (faster = farther, left/right follows your finger). The pup runs off (smaller as it goes back), then brings it back,
   // keeps it, or just stares, depending on how well it knows fetch. Needs a ball from the shop; each ball lasts TOY_LIFE throws
-  const yScale = y => Math.max(.45, 1 - .55 * Math.max(0, y - 6) / 30); // farther up the lawn = smaller
-  const place = (x, y, ms) => { flip.classList.toggle('right', x > pos.x); pos = { x, y }; pupEl.style.transition = `left ${ms}ms ease-out, bottom ${ms}ms ease-out, transform ${ms}ms ease-out`; pupEl.style.left = x + '%'; pupEl.style.bottom = y + '%'; pupEl.style.transform = `scale(${yScale(y)})`; };
+  const yScale = depthK; // farther up the lawn = smaller
+  const place = (x, y, ms, pose = 'run', expr = 'super') => moveTo(x, y, ms, pose, expr, 'ease-out');
   const ballHelp = (msg, ms) => { const tip = $('#yTip'); if (!tip) return; tip.textContent = msg; tip.classList.remove('hidden'); if (ms) later(ms, () => tip.classList.add('hidden')); };
   $('#yBallBtn').onclick = () => { if (busy) return; let g2 = gLoad(); const y = ballOf(g2);
     if (!y) { toast('🎾 No ball yet. Buy one in the shop (inside, 🛒).', 2600); return; }
-    busy = true; place(50, 6, 600); draw('sit', 'super', 'r-wiggle wagfast');
+    busy = true; freeze(); if (Math.hypot(pos.x - 50, pos.y - 6) > 1) { place(50, 6, 600, 'run2', 'happy'); later(620, () => draw('sit', 'super', 'r-wiggle wagfast')); } else draw('sit', 'super', 'r-wiggle wagfast');
     const hand = $('#yHand'), scene = $('#yScene'); hand.classList.remove('hidden'); hand.style.cssText = ''; ballHelp(t('ballHint'));
     let samples = [], down = false, start = null; const at = e => [performance.now(), e.clientX, e.clientY];
     const quit = later(25e3, () => { if (!down && !hand.classList.contains('hidden') && !hand.dataset.thrown) { hand.classList.add('hidden'); $('#yTip').classList.add('hidden'); busy = false; } });
@@ -3395,32 +3435,31 @@ async function viewYard() {
       const sr = scene.getBoundingClientRect(), r0 = hand.getBoundingClientRect(), x0 = r0.left + r0.width / 2 - sr.left, y0 = r0.top + r0.height / 2 - sr.top;
       const x1 = sr.width * lx / 100, y1 = sr.height * (1 - ly / 100) - 10, w0 = r0.width, w1 = 30 * yScale(ly), T = 650 + reach * 650, arc = 80 + reach * 160, t0 = performance.now();
       hand.style.transition = 'none'; hand.style.transform = 'none'; hand.style.bottom = 'auto';
-      const fly = now => { if (!$('#yScene')) return; const k = Math.min(1, (now - t0) / T), e = 1 - Math.pow(1 - k, 2), w = w0 + (w1 - w0) * e;
+      const fly = now => { if (!alive()) return; const k = Math.min(1, (now - t0) / T), e = 1 - Math.pow(1 - k, 2), w = w0 + (w1 - w0) * e;
         hand.style.left = (x0 + (x1 - x0) * e) + 'px'; hand.style.top = (y0 + (y1 - y0) * e - arc * Math.sin(Math.PI * k)) + 'px'; hand.style.width = w + 'px'; hand.style.marginLeft = hand.style.marginTop = (-w / 2) + 'px';
         hand.style.transform = `rotate(${k * 540}deg)`; if (k < 1) requestAnimationFrame(fly); else land(); };
       requestAnimationFrame(fly);
       const runMs = 700 + reach * 1100;
       if (mode === 'lost') later(T * .5, () => { draw('sit', 'open', 'r-tilt'); fx('❓', 1); }); // no idea what just happened
-      else later(T * .35, () => { draw('run', 'super', 'r-walk-legs'); place(lx + (lx > pos.x ? -3 : 3), ly, runMs); });
+      else later(T * .35, () => { place(lx + (lx > pos.x ? -3 : 3), ly, runMs); });
       const learnMsg = () => { if (learnt === 'learned') later(900, () => { toast(`🎉 ${gLoad().pup.name} learned to fetch!`, 3500); fx('🎓✨🎾', 6); }); else if (learnt === 'half') later(900, () => toast(`🎾 ${gLoad().pup.name} is starting to chase the ball!`, 3200)); };
       const end = () => { busy = false; delete hand.dataset.thrown; if (worn) toast(`🎾 That ball is worn out. ${nb ? 'Using the next one.' : 'Buy a new one in the shop.'}`, 3000); };
       const land = () => {
-        const ball = $('#yBall'); hand.classList.add('hidden'); hand.style.cssText = ''; ball.classList.remove('hidden'); ball.style.cssText = `left:${lx}%;bottom:${ly}%;width:${w1}px;margin-left:${-w1 / 2}px`;
+        const ball = $('#yBall'); hand.classList.add('hidden'); hand.style.cssText = ''; ball.classList.remove('hidden'); ball.style.cssText = `left:${lx}%;bottom:${ly}%;width:${w1}px;margin-left:${-w1 / 2}px;z-index:${depthZ(ly) + 1}`;
         const wait = Math.max(250, T * .35 + runMs - T);
         if (mode === 'lost') { later(1800, () => draw('sit', 'open', 'r-look'));
           later(2600, () => { ball.classList.add('hidden'); toast(`${gLoad().pup.name} has no idea what to do with the ball yet. Keep throwing to teach it!`, 3600); learnMsg(); end(); }); return; }
         if (mode === 'keep') { later(wait, () => { ball.classList.add('hidden'); draw('lie', 'happy', 'r-chomp wagfast'); fx('🎾', 2); });
-          later(wait + 2800, () => { toast(`${gLoad().pup.name} keeps the ball to play with. Almost there!`, 3000); draw('run', 'happy', 'r-walk-legs'); place(50, 6, runMs); later(runMs + 50, () => { draw('sit', 'happy', 'wagfast'); learnMsg(); end(); }); }); return; }
-        later(wait, () => { ball.classList.add('hidden'); draw('run', 'super', 'r-walk-legs'); fx('🎾', 1); place(50, 6, runMs); // got it! brings it back
+          later(wait + 2800, () => { toast(`${gLoad().pup.name} keeps the ball to play with. Almost there!`, 3000); place(50, 6, runMs, 'run', 'happy'); later(runMs + 50, () => { draw('sit', 'happy', 'wagfast'); learnMsg(); end(); }); }); return; }
+        later(wait, () => { ball.classList.add('hidden'); fx('🎾', 1); place(50, 6, runMs); // got it! brings it back
           later(runMs + 50, () => { draw('sit', 'super', 'r-jump wagfast'); fx('🎾💖', 4); toast(`🎾 Good ${gLoad().pup.name}! Fetched it.`, 1800); learnMsg(); end(); }); });
       };
     };
   };
-  $('#yWalk').onclick = () => { const l = walkLock(gLoad()); if (l) return toast(l, 3200); location.replace('#walk'); };
-  $('#yFriends').onclick = () => location.hash = '#friends';
-  $('#yIn').onclick = () => { if (busy) { location.replace('#garden'); return; } busy = true; draw('run2', 'happy', 'r-walk-legs'); flip.classList.toggle('right', 16.5 > pos.x); pos = { x: 16.5, y: 26 };
-    $('#yIn').classList.add('open'); Object.assign(pupEl.style, { transition: 'left 1200ms ease, bottom 1200ms ease, transform 1200ms ease', left: '16.5%', bottom: '26%', transform: 'scale(.42)' });
-    later(1250, () => { pupEl.style.transition = 'bottom .3s linear, transform .3s linear'; pupEl.style.bottom = '27.5%'; pupEl.style.transform = 'scale(.36)'; later(330, () => { sessionStorage.setItem('pupEnter', 'room'); location.replace('#garden'); }); }); };
+  $('#yWalk').onclick = () => { const l = walkLock(gLoad()); if (l) return toast(l, 3200); nav('#walk', true); };
+  $('#yFriends').onclick = () => nav('#friends');
+  $('#yIn').onclick = () => { if (busy) { nav('#garden', true); return; } busy = true; freeze(); $('#yIn').classList.add('open'); moveTo(16.5, 26, 1200);
+    later(1250, () => { draw('run2', 'happy', 'vlegs'); pupEl.style.transition = 'bottom .3s linear, opacity .3s linear'; pupEl.style.bottom = '27.5%'; pupEl.style.opacity = '0'; later(330, () => { sessionStorage.setItem('pupEnter', 'room'); nav('#garden', true); }); }); };
 }
 
 /* ---------- 1.1 Leash walk (top view): guide an excited puppy past squirrels and things it must not eat ---------- */
@@ -3451,8 +3490,8 @@ const WK = { // things on the walk. bad: chance it makes the puppy sick if eaten
 };
 const WALK_M = 400, WPX = 8; // 400 m, 8 units per metre
 function viewWalk() {
-  const g0 = gLoad(); if (!g0.pup) { location.replace('#garden'); return; }
-  const lock = walkLock(g0); if (lock || isSick(g0) || g0.shelter) { toast(lock || `${g0.pup.name} can't go for a walk right now.`, 3000); location.replace('#yard'); return; }
+  const g0 = gLoad(); if (!g0.pup) { nav('#garden', true); return; }
+  const lock = walkLock(g0); if (lock || isSick(g0) || g0.shelter) { toast(lock || `${g0.pup.name} can't go for a walk right now.`, 3000); nav('#yard', true); return; }
   setHeader(`Walk with ${g0.pup.name}`, true); setTab('home');
   const P = g0.pup, collar = (COLLAR_COLS[(g0.wear || {}).c] || '#2f6fdc'), months = pupAgeM(P), leashSk = skill(g0, 'leash') / 100;
   const base = months < 4 ? .88 : months < 6 ? .76 : months < 12 ? .58 : .36;   // young puppies are super excited and curious
@@ -3540,7 +3579,7 @@ function viewWalk() {
     const m = showSheet(`<div style="text-align:center">${regenSvg(sick ? 'lie' : 'sit', sick ? 'sick' : 'super')}</div><h2 style="text-align:center;margin:4px 0">${sick ? `🤢 ${esc(P.name)} feels sick` : '🎉 Great walk!'}</h2>
       ${sick ? `<div class="card" style="background:#fff0ee"><b>${esc(P.name)} ate ${esc(sick.toLowerCase())}</b>, which is poisonous for dogs. Give medicine at home and keep an eye on ${esc(P.name)}. In real life, call your vet.</div>` : ''}
       <ul class="news">${lines.map(l => `<li>${esc(l)}</li>`).join('')}</ul><button class="btn" id="wDone" style="margin:0">Back home</button>`);
-    m.querySelector('#wDone').onclick = () => { closeSheet(); location.replace('#yard'); }; };
+    m.querySelector('#wDone').onclick = () => { closeSheet(); navUp('#yard'); }; };
   raf = requestAnimationFrame(step);
 }
 
@@ -3638,7 +3677,7 @@ async function addFriendByCode(raw) {
       if (d.by !== me) { await fb.F.updateDoc(fr, { status: 'ok', ['pups.' + me]: pupCard(gLoad()), ['names.' + me]: firstName(), updated: Date.now() }); toast(`🐾 You and ${ref.name || 'your friend'} are now friends!`, 2600); if (location.hash === '#friends') viewFriends(); return; }
       return toast('Friend request already sent', 2200); }
     await fb.F.setDoc(fr, { members: [ref.uid, me].sort(), names: { [ref.uid]: ref.name || 'Friend', [me]: firstName() }, pups: { [ref.uid]: ref.pup || null, [me]: pupCard(gLoad()) }, status: 'pending', by: me, via: 'code', ts: Date.now(), updated: Date.now() });
-    toast(`📨 Friend request sent to ${ref.name || 'your friend'}`, 2600); if (location.hash === '#friends') viewFriends(); else location.hash = '#friends';
+    toast(`📨 Friend request sent to ${ref.name || 'your friend'}`, 2600); if (location.hash === '#friends') viewFriends(); else nav('#friends', location.hash === '#scan');
   } catch (e) { toast('Could not add: ' + (e.code || e.message), 3000); } }
 async function showMyQR() {
   await ensureRefCode(); try { if (!window.qrcode) await loadScript('https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js'); } catch (e) {}
@@ -3699,11 +3738,11 @@ const FR_LV = [0, 5, 12, 25], FR_NAME = ['Hello', 'Buddies', 'Best friends', 'BF
 const frLv = pts => FR_LV.filter(x => (pts || 0) >= x).length; // 1..4
 const perOf = p => (p && p.per) || PERSONAS[[...String((p && p.name) || 'pup')].reduce((a, c) => a + c.charCodeAt(0), 0) % PERSONAS.length];
 async function viewVisit(host) {
-  const g = gLoad(); if (!fbUser || !g.pup) { location.replace('#friends'); return; }
+  const g = gLoad(); if (!fbUser || !g.pup) { navUp('#friends'); return; }
   setHeader('🏡 Visiting', true); setTab('home'); pupColor = g.pup.color || 'black'; pupCollar = g.wear || null;
   const ref = docRef('visits', fbUser.uid + '_' + host); let v;
   try { const s = await fb.F.getDocFromServer(ref); v = s.exists() ? s.data() : null; } catch (e) { v = null; }
-  if (!v || v.status !== 'granted' || v.expires < Date.now()) { toast('This visit is not allowed right now. Ask again!', 2600); location.replace('#friends'); return; }
+  if (!v || v.status !== 'granted' || v.expires < Date.now()) { toast('This visit is not allowed right now. Ask again!', 2600); navUp('#friends'); return; }
   const H2 = v.host || {}, hp = H2.pup || { name: 'Buddy', color: 'brown' }, done = new Set((v.actions || []).filter(a => sameDay(a.at)).map(a => a.k));
   const myName = g.pup.name, hName = hp.name;
   app.innerHTML = `<div class="garden big yard day clear" id="vScene"><div class="sky"><div class="sun"></div><div class="moon"></div><div class="cloud c1"></div><div class="cloud c2"></div><div class="fall"></div></div>
@@ -3718,7 +3757,8 @@ async function viewVisit(host) {
       <button class="btn sec" data-a="food" ${done.has('food') || !(H2.bowl > 0) ? 'disabled' : ''}>🥣 Sneak some food<small>${H2.bowl > 0 ? 'prank' : 'bowl is empty'}</small></button>
       <button class="btn" id="vLeave">👋 Say bye</button></div>`;
   calgaryWeather().then(w => { const sc = $('#vScene'); if (sc) sc.className = 'garden big yard ' + sky(w); }).catch(() => {});
-  const SC = $('#vScene'), ROPE = $('#vRope'), alive = () => SC.isConnected && location.hash.startsWith('#visit'), sleep = ms => new Promise(r => setTimeout(r, ms));
+  const SC = $('#vScene'), ROPE = $('#vRope'), alive = () => SC.isConnected && location.hash.startsWith('#visit'), sleep = ms => new Promise(r => setTimeout(r, ms)); yardLayers(SC);
+  let leaving = false, busyScene = false;
   const fx = (chars, x = 50, y = 30, n = 3) => { const box = $('#vFx'); if (!box) return; for (let i = 0; i < n; i++) { const s = document.createElement('span'); s.textContent = [...chars][i % [...chars].length]; s.style.left = (x - 5 + Math.random() * 10) + '%'; s.style.bottom = (y + Math.random() * 8) + '%'; s.style.animationDelay = i * .12 + 's'; box.appendChild(s); setTimeout(() => s.remove(), 1800); } };
   // ---- friendship (my garden: g.fr[host] = { pts, day, dm }) ----
   const frNow = () => ((gLoad().fr || {})[host]) || { pts: 0 };
@@ -3732,15 +3772,21 @@ async function viewVisit(host) {
       <div class="frlv">${FR_NAME.map((n, i) => `<div class="${i < L ? 'on' : ''}"><b>Lv ${i + 1} ${n}</b><span>${i < L ? '✓ ' : '🔒 '}${FR_UNLOCK[i]}${i ? ` · ${FR_LV[i]} pts` : ''}</span></div>`).join('')}</div>
       <div class="muted" style="text-align:center;margin:8px 0">${f.pts || 0} friendship points</div><button class="btn" id="frOk" style="margin:0">${t('close')}</button>`); m.querySelector('#frOk').onclick = closeSheet; };
   // ---- the two pups ----
-  const yScale = y => Math.max(.5, 1 - .5 * Math.max(0, y - 4) / 28);
+  const yScale = depthK;
+  // where a pup may stand: on the lawn, in front of the house wall and the doghouse (back row only by the door path)
+  const spot = (x, y) => [Math.max(10, Math.min(90, x)), Math.max(1, Math.min(x < 30 ? 26 : 20, y))];
   const mk = (id, pup, color, wear) => ({ el: $('#' + id), an: $('#' + id + 'A'), fl: $('#' + id + 'F'), x: 50, y: 6, color, wear, per: perOf(pup), name: pup.name });
   const ME = mk('vMe', g.pup, g.pup.color || 'black', g.wear || null), HO = mk('vHost', hp, hp.color || 'brown', hp.wear || null);
-  const draw = (D, pose, expr, cls = '') => { if (!D.el) return; D.fl.innerHTML = regenB(pose, expr, D.color, D.wear); D.an.className = 'vin ' + cls; };
+  const draw = (D, pose, expr, cls = '') => { if (!D.el) return; if (!/vlegs/.test(cls)) D.mt = (D.mt || 0) + 1; D.fl.innerHTML = regenB(pose, expr, D.color, D.wear); D.an.className = 'vin ' + cls; if (pose === 'eat') $('#vBowl').classList.add('inuse'); else if (D === ME) $('#vBowl').classList.remove('inuse'); };
   const face = (D, right) => D.fl.classList.toggle('right', !!right);
-  const put = (D, x, y, ms = 0) => { D.x = x; D.y = y; D.el.style.transition = ms ? `left ${ms}ms ease-in-out, bottom ${ms}ms ease-in-out, transform ${ms}ms ease-in-out` : 'none'; D.el.style.left = x + '%'; D.el.style.bottom = y + '%'; D.el.style.transform = `scale(${yScale(y)})`; };
-  const go = (D, x, y, ms, pose = 'run2', expr = 'happy') => { face(D, x > D.x); draw(D, pose, expr, 'vlegs'); put(D, x, y, ms); return ms; };
+  // size and drawing order both follow the depth; moving nearer comes to the front at once, moving away goes behind on the way
+  const put = (D, x, y, ms = 0) => { const nearer = y < D.y; D.x = x; D.y = y; D.el.style.transition = ms ? `left ${ms}ms ease-in-out, bottom ${ms}ms ease-in-out, transform ${ms}ms ease-in-out` : 'none'; D.el.style.left = x + '%'; D.el.style.bottom = y + '%'; D.el.style.transform = `scale(${yScale(y)})`;
+    if (nearer || !ms) D.el.style.zIndex = depthZ(y); else setTimeout(() => { if (D.y === y) D.el.style.zIndex = depthZ(y); }, ms * .6); };
+  // trot there with the legs moving, then stop trotting on arrival (unless a new pose took over)
+  const go = (D, x, y, ms, pose = 'run2', expr = 'happy') => { [x, y] = spot(x, y); if (Math.abs(x - D.x) > .5) face(D, x > D.x); draw(D, pose, expr, 'vlegs'); const t = D.mt = (D.mt || 0) + 1; put(D, x, y, ms);
+    setTimeout(() => { if (D.mt === t && alive()) draw(D, 'run2', expr, ''); }, ms); return ms; };
   const faceEach = () => { face(ME, HO.x > ME.x); face(HO, ME.x > HO.x); };
-  let paused = false; const ok = () => alive() && !paused;
+  let paused = false; const ok = () => alive() && !paused && !leaving;
   const both = (pose, expr, cls = '') => { draw(ME, pose, expr, cls); draw(HO, pose, expr, cls); faceEach(); };
   const shyFirst = L => L < 2 && (ME.per === 'shy' || HO.per === 'shy');
   // activities: each one is a short scene; A starts it
@@ -3749,13 +3795,13 @@ async function viewVisit(host) {
       draw(A, 'nose', 'open', 'r-sniff wagfast'); draw(B, 'run2', 'happy', 'wagfast'); fx('💕', (A.x + B.x) / 2, B.y + 22, 1); await sleep(1700); if (!ok()) return;
       draw(B, 'nose', 'open', 'r-sniff wagfast'); draw(A, 'run2', 'super', 'wagfast'); await sleep(1500); if (!ok()) return; both('sit', 'happy', 'wagfast'); await sleep(1200); },
     async chase(A, B) { faceEach(); draw(A, 'bow', 'super', 'wagfast'); draw(B, 'run2', 'super', 'wagfast'); await sleep(1100);
-      for (let i = 0; i < 4 && ok(); i++) { const x = 12 + Math.random() * 76, y = 3 + Math.random() * 22; go(A, x, y, 850, 'run', 'super'); await sleep(280); if (!ok()) return; go(B, x + (Math.random() < .5 ? -8 : 8), Math.max(2, y - 2), 850, 'run', 'super'); await sleep(700); }
-      if (!ok()) return; fx('💨', A.x, A.y + 10, 2); both('run2', 'thirsty', 'r-pant'); await sleep(1600); },
+      for (let i = 0; i < 4 && ok(); i++) { const x = 14 + Math.random() * 72, y = 3 + Math.random() * 16; go(A, x, y, 850, 'run', 'super'); await sleep(280); if (!ok()) return; go(B, x + (Math.random() < .5 ? -8 : 8), Math.max(2, y - 2), 850, 'run', 'super'); await sleep(700); }
+      await sleep(180); if (!ok()) return; fx('💨', A.x, A.y + 10, 2); both('run2', 'thirsty', 'r-pant'); await sleep(1600); },
     async wrestle(A, B) { await sleep(go(A, B.x + (A.x < B.x ? -11 : 11), B.y, 800, 'run', 'super')); if (!ok()) return; faceEach();
       for (let i = 0; i < 2 && ok(); i++) { draw(A, 'roll', 'happy', 'r-roll'); draw(B, 'paw', 'super', 'wagfast'); fx('✨', (A.x + B.x) / 2, A.y + 14, 1); await sleep(1300); if (!ok()) return;
         draw(B, 'roll', 'happy', 'r-roll'); draw(A, 'bow', 'super', 'wagfast'); await sleep(1300); }
       if (ok()) both('sit', 'super', 'wagfast'); await sleep(900); },
-    async grass(A) { await sleep(go(A, 10 + Math.random() * 80, 2 + Math.random() * 20, 1300)); if (!ok()) return; draw(A, 'nose', 'happy', 'r-sniff'); await sleep(2600); if (ok()) draw(A, 'sit', 'happy', ''); await sleep(800); },
+    async grass(A) { await sleep(go(A, 12 + Math.random() * 76, 2 + Math.random() * 16, 1300)); if (!ok()) return; draw(A, 'nose', 'happy', 'r-sniff'); await sleep(2600); if (ok()) draw(A, 'sit', 'happy', ''); await sleep(800); },
     async cuddle(A, B) { await sleep(go(A, B.x + (A.x < B.x ? -10 : 10), B.y, 900)); if (!ok()) return; faceEach(); draw(A, 'lie', 'happy', 'r-breathe'); draw(B, 'lie', 'happy', 'r-breathe'); fx('💕💗', (A.x + B.x) / 2, A.y + 16, 3); await sleep(3400); },
     async rest(A, B) { draw(A, Math.random() < .5 ? 'lie' : 'sit', 'happy', 'r-breathe'); draw(B, 'sit', 'open', 'r-look'); await sleep(3000); },
     async shy(A, B) { // the shy pup keeps its distance; the other comes over slowly
@@ -3764,7 +3810,7 @@ async function viewVisit(host) {
     async tug(A, B) { const y = 6 + Math.random() * 10; go(A, 32, y, 900, 'run', 'super'); await sleep(go(B, 68, y, 900, 'run', 'super')); if (!ok()) return; face(A, true); face(B, false);
       draw(A, 'pull', 'tug', 'wagfast'); draw(B, 'pull', 'tug', 'wagfast'); const r = ROPE; await sleep(60); { const sr = SC.getBoundingClientRect(), hd = D => (D.fl.querySelector('.hdi') || D.fl).getBoundingClientRect(), ha = hd(A), hb = hd(B), lx = ha.left + ha.width / 2 - sr.left, rx = hb.left + hb.width / 2 - sr.left;
         r.style.left = Math.min(lx, rx) + 'px'; r.style.width = Math.abs(rx - lx) + 'px'; r.style.top = ((ha.top + ha.height * .68 + hb.top + hb.height * .68) / 2 - sr.top) + 'px'; } r.classList.remove('hidden');
-      for (let i = 0; i < 6 && ok(); i++) { const d = (i % 2 ? 1 : -1) * 2; put(A, 32 + d, y, 450); put(B, 68 + d, y, 450); r.style.transform = `translateX(${d * 3}px)`; await sleep(480); }
+      for (let i = 0; i < 6 && ok(); i++) { const d = (i % 2 ? 1 : -1) * 2; put(A, 32 + d, y, 450); put(B, 68 + d, y, 450); r.style.transform = `translateX(${d / 100 * SC.clientWidth}px)`; await sleep(480); }
       r.classList.add('hidden'); if (!ok()) return; const W = Math.random() < .5 ? A : B; draw(W, 'sit', 'super', 'r-jump wagfast'); draw(W === A ? B : A, 'lie', 'happy', 'r-roll'); fx('🪢💕', W.x, y + 18, 2); await sleep(1500); },
     async nap(A, B) { await sleep(go(A, 44, 4, 1000)); if (!ok()) return; await sleep(go(B, 58, 4, 900)); if (!ok()) return; face(A, true); face(B, false);
       draw(A, 'sleep', 'sleep', 'r-breathe sleeping'); draw(B, 'sleep', 'sleep', 'r-breathe sleeping'); for (let i = 0; i < 3 && ok(); i++) { fx(i ? '💤' : '💞', 51, 18, 2); await sleep(2200); } },
@@ -3775,7 +3821,7 @@ async function viewVisit(host) {
     let r = Math.random() * Object.values(w).reduce((a, b) => a + b, 0); for (const [k, n] of Object.entries(w)) { r -= n; if (r <= 0) return k; } return 'rest'; };
   const lead = () => { const s = p => ({ playful: 4, cuddly: 3, independent: 2, shy: 1 })[p] || 2; return Math.random() * (s(ME.per) + s(HO.per)) < s(ME.per) ? [ME, HO] : [HO, ME]; };
   // ---- arrival: my pup comes out of the house door; the host pup runs over (a shy host waits by its doghouse) ----
-  put(HO, 72, 12); draw(HO, 'sit', 'open', 'r-look'); put(ME, 16.5, 26); ME.el.style.transform = 'scale(.42)'; draw(ME, 'run2', 'happy', 'vlegs'); face(ME, true);
+  put(HO, 72, 12); draw(HO, 'sit', 'open', 'r-look'); put(ME, 16.5, 26); draw(ME, 'run2', 'happy', ''); face(ME, true);
   (async () => { await sleep(300); if (!alive()) return; go(ME, 42, 7, 1300, 'run', 'super');
     if (shyFirst(frLv(frNow().pts)) && HO.per === 'shy') { await sleep(1400); } else { await sleep(350); go(HO, 58, 7, 1000, 'run', 'super'); await sleep(1100); }
     if (!alive()) return; await ACT[shyFirst(frLv(frNow().pts)) ? 'shy' : 'sniff'](ME, HO);
@@ -3788,7 +3834,7 @@ async function viewVisit(host) {
     const keep = (cur.actions || []).filter(x => sameDay(x.at) || (x.at || 0) > (cur.appliedAt || 0));
     await fb.F.updateDoc(ref, { actions: [...keep, { ...a, at: Date.now() }], lastAt: Date.now(), updated: Date.now() }); return true; };
   // pranks and gifts: pause the play, my pup does it, the host pup reacts
-  const scene = async fn => { paused = true; await sleep(350); try { await fn(); } finally { if (alive()) { ROPE.classList.add('hidden'); paused = false; } } };
+  const scene = async fn => { if (busyScene || leaving) return; busyScene = paused = true; await sleep(350); try { await fn(); } finally { busyScene = false; if (alive() && !leaving) { ROPE.classList.add('hidden'); paused = false; } } };
   app.querySelectorAll('[data-a]').forEach(b => b.onclick = async () => { const k = b.dataset.a; b.disabled = true; const g2 = gLoad();
     if (k === 'gift') { const toys = (g2.toys || []).map((y, i) => ({ ...y, i })).filter(y => y.uses < TOY_LIFE), treats = (g2.free || 0) + (g2.bonus || 0);
       const m = showSheet(`<h2 style="margin-top:0">🎁 Leave a gift for ${esc(hName)}</h2><div class="muted">It comes from your own supplies.</div>
@@ -3804,9 +3850,10 @@ async function viewVisit(host) {
         draw(ME, 'sit', 'happy', 'wagfast'); faceEach(); draw(HO, 'sit', 'grumpy', 'r-shake'); fx('😅', ME.x, ME.y + 20, 1); await sleep(1500); });
       if (k === 'food') scene(async () => { const bw = $('#vBowl'); bw.classList.remove('hidden'); await sleep(go(ME, 66, 4, 1000)); draw(ME, 'eat', 'eat', 'r-chompl'); faceEach(); draw(HO, 'sit', 'sad', ''); await sleep(1800); draw(ME, 'sit', 'super', 'wagfast'); fx('😋', ME.x, ME.y + 20, 1); await sleep(1200); bw.classList.add('hidden'); addJoy(gLoad(), 0); });
     } catch (e) { b.disabled = false; toast('Error: ' + (e.code || e.message), 3000); } });
-  $('#vLeave').onclick = async () => { paused = true; try { await fb.F.updateDoc(ref, { lastAt: Date.now(), updated: Date.now() }); } catch (e) {} const g2 = gLoad(); g2.lastVisit = Date.now(); gSave(g2);
-    draw(HO, 'sit', 'happy', 'wagfast'); go(ME, 16.5, 26, 1100); setTimeout(() => { if (ME.el) ME.el.style.transform = 'scale(.42)'; }, 50);
-    toast(`👋 Bye ${hName}! ${H2.name || 'Your friend'} will see your visit next time.`, 2600); setTimeout(() => { if (alive()) location.hash = '#friends'; }, 1300); };
+  $('#vLeave').onclick = async () => { if (leaving) return; leaving = paused = true; $('#vLeave').disabled = true; ROPE.classList.add('hidden'); try { await fb.F.updateDoc(ref, { lastAt: Date.now(), updated: Date.now() }); } catch (e) {} const g2 = gLoad(); g2.lastVisit = Date.now(); gSave(g2);
+    const stop = D => { const cs = getComputedStyle(D.el), r = SC.getBoundingClientRect(); put(D, parseFloat(cs.left) / r.width * 100, parseFloat(cs.bottom) / r.height * 100, 0); }; stop(HO); stop(ME);
+    draw(HO, 'sit', 'happy', 'wagfast'); face(HO, ME.x > HO.x); go(ME, 16.5, 26, 1100);
+    toast(`👋 Bye ${hName}! ${H2.name || 'Your friend'} will see your visit next time.`, 2600); setTimeout(() => { if (alive()) navUp('#friends'); }, 1300); };
 }
 
 // ----- Privacy -----
@@ -3866,6 +3913,7 @@ async function editVariant(id, vid) {
 
 /* ---------- Router ---------- */
 async function route(bg) {
+  if (!bg) navStamp();
   const parts = location.hash.slice(1).split('/').map(decodeURIComponent);
   const r = parts[0];
   if (!bg) window.scrollTo(0, 0);
