@@ -388,7 +388,7 @@ label.ck{display:flex;gap:8px;align-items:center;color:var(--text);font-size:15p
 
 <script>
 'use strict';
-const APP_VERSION = '1.3.3';
+const APP_VERSION = '1.3.4';
 const $ = s => document.querySelector(s);
 const app = $('#app');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -3095,9 +3095,13 @@ function editProduct(code, info, link, name, size) {
   m.querySelector('#eCancel').onclick = closeSheet; sizeWire('e', m);
   m.querySelector('#ePhoto').onclick = async () => { const f = await pickFile($('#filePhoto')); if (!f) return; photo = await thumbFrom(f); m.querySelector('#eThumb').innerHTML = thumb(photo); };
   m.querySelector('#eSave').onclick = async () => { const nm = m.querySelector('#eName').value.trim(); if (!nm) return toast(t('needName'));
-    await bcPut(code, { ...info, name: nm, brand: m.querySelector('#eBrand').value.trim(), ...(({ quantity, byWeight }) => ({ quantity, byWeight }))(sizeGet('e', m)), image: photo || info.image || '', src: info.src || 'user', edited: Date.now() });
+    const br = m.querySelector('#eBrand').value.trim(), sz = sizeGet('e', m), sig = (n, b, q, w) => JSON.stringify([n || '', b || '', q || '', !!w]);
+    if (!photo && sig(nm, br, sz.quantity, sz.byWeight) === sig(info.name || name, info.brand, info.quantity || size, info.byWeight)) { closeSheet(); return toast('Nothing changed', 1600); }
+    await bcPut(code, { ...info, name: nm, brand: br, quantity: sz.quantity, byWeight: sz.byWeight, image: photo || info.image || '', src: info.src || 'user', edited: Date.now() });
     if (link) { const fresh = await getOne('items', link.it.id), va = (fresh.variants || {})[link.vid]; if (va) { va.desc = nm; va.brand = m.querySelector('#eBrand').value.trim(); if (photo) va.photo = photo; await save('items', fresh); } }
-    closeSheet(); toast('✅ Thanks! Product updated.', 2200); viewProduct(code); };
+    closeSheet(); toast('✅ Thanks! Product updated.', 2200); viewProduct(code);
+    // 1.3.4 fixing a product from the scan page earns a coin too (same rule as the variant page: 1 per product per day)
+    const ek = link ? `editCoin_${link.it.id}_${link.vid}` : `editCoin_bc_${code}`; if (lsGet(ek) !== today()) { lsSet(ek, today()); if (earnCoin(1)) setTimeout(() => coinPop(1, 'Thanks for fixing a product!'), 900); } };
 }
 async function loadUnsorted() { const box = $('#unsortedBody'); if (!box) return;
   try { const bcs = (await fb.F.getDocsFromServer(fb.F.collection(fb.db, 'households', HOUSEHOLD, 'barcodes'))).docs.map(d => ({ code: d.id, ...d.data() }));
@@ -3253,6 +3257,7 @@ function showProduct(sc) {
 
 /* ---------- What's new (shown once after each update) ---------- */
 const CHANGES = {
+  '1.3.4': [['Fix: fixing a product\'s name, size or photo right after you scan it now earns a coin too, the same as editing it from Items (1 coin per product per day).'], ['Fix: fixing a product\'s name, size or photo right after you scan it now earns a coin too, the same as editing it from Items (1 coin per product per day).']],
   '1.3.3': [['Privacy: PricePup no longer asks for your location when you open the app. It asks only when you log a price, and tells you why first.', 'Privacy: your location stays on your phone, is never sent or saved, and is forgotten as soon as you finish logging a price.'], ['Privacy: PricePup no longer asks for your location when you open the app. It asks only when you log a price, and tells you why first.', 'Privacy: your location stays on your phone, is never sent or saved, and is forgotten as soon as you finish logging a price.']],
   '1.3.2': [['Fix: your pup\'s legs now move whenever it walks or runs in the backyard and on visits, no more sliding.', 'Fix: pups get smaller the farther back they are, the same way everywhere, and a pup farther back is drawn behind the nearer one, the doghouse and the tree.', 'Fix: Back no longer takes you into a visit you already left, a price you already saved, or the camera you already closed.'], ['Fix: your pup\'s legs now move whenever it walks or runs in the backyard and on visits, no more sliding.', 'Fix: pups get smaller the farther back they are, the same way everywhere, and a pup farther back is drawn behind the nearer one, the doghouse and the tree.', 'Fix: Back no longer takes you into a visit you already left, a price you already saved, or the camera you already closed.']],
   '1.3.1': [['New: a full privacy policy page, linked from the home screen and Settings.'], ['New: a full privacy policy page, linked from the home screen and Settings.']],
