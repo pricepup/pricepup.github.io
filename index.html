@@ -388,7 +388,7 @@ label.ck{display:flex;gap:8px;align-items:center;color:var(--text);font-size:15p
 
 <script>
 'use strict';
-const APP_VERSION = '1.3.2';
+const APP_VERSION = '1.3.3';
 const $ = s => document.querySelector(s);
 const app = $('#app');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -1560,9 +1560,9 @@ async function viewAdd(id, preVid) {
   const drawChains = list => { $('#aChains').innerHTML = list.map(x => `<button type="button" class="chip${x.c === chain ? ' on' : ''}" data-c="${esc(x.c)}">${esc(x.c)}${x.km != null ? `<small> · ${fmtKm(x.km)}</small>` : ''}</button>`).join('') + `<button type="button" class="chip${chain === '__other' ? ' on' : ''}" data-c="__other">Other…</button>`;
     $('#aChains').querySelectorAll('.chip').forEach(b => b.onclick = () => { chain = b.dataset.c; $('#aStore').classList.toggle('hidden', chain !== '__other'); drawChains(list); if (chain === '__other') $('#aStore').focus(); }); };
   drawChains(CHAINS.map(c => ({ c })));
-  const findStores = async () => { try { const p = await getPos(); if (!inCalgary(p)) { $('#aGeo').innerHTML = `🗺️ You're outside Calgary. PricePup is currently for Calgary only, so prices logged here aren't counted.`; return; }
+  const findStores = async () => { try { const p = await logPos(); if (!inCalgary(p)) { $('#aGeo').innerHTML = `🗺️ You're outside Calgary. PricePup is currently for Calgary only, so prices logged here aren't counted.`; return; }
       const list = nearestChains(p); if (list[0].km != null && list[0].km <= .5) chain = list[0].c; drawChains(list); $('#aGeo').textContent = list[0].km <= .5 ? `📍 You're at ${list[0].c}` : '📍 Nearest stores first'; }
-    catch (e) { $('#aGeo').innerHTML = `${esc(geoMsg(e))} <button type="button" class="btn sec small" id="aGeoRetry" style="display:inline-block;width:auto;margin:4px 0 0">Try again</button>`; $('#aGeoRetry').onclick = findStores; } };
+    catch (e) { $('#aGeo').innerHTML = `${esc(geoMsg(e))} <button type="button" class="btn sec small" id="aGeoRetry" style="display:inline-block;width:auto;margin:4px 0 0">${e && e.code === 'later' ? 'Use my location' : 'Try again'}</button>`; $('#aGeoRetry').onclick = findStores; } };
   findStores();
   $('#ocrBtn').onclick = async () => {
     const f = await pickFile($('#fileTag')); if (!f) return;
@@ -1587,8 +1587,7 @@ async function viewAdd(id, preVid) {
   $('#aSave').onclick = async () => {
     const price = parseFloat($('#aPrice').value); if (!(price > 0)) return toast(t('needPrice'));
     const storeName = chain === '__other' ? (chainOf($('#aStore').value) || $('#aStore').value.trim()) : chain; if (!storeName) return toast('Pick the store first');
-    try { const p = await getPos(); if (!inCalgary(p)) return toast("🗺️ PricePup is for Calgary only for now. Prices logged outside Calgary aren't counted.", 4200); }
-    catch (e) { return toast(geoMsg(e), 4200); }
+    if (!(await checkCalgary())) return;
     let useVid = '';
     if (!weight) {
       if (!vid) return toast(t('needVariant'));
@@ -1638,7 +1637,7 @@ async function viewDeals() {
   if (Date.now() - dealNearAt > 3 * 60e3) { dealNearAt = Date.now(); locGranted().then(ok => ok && getPos().then(p => { if (!inCalgary(p)) return; dealNear = nearestChains(p); if (location.hash === '#deals') viewDeals(); })).catch(() => {}); }
 }
 let dealStore = '', dealPicked = false, dealNear = null, dealNearAt = 0;
-const locGranted = async () => { try { return (await navigator.permissions.query({ name: 'geolocation' })).state === 'granted'; } catch (e) { return !!lsGet('locAsked'); } }; // never pop a location prompt just for deals
+const locGranted = async () => { try { return (await navigator.permissions.query({ name: 'geolocation' })).state === 'granted'; } catch (e) { return !!lsGet('locOk'); } }; // never pop a location prompt just for deals
 
 async function viewSettings() {
   setHeader(t('setTitle')); setTab('settings');
@@ -1831,7 +1830,7 @@ $('#installBtn').onclick = async () => {
 };
 const GUIDE = [['g1t', 'g1', 'happy', 'tag'], ['g2t', 'g2', 'normal', ''], ['g3t', 'g3', 'sniff', 'glass'], ['g4t', 'g4', 'happy', 'party'], ['g5t', 'g5', 'normal', 'tag']];
 function showGuide(i) {
-  const done = () => { lsSet('guided', '1'); closeSheet(); setTimeout(firstLocation, 700); };
+  const done = () => { lsSet('guided', '1'); closeSheet(); };
   const [tt, tx, mood, acc] = GUIDE[i], last = i === GUIDE.length - 1;
   const m = showSheet(`<div class="guide"><div style="text-align:center">${dog(mood, acc, 'bounce')}</div><h2 style="text-align:center;font-size:20px">${t(tt)}</h2>
     <div style="font-size:16px;line-height:1.6;margin:6px 0 10px">${t(tx)}</div>${last && !isStandalone() ? `<div class="muted" style="margin-bottom:10px">${t('g6')}</div>` : ''}
@@ -2968,13 +2967,14 @@ function storePicker(geoEl, chipsEl, otherEl) {
   const draw = () => { chipsEl.innerHTML = list.map(x => `<button type="button" class="chip${x.c === chain ? ' on' : ''}" data-c="${esc(x.c)}">${esc(x.c)}${x.km != null ? `<small> · ${fmtKm(x.km)}</small>` : ''}</button>`).join('') + `<button type="button" class="chip${chain === '__other' ? ' on' : ''}" data-c="__other">Other…</button>`;
     chipsEl.querySelectorAll('.chip').forEach(b => b.onclick = () => { chain = b.dataset.c; otherEl.classList.toggle('hidden', chain !== '__other'); draw(); if (chain === '__other') otherEl.focus(); }); };
   const find = async () => { geoEl.textContent = '📍 Finding stores near you…';
-    try { const p = await getPos(); if (!inCalgary(p)) { geoEl.textContent = "🗺️ You're outside Calgary. PricePup is for Calgary only for now, so prices logged here aren't counted."; return; }
+    try { const p = await logPos(); if (!inCalgary(p)) { geoEl.textContent = "🗺️ You're outside Calgary. PricePup is for Calgary only for now, so prices logged here aren't counted."; return; }
       list = nearestChains(p); if (list[0].km != null && list[0].km <= .5) chain = list[0].c; draw(); geoEl.textContent = list[0].km <= .5 ? `📍 You're at ${list[0].c}` : '📍 Nearest stores first'; }
-    catch (e) { geoEl.innerHTML = `${esc(geoMsg(e))} <button type="button" class="btn sec small" style="display:inline-block;width:auto;margin:4px 0 0">Try again</button>`; geoEl.querySelector('button').onclick = find; } };
+    catch (e) { geoEl.innerHTML = `${esc(geoMsg(e))} <button type="button" class="btn sec small" style="display:inline-block;width:auto;margin:4px 0 0">${e && e.code === 'later' ? 'Use my location' : 'Try again'}</button>`; geoEl.querySelector('button').onclick = find; } };
   draw(); find();
   return { get: () => chain === '__other' ? (chainOf(otherEl.value) || otherEl.value.trim()) : chain };
 }
-async function checkCalgary() { try { const p = await getPos(); if (!inCalgary(p)) { toast("🗺️ PricePup is for Calgary only for now. Prices logged outside Calgary aren't counted.", 4200); return false; } return true; } catch (e) { toast(geoMsg(e), 4200); return false; } }
+async function checkCalgary() { try { const p = await logPos(); const ok = inCalgary(p); forgetPos(); if (!ok) { outsideYyc(); return false; } return true; }
+  catch (e) { toast(e && e.code === 'later' ? "📍 To log a price, PricePup checks once that you're in Calgary. Your location is never saved." : geoMsg(e), 4200); return false; } }
 // read a shelf tag: product name lines, size ("10 x 130 g") and the price
 // 5.5 size: a number + a unit, or "sold by weight" (priced per lb / kg)
 const SIZE_UNITS = ['g', 'kg', 'mL', 'L', 'lb', 'EA'];
@@ -3121,19 +3121,30 @@ function getPos(maxAge = 3 * 60e3) { return new Promise((res, rej) => {
   navigator.geolocation.getCurrentPosition(p => { geoLast = { lat: p.coords.latitude, lon: p.coords.longitude, acc: p.coords.accuracy, t: Date.now() }; res(geoLast); }, e => rej(e), { enableHighAccuracy: true, timeout: 15000, maximumAge: maxAge }); }); }
 const nearestChains = p => { const best = {}; for (const b of BRANCHES) { const d = kmBetween(p, b); if (best[b.c] == null || d < best[b.c]) best[b.c] = d; } return CHAINS.map(c => ({ c, km: best[c] })).sort((a, b) => (a.km ?? 99) - (b.km ?? 99)); };
 const fmtKm = km => km == null ? '' : km < 1 ? Math.round(km * 1000 / 50) * 50 + ' m' : km.toFixed(1) + ' km';
-const geoMsg = e => e && e.code === 1 ? '📍 Location is off for PricePup. Turn it on in your phone settings to log prices.' : '📍 Could not get your location. Check that location is on and try again.';
-function setArea(area, inYyc) { lsSet('area', area); if (syncOn()) { fb.F.setDoc(favRef(), { area, inCalgary: !!inYyc, areaAt: Date.now() }, { merge: true }).catch(() => {}); lsSet('areaSynced', '1'); } }
-function firstLocation() {
-  if (lsGet('locAsked')) { if (syncOn() && lsGet('area') && !lsGet('areaSynced')) setArea(lsGet('area'), lsGet('area') === 'Calgary'); return; }
-  const m = showSheet(`<h2 style="margin-top:0">📍 PricePup is made for Calgary</h2><div>Prices come from Calgary stores and from people shopping in Calgary. We use your location only to check that you're in Calgary and to find the nearest store when you log a price. Your location is never saved.</div>
-    <button class="btn" id="locYes" style="margin-top:12px">Share my location</button><button class="btn sec" id="locNo">Not now</button>`);
-  m.querySelector('#locNo').onclick = () => { lsSet('locAsked', '1'); closeSheet(); };
-  m.querySelector('#locYes').onclick = async () => { lsSet('locAsked', '1'); try { const p = await getPos(0); if (inCalgary(p)) { setArea('Calgary', true); closeSheet(); toast('📍 Welcome, Calgarian! 🐾', 2600); } else askArea(); } catch (e) { closeSheet(); toast(geoMsg(e), 4200); } }; }
+const geoMsg = e => e && e.code === 'later' ? "📍 Location is off, so stores aren't sorted by distance." : e && e.code === 1 ? '📍 Location is off for PricePup. Turn it on in your phone settings to log prices.' : '📍 Could not get your location. Check that location is on and try again.';
+function setArea(area) { lsSet('area', area); if (syncOn()) fb.F.setDoc(favRef(), { area, inCalgary: false, areaAt: Date.now(), updated: Date.now() }, { merge: true }).catch(() => {}); }
+// 1.3.3 location is asked only when logging a price, after explaining why; it never leaves the phone and is
+// forgotten as soon as the price is logged (or the screen is left). Only a city a user types themselves is saved.
+async function locState() { try { return (await navigator.permissions.query({ name: 'geolocation' })).state; } catch (e) { return lsGet('locOk') ? 'granted' : 'prompt'; } }
+function explainLoc() { return new Promise(res => { let done = false; const fin = v => { if (done) return; done = true; closeSheet(); res(v); };
+  const m = showSheet(`<h2 style="margin-top:0">📍 Which store are you in?</h2>
+    <div>To log a price, PricePup uses your phone's location to:</div>
+    <ul style="margin:8px 0 8px 18px;padding:0"><li>check you're in Calgary, since prices are for Calgary stores</li><li>pick the store you're standing in, so you don't have to</li></ul>
+    <div><b>Your location stays on your phone.</b> It's never sent to us or saved, and it's forgotten as soon as you finish logging this price.</div>
+    <div class="muted" style="margin-top:8px">Your phone will ask for permission next.</div>
+    <button class="btn" id="locYes" style="margin-top:12px">Use my location</button><button class="btn sec" id="locNo">Not now</button>`, () => fin(false));
+  m.querySelector('#locYes').onclick = () => fin(true); m.querySelector('#locNo').onclick = () => fin(false); }); }
+async function logPos() { const st = await locState();
+  if (st === 'denied') throw { code: 1 };
+  if (st !== 'granted' && !geoLast) { if (!(await explainLoc())) throw { code: 'later' }; }
+  const p = await getPos(); lsSet('locOk', '1'); return p; }
+const forgetPos = () => { geoLast = null; };
+const outsideYyc = () => { toast("🗺️ PricePup is for Calgary only for now. Prices logged outside Calgary aren't counted.", 4200); if (!lsGet('areaAsked')) { lsSet('areaAsked', '1'); setTimeout(askArea, 1200); } };
 function askArea() {
-  const m = showSheet(`<h2 style="margin-top:0">🗺️ Not in Calgary yet</h2><div>PricePup is currently designed for Calgarians, so prices logged outside Calgary aren't counted. More cities are coming! Where do you live? It helps us choose the next city.</div>
+  const m = showSheet(`<h2 style="margin-top:0">🗺️ Not in Calgary yet</h2><div>PricePup is made for Calgary, so prices logged outside Calgary aren't counted. Where do you live? If you'd like to tell us, it helps us choose the next city. You type it yourself, we never use your GPS for this.</div>
     <label>City / region</label><input id="arIn" placeholder="e.g. Edmonton, AB" maxlength="40"><button class="btn" id="arOk" style="margin-top:10px">Send</button><button class="btn sec" id="arSkip">Skip</button>`);
   m.querySelector('#arSkip').onclick = closeSheet;
-  m.querySelector('#arOk').onclick = () => { const v = m.querySelector('#arIn').value.trim(); if (!v) return toast('Type your city first'); setArea(v, false); closeSheet(); toast(`Thanks! We'll let you know when PricePup comes to ${v} 🐾`, 3200); }; }
+  m.querySelector('#arOk').onclick = () => { const v = m.querySelector('#arIn').value.trim(); if (!v) return toast('Type your city first'); setArea(v); closeSheet(); toast(`Thanks! We'll let you know when PricePup comes to ${v} 🐾`, 3200); }; }
 
 /* ---------- Price tracking: alert when a tracked item or product hits its 30-day low ---------- */
 let TRACK = new Set((() => { try { return JSON.parse(lsGet('track') || '[]'); } catch (e) { return []; } })());
@@ -3242,6 +3253,7 @@ function showProduct(sc) {
 
 /* ---------- What's new (shown once after each update) ---------- */
 const CHANGES = {
+  '1.3.3': [['Privacy: PricePup no longer asks for your location when you open the app. It asks only when you log a price, and tells you why first.', 'Privacy: your location stays on your phone, is never sent or saved, and is forgotten as soon as you finish logging a price.'], ['Privacy: PricePup no longer asks for your location when you open the app. It asks only when you log a price, and tells you why first.', 'Privacy: your location stays on your phone, is never sent or saved, and is forgotten as soon as you finish logging a price.']],
   '1.3.2': [['Fix: your pup\'s legs now move whenever it walks or runs in the backyard and on visits, no more sliding.', 'Fix: pups get smaller the farther back they are, the same way everywhere, and a pup farther back is drawn behind the nearer one, the doghouse and the tree.', 'Fix: Back no longer takes you into a visit you already left, a price you already saved, or the camera you already closed.'], ['Fix: your pup\'s legs now move whenever it walks or runs in the backyard and on visits, no more sliding.', 'Fix: pups get smaller the farther back they are, the same way everywhere, and a pup farther back is drawn behind the nearer one, the doghouse and the tree.', 'Fix: Back no longer takes you into a visit you already left, a price you already saved, or the camera you already closed.']],
   '1.3.1': [['New: a full privacy policy page, linked from the home screen and Settings.'], ['New: a full privacy policy page, linked from the home screen and Settings.']],
   '1.3.0': [['New look: your pup has a brand-new soft felt style everywhere in the app, in black, brown and white.', 'New look: new poses for begging, high five, standing, trotting, rolling over and playing dead.', 'New look: digging in the yard now shows your pup\'s head down in the hole with dirt flying.', 'New look: new app icon to match.'], ['New look: your pup has a brand-new soft felt style everywhere in the app, in black, brown and white.', 'New look: new poses for begging, high five, standing, trotting, rolling over and playing dead.', 'New look: digging in the yard now shows your pup\'s head down in the hole with dirt flying.', 'New look: new app icon to match.']],
@@ -3913,7 +3925,7 @@ async function editVariant(id, vid) {
 
 /* ---------- Router ---------- */
 async function route(bg) {
-  if (!bg) navStamp();
+  if (!bg) { navStamp(); forgetPos(); }
   const parts = location.hash.slice(1).split('/').map(decodeURIComponent);
   const r = parts[0];
   if (!bg) window.scrollTo(0, 0);
@@ -3951,7 +3963,6 @@ window.addEventListener('hashchange', () => route());
   updInstall();
   if (!lsGet('guided')) { lsSet('seenVer', APP_VERSION); setTimeout(() => showGuide(0), 600); }
   else setTimeout(showWhatsNew, 800);
-  setTimeout(() => { if (lsGet('guided') && !document.getElementById('sheet')) firstLocation(); }, 3500);
   setTimeout(checkVersion, 2500); checkTrack(); setTimeout(checkPet, 4000); setTimeout(checkFeedback, 6000); setTimeout(checkFeedback, 20000);
 })();
 </script>
