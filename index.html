@@ -390,7 +390,7 @@ label.ck{display:flex;gap:8px;align-items:center;color:var(--text);font-size:15p
 
 <script>
 'use strict';
-const APP_VERSION = '1.3.8';
+const APP_VERSION = '1.3.9';
 const $ = s => document.querySelector(s);
 const app = $('#app');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -417,7 +417,7 @@ const I18N = {
   noMatch:['狗狗搵唔到符合嘅產品','The pup found no matching items'], histLow:['歷史最低','All-time low'], bestNow:['近 30 日最平','Best last 30 days'], latestP:['最新價錢','Latest price'],
   noPrice:['未有價錢','No price yet'], addPrice:['記錄價錢','Log a price'], byStore:['各舖最新價錢','Latest price at each store'],
   noRecent:['近 30 日冇價錢紀錄','No prices in the last 30 days'], store:['舖頭','Store'], variant:['款式','Variant'], price:['價錢','Price'], unitP:['單位價','Unit price'],
-  cheapest:['最抵','Best'], sale:['特價','Sale'], trend:['單位價走勢','Unit price trend'], history:['全部紀錄','All records'], srchItems:['類別','Items'], srchProducts:['產品','Products'], variants:['款式（牌子／容量）','Variants (brand / size)'],
+  cheapest:['最抵','Best'], sale:['特價','Sale'], trend:['單位價走勢','Unit price trend'], history:['全部紀錄','All records'], srchItems:['類別','Items'], srchProducts:['產品','Products'], srchFlyers:['來自超市 flyer','From store flyers'], variants:['款式（牌子／容量）','Variants (brand / size)'],
   reg:['原價','Reg.'], perLb:['/lb','/lb'], perKg:['/kg','/kg'], perL:['/L','/L'], perPc:['/件','/ea'], perUse:['/次','/use'],
   chooseItem:['揀主產品','Choose item'], chooseItemHint:['呢件貨屬於邊件主產品？例如「洗衣液」、「白米」、「平椰菜」','Which main item is this? e.g. "Laundry detergent", "Rice", "Flat cabbage"'],
   newItem:['＋ 新增主產品','＋ New main item'], itemName:['主產品名稱（中文）','Item name (Chinese)'], itemEn:['英文名（選填）','English name (optional)'],
@@ -1333,14 +1333,14 @@ async function viewHome() {
     if (q) { const irows = list.filter(x => itemHay(x).includes(q)), vrows = [];
       for (const x of list) { const obs = by[x.it.id] || [];
         for (const [vid, va] of Object.entries(x.it.variants || {})) { if (!va || va.deleted || !`${va.brand || ''} ${va.desc || ''}`.toLowerCase().includes(q)) continue;
-          const vo = obs.filter(o => o.vid === vid).sort((a, b) => (b.date || '').localeCompare(a.date || '')), vs = summarize(x.it, vo); vrows.push({ it: x.it, vid, va, vo, vs, vb: vs && vs.low }); } }
+          const vo = obs.filter(o => o.vid === vid).sort((a, b) => (b.date || '').localeCompare(a.date || '')), vs = summarize(x.it, vo); vrows.push({ it: x.it, vid, va, vo, vs, vb: vs && vs.low, fl: vid.startsWith('v-f') && !va.barcode && !vo.some(o => o.src !== 'flyer') }); } }
       // same product type together, cheapest unit price first; products with no price go last
-      vrows.sort((a, b) => itemName(a.it).localeCompare(itemName(b.it)) || (!a.vb) - (!b.vb) || (a.vb && b.vb ? a.vb.u.v - b.vb.u.v : 0) || variantText(a.it, a.vid).localeCompare(variantText(b.it, b.vid)));
+      vrows.sort((a, b) => a.fl - b.fl || itemName(a.it).localeCompare(itemName(b.it)) || (!a.vb) - (!b.vb) || (a.vb && b.vb ? a.vb.u.v - b.vb.u.v : 0) || variantText(a.it, a.vid).localeCompare(variantText(b.it, b.vid)));
       const vrow = ({ it, vid, va, vo, vs, vb }, i) => `<a class="item${i >= 30 ? ' more hidden' : ''}" href="#variant/${encodeURIComponent(it.id)}/${encodeURIComponent(vid)}">${thumb(variantPhoto(it, va), itemEmoji(it))}
         <div class="main"><div class="name vname">${esc(variantText(it, vid))}</div><div class="muted">${esc(itemName(it))}${vb ? ` · ${esc(vb.o.store)} · ${fmtDate(vb.o.date)}` : ''}</div></div>
         <div class="price">${vb ? fmtU(vb.u) : vo.length ? priceText(it, vo[0]) : '—'}<div class="muted">${vs ? t('histLow') : t('noPrice')}</div></div><span class="chev">›</span></a>`;
       const ihtml = irows.length ? `<div class="card">${vrows.length ? `<h2>${t('srchItems')}</h2>` : ''}${irows.slice(0, 300).map(row).join('')}</div>` : '';
-      const vhtml = vrows.length ? `<div class="card"><h2>${t('srchProducts')} <span class="muted">${vrows.length}</span></h2>${vrows.map(vrow).join('')}${moreBtn(vrows.length, 30)}</div>` : '';
+      const vhtml = vrows.length ? `<div class="card"><h2>${t('srchProducts')} <span class="muted">${vrows.length}</span></h2>${vrows.map((r, i) => (r.fl && (i === 0 || !vrows[i - 1].fl) ? `<div class="aislehead${i >= 30 ? ' more hidden' : ''}">${t('srchFlyers')}</div>` : '') + vrow(r, i)).join('')}${moreBtn(vrows.length, 30)}</div>` : '';
       box.innerHTML = ihtml || vhtml ? (irows.length && !vrows.length ? ihtml : !irows.length ? vhtml : ihtml + vhtml) : `<div class="card"><div class="empty">${dog('sad')}<div class="muted">${t('noMatch')}</div></div></div>`;
       box.querySelectorAll('.showMore').forEach(b => b.onclick = () => { b.parentElement.querySelectorAll('.more').forEach(x => x.classList.remove('hidden')); b.remove(); }); return; }
     if (view === 'track') { box.innerHTML = `<div class="card">${trackRows(items, by) || `<div class="empty">${dog('sniff', 'glass')}<div class="muted">${t('trackNone')}</div></div>`}</div>`; return; }
@@ -3329,6 +3329,7 @@ function showProduct(sc) {
 
 /* ---------- What's new (shown once after each update) ---------- */
 const CHANGES = {
+  '1.3.9': [['Search: products that people logged or scanned now come first; products only seen in store flyers are listed after them.'], ['Search: products that people logged or scanned now come first; products only seen in store flyers are listed after them.']],
   '1.3.8': [['Search by brand or product name now lists every matching product (e.g. all Dawn bottles), with the cheapest unit price first.'], ['Search by brand or product name now lists every matching product (e.g. all Dawn bottles), with the cheapest unit price first.']],
   '1.3.7': [["Fix: a product with many brands no longer shows one brand's photo for all of them. Every product now has its own PricePup drawing, and a brand photo only shows on that brand's own size."], ["Fix: a product with many brands no longer shows one brand's photo for all of them. Every product now has its own PricePup drawing, and a brand photo only shows on that brand's own size."]],
   '1.3.6': [['Fix: on iPhone, playing tug of war no longer greys out the screen.', 'The rope toy now costs 5 coins.', 'When your puppy wins tug of war, it now really holds the rope in its mouth.', 'New: multi-packs. Type the size of one item and how many are in the pack (e.g. 500 mL × 24), PricePup does the math. Drinks are now compared by total volume.', 'Typing a barcode by hand: a tip shows which digits to type, and PricePup checks the number before searching.', 'Typing a product name or brand now shows a drop-down of matches, tap one to fill it in.', 'Product names and brands are saved in the same style (Large Eggs, Great Value).'], ['Fix: on iPhone, playing tug of war no longer greys out the screen.', 'The rope toy now costs 5 coins.', 'When your puppy wins tug of war, it now really holds the rope in its mouth.', 'New: multi-packs. Type the size of one item and how many are in the pack (e.g. 500 mL × 24), PricePup does the math. Drinks are now compared by total volume.', 'Typing a barcode by hand: a tip shows which digits to type, and PricePup checks the number before searching.', 'Typing a product name or brand now shows a drop-down of matches, tap one to fill it in.', 'Product names and brands are saved in the same style (Large Eggs, Great Value).']],
