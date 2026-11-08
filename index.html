@@ -374,6 +374,7 @@ label.ck{display:flex;gap:8px;align-items:center;color:var(--text);font-size:15p
       <button class="btn sec small" id="closeScanBtn">✕ <span data-t="close"></span></button>
     </div>
     <button class="btn sec small" id="noCodeBtn" style="width:100%;margin:0 0 8px">✍️ <span data-t="noBarcode"></span></button>
+    <button class="btn sec small" id="receiptBtn" style="width:100%;margin:0 0 8px">🧾 Scan a receipt<span id="rcSoon" class="tag" style="margin-left:8px">coming soon</span></button>
     <div class="row">
       <input id="manualCode" inputmode="numeric">
       <button class="btn small" id="manualGo" style="flex:0 0 auto;margin:0" data-t="ok"></button>
@@ -382,7 +383,7 @@ label.ck{display:flex;gap:8px;align-items:center;color:var(--text);font-size:15p
     <div class="bcmsg hidden" id="bcMsg"></div>
   </div>
 </div>
-<input type="file" id="fileBarcode" accept="image/*" class="hidden">
+<input type="file" id="fileBarcode" accept="image/*" class="hidden"><input type="file" id="fileReceipt" accept="image/*" multiple class="hidden"><input type="file" id="fileReceiptCam" accept="image/*" capture="environment" class="hidden">
 <input type="file" id="fileTag" accept="image/*" capture="environment" class="hidden">
 <input type="file" id="filePhoto" accept="image/*" capture="environment" class="hidden">
 <input type="file" id="fileImport" accept="application/json,.json" class="hidden">
@@ -390,7 +391,7 @@ label.ck{display:flex;gap:8px;align-items:center;color:var(--text);font-size:15p
 
 <script>
 'use strict';
-const APP_VERSION = '1.3.9';
+const APP_VERSION = '1.4.0';
 const $ = s => document.querySelector(s);
 const app = $('#app');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -1065,6 +1066,239 @@ async function findBarcode(code) {
   return null;
 }
 
+/* ---------- Receipt reader (1.4, super user only while we test) ---------- */
+// Pure functions: OCR text -> store, date, item lines. No photo or card data is kept.
+const RC_CHAINS = [[/no\s*fr[il1]{2,3}s|nofr[il1]{2,3}s/i, 'No Frills'], [/super\s*store|real canadian/i, 'Superstore'], [/wal\s*-?\s*mart/i, 'Walmart'], [/costco/i, 'Costco'],
+  [/safeway/i, 'Safeway'], [/sobeys/i, 'Sobeys'], [/save\s*-?\s*on/i, 'Save-On-Foods'], [/co\s*-?\s*op\b/i, 'Co-op'], [/\bt\s*&\s*t\b/i, 'T&T'], [/fresh\s*co/i, 'FreshCo'],
+  [/wholesale\s*club/i, 'Wholesale Club'], [/shoppers/i, 'Shoppers'], [/london\s*drugs/i, 'London Drugs'], [/h\s*mart/i, 'H Mart']];
+// lines that are never products
+const RC_SKIP = /sub\s*-?\s*tot|\btotal|\btax\b|\bgst\b|\bpst\b|\bhst\b|points?\b|\bpts\b|balance|change\b|\bcash\b|debit|credit|visa|master\s*card|amex|\bauth|approv|\bref\b|trans\.?|account|card\s*(type|number)|number of items|items?\s*sold|retain|validation|customer copy|thank|survey|www\.|\.com|store\s*#|cashier|register|terminal/i;
+const RC_FEE = /deposit|env(iro)?\.?\s*fee|recycl|bottle dep|ecofee|bag fee/i;
+// OCR often reads digits as letters inside number-like tokens
+const rcDigits = s => s.replace(/[Oo]/g, '0').replace(/[Il|]/g, '1').replace(/S/g, '5').replace(/B/g, '8').replace(/Z/g, '2');
+function rcCheck(d12) { const a = d12.split('').map(Number); let s = 0; a.reverse().forEach((x, i) => { s += x * (i % 2 ? 1 : 3); }); return (10 - s % 10) % 10; }
+function rcLoblaw(d) { // Loblaw stores print the UPC without its check digit
+  const b = d.padStart(11, '0'); if (b.length !== 11) return null; const u = b + rcCheck('0' + b); return '0' + u;
+}
+function rcCandidates(raw) {
+  const d = raw.replace(/\D/g, ''), c = new Set();
+  const tryOne = x => { if (x.length >= 6 && x.length <= 11) { const l = rcLoblaw(x); if (l) c.add(l); }
+    if (x.length >= 8 && x.length <= 13) { const p = x.padStart(13, '0'); if (rcCheck(p.slice(1, 12).padStart(12, '0')) === +p.slice(-1)) c.add(p); } };
+  tryOne(d);
+  // one misread extra digit / one dropped digit are common on thermal paper
+  if (d.length >= 10 && d.length <= 13) for (let i = 0; i < d.length; i++) tryOne(d.slice(0, i) + d.slice(i + 1));
+  return [...c];
+}
+const rcName = s => s.replace(/\s*-?\$?\s*\d{1,4}[.,]\d{2}-?\s*$/, '').replace(/(\s+(H?MRJ|MR|GST|PST|[A-Z]{1,2}))+\s*$/, '').trim();
+function rcMoney(s) { const m = String(s).replace(/\s+(?=\d{2}\b)/, '').match(/(-?)\$?\s*(\d{1,4})[.,](\d{2})(-?)\s*$/); if (!m) return null; const v = +(m[2] + '.' + m[3]); return (m[1] || m[4]) ? -v : v; }
+function rcDate(text) {
+  const now = new Date(), ok = d => d && !isNaN(d) && d <= new Date(now.getTime() + 864e5) && now - d < 120 * 864e5;
+  for (const m of text.matchAll(/(\d{2,4})\s*[\/\-.]\s*(\d{1,2})\s*[\/\-.]\s*(\d{2,4})/g)) {
+    const [a, b, c] = [m[1], m[2], m[3]].map(Number), Y = x => x < 100 ? 2000 + x : x;
+    const tries = m[1].length === 4 ? [[Y(a), b, c]] : m[3].length === 4 ? [[Y(c), a, b], [Y(c), b, a]] : [[Y(a), b, c], [Y(c), a, b], [Y(c), b, a]];
+    for (const [y, mo, da] of tries) { if (mo < 1 || mo > 12 || da < 1 || da > 31) continue; const d = new Date(y, mo - 1, da); if (ok(d)) return `${y}-${String(mo).padStart(2, '0')}-${String(da).padStart(2, '0')}`; }
+  }
+  return '';
+}
+function parseReceipt(text) {
+  const lines = text.split(/\n/).map(s => s.replace(/\s+/g, ' ').trim()).filter(Boolean);
+  const store = (RC_CHAINS.find(([rx]) => rx.test(text)) || [])[1] || '';
+  const date = rcDate(text);
+  let subtotal = null; const items = [], log = [];
+  for (let i = 0; i < lines.length; i++) {
+    const L = lines[i];
+    if (/sub\s*-?\s*tot/i.test(L)) { const v = rcMoney(L); if (v != null) subtotal = v; continue; }
+    // weight line: "0.825 kg @ $3.28/kg 2.71"
+    const w = L.match(/(\d+[.,]\d{1,3})\s*(kg|lb)\s*[@a&]?\s*\$?\s*(\d+[.,]\d{2})\s*\/?\s*(kg|lb)?/i);
+    if (w && items.length) { const it = items[items.length - 1]; it.weight = +w[1].replace(',', '.'); it.per = w[2].toLowerCase(); it.unitPrice = +w[3].replace(',', '.'); const t = rcMoney(L); if (t != null && t > 0) it.price = t; continue; }
+    // quantity line: "2 @ $1.99" or "2 @ 2/$5.00"
+    const q = L.match(/^(\d{1,2})\s*[@x]\s*\$?\s*(\d+[.,]\d{2})/i);
+    if (q && items.length) { const it = items[items.length - 1]; it.qty = +q[1]; it.unitPrice = +q[2].replace(',', '.'); const t = rcMoney(L); if (t != null && t > 0) it.price = t; continue; }
+    if (RC_SKIP.test(L)) continue;
+    const money = rcMoney(L);
+    // discount / coupon line belongs to the item above
+    if (money != null && money < 0 && items.length) { const it = items[items.length - 1]; it.discount = Math.round(((it.discount || 0) - money) * 100) / 100; continue; }
+    const tok = L.split(' '); const codeTok = rcDigits(tok[0] || '');
+    if (/^\d{4,14}$/.test(codeTok) && money != null) {
+      const name = rcName(tok.slice(1).join(' '));
+      if (RC_FEE.test(name)) { log.push('fee: ' + L); continue; }
+      items.push({ raw: L, code: codeTok, name, price: money, kind: codeTok.length <= 6 ? 'plu' : 'upc' });
+      continue;
+    }
+    // a code line whose price sits on the next line (weighed produce)
+    if (/^\d{4,6}$/.test(codeTok) && tok.length > 1 && money == null) { items.push({ raw: L, code: codeTok, name: rcName(tok.slice(1).join(' ')), price: null, kind: 'plu' }); continue; }
+    if (/^\d{4,14}$/.test(codeTok) && money == null && tok.length > 1) { items.push({ raw: L, code: codeTok, name: rcName(tok.slice(1).join(' ')), price: null, kind: codeTok.length <= 6 ? 'plu' : 'upc' }); continue; }
+    log.push('skip: ' + L);
+  }
+  for (const it of items) { it.paid = it.price != null ? Math.round((it.price - (it.discount || 0)) * 100) / 100 : null; if (it.kind === 'upc') it.cands = rcCandidates(it.code); }
+  const sum = Math.round(items.reduce((s, it) => s + (it.paid || 0), 0) * 100) / 100;
+  return { store, date, items, subtotal, sum, log };
+}
+
+// --- screen: #receipt (super user only while we test; everyone else sees "coming soon") ---
+let rcFiles = null, rcState = null;
+const RC_PLU = () => { try { return JSON.parse(lsGet('rcPlu') || '{}'); } catch (e) { return {}; } };
+function rcRotate(src, deg) { const c = document.createElement('canvas'), r = deg % 180 !== 0; c.width = r ? src.height : src.width; c.height = r ? src.width : src.height;
+  const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); x.translate(c.width / 2, c.height / 2); x.rotate(deg * Math.PI / 180); x.drawImage(src, -src.width / 2, -src.height / 2); return c; }
+async function rcOcr(file, onStep) {
+  const w = await getOcr(); await w.setParameters({ tessedit_pageseg_mode: '6' });
+  try {
+    const img = await loadBitmap(file), s = Math.min(1, 1800 / Math.max(img.width, img.height));
+    const base = document.createElement('canvas'); base.width = Math.round(img.width * s); base.height = Math.round(img.height * s);
+    const bx = base.getContext('2d'); bx.fillStyle = '#fff'; bx.fillRect(0, 0, base.width, base.height); bx.drawImage(img, 0, 0, base.width, base.height);
+    let best = null; // photos of receipts are often sideways: keep the turn that reads the most price lines
+    for (const deg of [0, 90, 270, 180]) {
+      onStep && onStep(deg); const { data } = await w.recognize(rcRotate(base, deg));
+      const score = (data.text.match(/\d[.,]\d{2}\b/g) || []).length + (data.text.match(/\b\d{8,13}\b/g) || []).length * 2;
+      if (!best || score > best.score) best = { text: data.text, score, deg, conf: data.confidence };
+      if (best.score >= 6 && deg === 0) break;
+    }
+    return best;
+  } finally { await w.setParameters({ tessedit_pageseg_mode: '11' }); }
+}
+async function rcResolve(r) {
+  const items = await getAll('items'), byCode = new Map(); const strip = c => String(c || '').replace(/\D/g, '').replace(/^0+/, '');
+  for (const it of items) for (const [vid, va] of Object.entries(it.variants || {})) if (va && va.barcode) byCode.set(strip(va.barcode), { it, vid, va });
+  const plu = RC_PLU();
+  for (const L of r.items) {
+    L.use = false; L.status = 'none';
+    if (L.kind === 'upc') {
+      const hit = L.cands.map(c => ({ c, h: byCode.get(strip(c)) })).find(x => x.h);
+      if (hit) { L.code13 = hit.c; L.match = hit.h; L.status = hit.c === L.cands[0] ? 'match' : 'fuzzy'; }
+      else if (L.cands.length && L.code.replace(/\D/g, '').length >= 10) { L.code13 = L.cands[0]; L.status = 'new'; }
+    } else { const k = (r.store || '') + '|' + L.code; if (plu[k]) { const it = items.find(x => x.id === plu[k]); if (it) { L.match = { it, vid: '' }; L.status = 'plu'; } } if (L.status === 'none') L.status = 'pluask'; }
+    L.use = L.paid > 0 && ['match', 'fuzzy', 'new', 'plu'].includes(L.status);
+  }
+  r.fresh = items.filter(it => isFresh(it) || it.mode === 'weight').sort((a, b) => itemName(a).localeCompare(itemName(b)));
+  return r;
+}
+async function viewReceipt() {
+  setHeader('🧾 Receipt (beta)', true); setTab('scan');
+  if (!isAdmin()) { app.innerHTML = `<div class="card empty" style="text-align:center">${dog('sniff', 'glass')}<h2 style="margin:8px 0 4px">Receipt scanning is coming soon</h2><div class="muted">We're testing it now. You'll be able to snap a receipt and log every price in one go.</div></div>`; return; }
+  if (rcFiles) {
+    const files = rcFiles; rcFiles = null; const t0 = Date.now();
+    app.innerHTML = `<div class="card empty" style="text-align:center">${dog('sniff', 'glass', 'bounce')}<div class="muted" id="rcMsg">Reading the receipt… (the first time takes a few seconds)</div></div>`;
+    try {
+      const parts = []; for (const [i, f] of files.entries()) parts.push(await rcOcr(f, deg => { const m = $('#rcMsg'); if (m) m.textContent = `Reading photo ${i + 1} of ${files.length}${deg ? ` (turned ${deg}°)` : ''}…`; }));
+      const text = parts.map(p => p.text).join('\n'); const r = parseReceipt(text); r.storeGuessed = !r.store; if (!r.store) r.store = lsGet('lastStore') || '';
+      rcState = Object.assign(await rcResolve(r), { text, parts: parts.map(p => ({ deg: p.deg, conf: Math.round(p.conf), score: p.score })), ms: Date.now() - t0 });
+    } catch (e) { app.innerHTML = `<div class="card"><h2>Couldn't read it</h2><div class="muted">${esc(String(e && e.message || e))}</div></div>`; return; }
+  }
+  if (!rcState) { app.innerHTML = `<div class="card"><h2>🧾 Scan a receipt</h2><div class="muted" style="margin-bottom:10px">Lay the receipt flat, fill the screen and keep it straight. Long receipt? Take 2–3 photos from top to bottom and pick them all.</div><button class="btn" id="rcPick">🧾 Scan a receipt</button></div>`; $('#rcPick').onclick = rcPick; return; }
+  else if (rcState.back) { const keep = rcState.items.map(L => L.use); await rcResolve(rcState); rcState.items.forEach((L, i) => { if (L.status !== 'new' && L.status !== 'none') L.use = keep[i] || L.use; }); }
+  rcState.back = false; rcRender(); rcLookupNew(rcState);
+}
+// 1.4: new barcodes are looked up online once (Open Food Facts, then UPCitemdb) and saved as Unsorted products
+async function rcLookupNew(r) {
+  for (const L of r.items) {
+    if (L.status !== 'new' || !L.code13 || L.info !== undefined) continue;
+    L.info = null; let d = await bcGet(L.code13);
+    if (!d) { let info = await lookupProduct(L.code13); if (info) info.src = 'off'; else info = await upcLookup(L.code13);
+      if (!info) info = { name: L.name, brand: '', src: 'receipt' }; // nothing online: keep the receipt's own wording
+      d = await bcPut(L.code13, { ...info, status: 'unsorted' }); }
+    L.info = d; if (rcState === r && location.hash === '#receipt') { const el = app.querySelector(`.rcNm[data-i="${r.items.indexOf(L)}"]`); if (el) el.textContent = '🆕 ' + ([d.brand, d.name].filter(Boolean).join(' ') || L.name) + (d.quantity ? ' · ' + d.quantity : ''); }
+  }
+}
+// 1.4: choose camera or photo library; a long receipt can be taken in 2-3 parts
+function rcGo(files) { rcFiles = files; rcState = null; closeSheet(); if (location.hash === '#receipt') viewReceipt(); else nav('#receipt', location.hash === '#scan'); }
+function rcPick() {
+  showSheet(`<h2 style="margin:0 0 4px">🧾 Scan a receipt</h2><div class="muted" style="margin-bottom:12px">Lay it flat in good light and fill the screen. Long receipt? Take it in 2–3 parts, top to bottom.</div>
+    <button class="btn" id="rcCam">📷 Take a photo</button><button class="btn sec" id="rcLib">🖼️ Choose from Photos</button><button class="btn sec small" id="rcX" style="margin-top:4px">Cancel</button>`);
+  $('#rcX').onclick = closeSheet; $('#rcLib').onclick = () => rcInput('#fileReceipt', f => rcGo(f)); $('#rcCam').onclick = () => rcCamera([]);
+}
+function rcInput(sel, done) { const inp = $(sel); inp.value = ''; inp.onchange = () => { if (inp.files.length) done([...inp.files]); }; inp.click(); }
+function rcCamera(shots) {
+  rcInput('#fileReceiptCam', f => { shots = shots.concat(f);
+    showSheet(`<h2 style="margin:0 0 4px">📷 ${shots.length} photo${shots.length === 1 ? '' : 's'} taken</h2><div class="muted" style="margin-bottom:12px">Is the whole receipt in? If not, take the next part (a little overlap is fine).</div>
+      <button class="btn" id="rcRead">✅ Read the receipt</button><button class="btn sec" id="rcMore">📷 Take the next part</button><button class="btn sec small" id="rcX" style="margin-top:4px">Cancel</button>`);
+    $('#rcRead').onclick = () => rcGo(shots); $('#rcMore').onclick = () => rcCamera(shots); $('#rcX').onclick = closeSheet; });
+}
+function rcRender() {
+  const r = rcState, ICON = { match: '✅', fuzzy: '🟡', new: '🆕', plu: '🥬', pluask: '❓', none: '⚠️' };
+  const SAY = { match: 'Matched by barcode', fuzzy: 'Matched after fixing a misread digit', new: 'New barcode: goes to Unsorted', plu: 'Store produce code', pluask: 'Produce code: pick the item', none: 'Couldn’t read the code' };
+  const used = r.items.filter(L => L.use), sumUsed = Math.round(used.reduce((s, L) => s + (L.paid || 0), 0) * 100) / 100;
+  const okSum = r.subtotal != null && Math.abs(r.sum - r.subtotal) < 0.011;
+  const stores = [...new Set([r.store, ...CHAINS].filter(Boolean))];
+  app.innerHTML = `
+  <div class="card"><h2>🧾 Receipt (beta)</h2>
+    <label>Store${r.storeGuessed ? ' <span class="muted">(not found on the receipt, please check)</span>' : ''}</label><select id="rcStore">${stores.map(s => `<option${s === r.store ? ' selected' : ''}>${esc(s)}</option>`).join('')}<option value=""${r.store ? '' : ' selected'}>— pick the store —</option></select>
+    <label>Date</label><input id="rcDate" type="date" value="${esc(r.date || today())}">
+    <div id="rcCoin" class="muted" style="margin-top:8px"></div><div class="muted" style="margin-top:8px">${r.items.length} lines read · lines add up to <b>${money(r.sum)}</b>${r.subtotal != null ? ` · subtotal on receipt <b>${money(r.subtotal)}</b> ${okSum ? '✅' : '⚠️ check the prices'}` : ' · no subtotal found'}</div></div>
+  <div class="card"><h2>Items</h2>
+    ${r.items.map((L, i) => `<div class="item rcl" style="align-items:flex-start">
+      <input type="checkbox" class="rcUse" data-i="${i}" ${L.use ? 'checked' : ''} ${L.paid > 0 && L.status !== 'pluask' && L.status !== 'none' ? '' : 'disabled'} style="width:22px;height:22px;margin-top:6px">
+      <div class="main"><div class="name vname rcNm" data-i="${i}">${ICON[L.status]} ${esc(L.match ? (L.match.vid ? variantText(L.match.it, L.match.vid) : itemName(L.match.it)) : L.info ? [L.info.brand, L.info.name].filter(Boolean).join(' ') + (L.info.quantity ? ' · ' + L.info.quantity : '') : L.name || '(no name)')}</div>
+        <div class="muted" style="font-size:12px">${esc(L.code)} ${esc(L.name)} · ${SAY[L.status]}${L.code13 ? ' · ' + L.code13 : ''}${L.weight ? ` · ${L.weight} ${L.per} @ ${money(L.unitPrice)}/${L.per}` : ''}${L.qty ? ` · ${L.qty} @ ${money(L.unitPrice)}` : ''}${L.discount ? ` · −${money(L.discount)} off` : ''}</div>
+        ${L.status === 'new' ? `<button class="btn sec small rcSet" data-c="${esc(L.code13)}" style="margin:4px 0 0;width:auto">🛠️ Set up this product</button>` : ''}
+        ${L.status === 'pluask' || L.status === 'plu' ? `<select class="rcPlu" data-i="${i}" style="margin-top:4px"><option value="">Which item is this?</option>${r.fresh.map(it => `<option value="${esc(it.id)}"${L.match && L.match.it.id === it.id ? ' selected' : ''}>${esc(itemName(it))}</option>`).join('')}</select>` : ''}</div>
+      <div class="price">${money(L.paid)}</div></div>`).join('') || '<div class="muted">No item lines found. Try a straighter, closer photo.</div>'}
+    <button class="btn" id="rcSave" style="margin-top:10px" ${used.length ? '' : 'disabled'}>Log ${used.length} price${used.length === 1 ? '' : 's'} (${money(sumUsed)})</button>
+    <button class="btn sec" id="rcAgain">📷 Scan another receipt</button></div>
+  <div class="card"><h2>🔧 Debug</h2><div class="muted" style="font-size:12px">${r.parts.map((p, i) => `photo ${i + 1}: turned ${p.deg}°, OCR confidence ${p.conf}, score ${p.score}`).join('<br>')} · ${(r.ms / 1000).toFixed(1)} s</div>
+    <details style="margin-top:6px"><summary>OCR text</summary><pre style="white-space:pre-wrap;font-size:11px;max-height:320px;overflow:auto">${esc(rcMaskCard(r.text))}</pre></details>
+    <details><summary>Skipped lines (${r.log.length})</summary><pre style="white-space:pre-wrap;font-size:11px">${esc(rcMaskCard(r.log.join('\n')))}</pre></details></div>`;
+  app.querySelectorAll('.rcUse').forEach(b => b.onchange = () => { r.items[+b.dataset.i].use = b.checked; rcRender(); });
+  app.querySelectorAll('.rcPlu').forEach(s => s.onchange = () => { const L = r.items[+s.dataset.i], it = r.fresh.find(x => x.id === s.value); const k = ($('#rcStore').value || '') + '|' + L.code, m = RC_PLU();
+    if (it) { L.match = { it, vid: '' }; L.status = 'plu'; L.use = L.paid > 0; m[k] = it.id; } else { L.match = null; L.status = 'pluask'; L.use = false; delete m[k]; } lsSet('rcPlu', JSON.stringify(m)); rcRender(); });
+  const coinLine = async () => { const store = $('#rcStore').value, date = $('#rcDate').value || today(), el = $('#rcCoin'); if (!el) return;
+    const why = rcValid(r, store, date, r.items.filter(L => L.use)); r.dup = null;
+    if (!why) { r.key = await rcKey(store, date, r.subtotal); r.dup = await rcSeen(r.key); }
+    el.innerHTML = r.dup ? `⛔ <b>This receipt was already scanned</b>${r.dup.ts ? ' on ' + fmtDate(new Date(r.dup.ts).toISOString().slice(0, 10)) : ''}. Its prices are in already, so no coins.`
+      : why ? `🪙 No coins yet: ${esc(why)}.` : `🪙 <b>+${RC_COINS} coins</b> when you log this receipt`;
+    const b = $('#rcSave'); if (b && r.dup) { b.textContent = isAdmin() ? 'Log again anyway (test, no coins)' : 'Already logged'; b.disabled = !isAdmin(); } };
+  coinLine();
+  $('#rcStore').onchange = () => { r.store = $('#rcStore').value; coinLine(); }; $('#rcDate').onchange = coinLine;
+  $('#rcAgain').onclick = rcPick;
+  app.querySelectorAll('.rcSet').forEach(b => b.onclick = () => { r.back = true; nav('#product/' + b.dataset.c); });
+  $('#rcSave').onclick = async () => {
+    const store = $('#rcStore').value, date = $('#rcDate').value || today(); if (!store) return toast('Pick the store first');
+    if (r.dup && !isAdmin()) return toast('This receipt was already logged');
+    let n = 0; const fp = r.subtotal != null ? await rcKey(store, date, r.subtotal) : '';
+    const why = rcValid(r, store, date, r.items.filter(x => x.use)), earn = !why && !(await rcSeen(fp)), rk = earn ? fp : newId();
+    for (const L of r.items.filter(x => x.use)) {
+      const o = { id: newId(), multi: 1, store, date, sale: !!L.discount, note: 'receipt', src: 'receipt', by: fbUser ? fbUser.uid : '', ts: Date.now() };
+      if (L.weight && L.unitPrice) { o.price = L.unitPrice; o.per = L.per; } else { o.price = L.qty && L.unitPrice ? Math.round((L.paid / L.qty) * 100) / 100 : L.paid; o.per = 'pack'; }
+      if (L.match) { o.itemId = L.match.it.id; o.vid = L.match.vid || ''; } else { o.itemId = ''; o.vid = ''; o.pname = L.name.slice(0, 80); }
+      if (L.code13) o.bc = L.code13;
+      o.rline = (L.code + ' ' + L.name).slice(0, 80); o.rk = rk; // keeps the receipt's own wording and groups lines from one receipt (for the data audit)
+      await save('obs', o); n++;
+    }
+    lsSet('lastStore', store);
+    let coins = 0;
+    await rcSaveSummary(rk, { store, date, subtotal: r.subtotal, sum: r.sum, n, coins: earn ? RC_COINS : 0, fp, why: earn ? '' : (why || 'already scanned'), lines: r.items.map(rcLine) });
+    if (earn) { const g = gLoad(); g.coins += RC_COINS; gSave(g); coins = RC_COINS; }
+    toast(`✅ Logged ${n} price${n === 1 ? '' : 's'} from the receipt`, 2800); if (coins) setTimeout(() => coinPop(coins, 'Thanks for scanning a receipt!'), 900);
+    rcState = null; nav('#home', true);
+  };
+}
+// 1.4: one receipt = 10 coins (no daily cap); the same receipt can't be logged twice.
+// Fingerprint = store + date + receipt total, hashed. The same paper receipt gives the same three values each time it's read.
+const RC_COINS = 10, RC_MAX_AGE = 14;
+async function rcKey(store, date, total) { const t = `${store.toLowerCase()}|${date}|${Math.round(total * 100)}`; const h = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(t)); return [...new Uint8Array(h)].slice(0, 12).map(b => b.toString(16).padStart(2, '0')).join(''); }
+const rcSeenLocal = () => { try { return JSON.parse(lsGet('rcSeen') || '{}'); } catch (e) { return {}; } };
+async function rcSeen(key) {
+  const loc = rcSeenLocal()[key]; if (loc) return { ts: loc, mine: true };
+  try { if (fb && syncOn()) { const d = await fb.F.getDoc(docRef('receipts', key)); if (d.exists()) { const x = d.data(); return { ts: x.ts, mine: fbUser && x.by === fbUser.uid }; } } } catch (e) {}
+  return null;
+}
+// receipts/{id}: one summary per logged receipt, for the data audit. The id is the fingerprint when the receipt earned coins
+// (that's what blocks a second scan); otherwise a random id with the fingerprint in fp. Nothing personal: no photo, no OCR text, no card / loyalty / transaction numbers.
+const rcLine = L => { const x = { code: L.code, name: String(L.name || '').slice(0, 60), paid: L.paid, status: L.status, used: !!L.use };
+  for (const k of ['price', 'weight', 'per', 'unitPrice', 'qty', 'discount', 'code13']) if (L[k] != null && L[k] !== '') x[k] = L[k];
+  if (L.match) { x.itemId = L.match.it.id; x.vid = L.match.vid || ''; } return x; };
+async function rcSaveSummary(id, info) { const t = Date.now(); if (info.coins) { const m = rcSeenLocal(); m[id] = t; lsSet('rcSeen', JSON.stringify(m)); }
+  try { if (fb && syncOn()) await fb.F.setDoc(docRef('receipts', id), { by: fbUser ? fbUser.uid : '', ts: t, updated: t, ...info }); } catch (e) { console.warn('receipt save', e.code); } }
+function rcValid(r, store, date, used) { // what makes a receipt worth 10 coins
+  const total = r.subtotal != null ? r.subtotal : null, age = (new Date(today()) - new Date(date)) / 864e5;
+  if (!store) return 'pick the store';
+  if (total == null) return 'the subtotal wasn’t found, so we can’t check it’s a real receipt';
+  if (!(age >= 0 && age <= RC_MAX_AGE)) return `receipts older than ${RC_MAX_AGE} days don’t earn coins`;
+  if (!used.length) return 'tick at least one price';
+  if (Math.abs(r.sum - total) >= 0.011 && used.length < 3) return 'the lines don’t add up to the subtotal yet';
+  return '';
+}
+const rcMaskCard = s => String(s).replace(/(card\s*n|acct|account|auth|ref\s*#)[^\n]*/ig, '$1… (hidden)').replace(/[*•xX]{4,}[\d*•xX -]*/g, '••••');
+
 /* ---------- Scanner (BarcodeDetector on Android, ZXing on iPhone) ---------- */
 let scanStream = null, scanTimer = null, detector = null, torchOn = false, zxCore = null, zxCanvas = null, scanCb = null;
 const ZX_URL = 'https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js';
@@ -1092,7 +1326,7 @@ async function getDetector() {
 }
 // cb(code) is called once with the scanned barcode; default opens that product.
 async function openScanner(cb) {
-  scanCb = cb || handleBarcode;
+  scanCb = cb || handleBarcode; { const sn = $('#rcSoon'); if (sn) sn.classList.toggle('hidden', isAdmin()); }
   $('#scanner').classList.remove('hidden');
   $('#manualCode').value = ''; { const m = $('#bcMsg'); if (m) { m.className = 'bcmsg hidden'; delete m.dataset.warned; } }
   $('#scanDog').innerHTML = dog('sniff', 'glass', 'bounce');
@@ -1134,6 +1368,8 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 $('#torchBtn').onclick = async () => { if (!scanStream) return; torchOn = !torchOn; try { await scanStream.getVideoTracks()[0].applyConstraints({ advanced: [{ torch: torchOn }] }); } catch (e) {} };
 $('#closeScanBtn').onclick = () => { closeScanner(); if (location.hash === '#scan') navUp('#home'); };
 $('#noCodeBtn').onclick = () => { closeScanner(); nav('#pick/', location.hash === '#scan'); };
+// 1.4: receipt reader, super user only while we test it
+$('#receiptBtn').onclick = () => { if (!isAdmin()) return toast('🧾 Receipt scanning is coming soon. We’re testing it now!', 3200); closeScanner(); rcPick(); };
 $('#manualGo').onclick = () => { const c = $('#manualCode').value, msg = $('#bcMsg'); if (!normCode(c)) return toast(t('needCode'));
   const ok = fixCode(c), d = c.replace(/\D/g, '');
   if (!ok && msg.dataset.warned !== d) { msg.dataset.warned = d; msg.className = 'bcmsg bad'; msg.innerHTML = `⚠️ <b>${esc(d)}</b> doesn't look right (${d.length} digits). Check the small first and last digits, then tap OK. If it's exactly what's printed, tap OK again to use it anyway.`; return; }
@@ -3329,6 +3565,7 @@ function showProduct(sc) {
 
 /* ---------- What's new (shown once after each update) ---------- */
 const CHANGES = {
+  '1.4.0': [["New on the Scan page: a Receipt button. Receipt scanning is coming soon, so you'll be able to log every price on a receipt in one go."], ["New on the Scan page: a Receipt button. Receipt scanning is coming soon, so you'll be able to log every price on a receipt in one go."]],
   '1.3.9': [['Search: products that people logged or scanned now come first; products only seen in store flyers are listed after them.'], ['Search: products that people logged or scanned now come first; products only seen in store flyers are listed after them.']],
   '1.3.8': [['Search by brand or product name now lists every matching product (e.g. all Dawn bottles), with the cheapest unit price first.'], ['Search by brand or product name now lists every matching product (e.g. all Dawn bottles), with the cheapest unit price first.']],
   '1.3.7': [["Fix: a product with many brands no longer shows one brand's photo for all of them. Every product now has its own PricePup drawing, and a brand photo only shows on that brand's own size."], ["Fix: a product with many brands no longer shows one brand's photo for all of them. Every product now has its own PricePup drawing, and a brand photo only shows on that brand's own size."]],
@@ -4051,6 +4288,7 @@ async function route(bg) {
     case 'visit': return viewVisit(parts[1] || '');
     case 'privacy': return viewPrivacy();
     case 'scan': await viewHome(); setTab('scan'); return openScanner();
+    case 'receipt': return viewReceipt();
     default: return viewHome();
   }
 }
