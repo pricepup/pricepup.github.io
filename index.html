@@ -391,7 +391,7 @@ label.ck{display:flex;gap:8px;align-items:center;color:var(--text);font-size:15p
 
 <script>
 'use strict';
-const APP_VERSION = '1.4.2';
+const APP_VERSION = '1.4.3';
 const $ = s => document.querySelector(s);
 const app = $('#app');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -1134,7 +1134,7 @@ function parseReceipt(text) {
     if (/balance\s*due|^[^A-Za-z0-9]*\d{0,3}\s*total\b(?!\s*number)|^total\s*(due|sale)?\b/i.test(L)) { const v = rcMoney(L); if (v != null && total == null) total = v; continue; }
     if (/^(gst|hst|tax)\b(?!\s*#)/i.test(L)) { const v = rcMoney(L); if (v != null) tax = Math.round(((tax || 0) + v) * 100) / 100; continue; }
     // weight line: "0.825 kg @ $3.28/kg 2.71" (belongs to the name line just above, or to the last coded item)
-    let w = L.match(/(\d*[.,]\d{1,3})\s*(kg|lb)\s*[@a&]?\s*\$?\s*(\d+[.,]\d{2})\s*\/?\s*(kg|lb)?/i);
+    let w = L.match(/(\d*[.,]\d{1,3})\s*(kg|lb)\s*(?:[@a&]|[0oO8G©e](?=\s*\$))?\s*\$?\s*(\d+[.,]\d{2})\s*\/?\s*(kg|lb)?/i); // "0.540 kg 0 $3.48/kg": OCR often reads @ as 0 / G / 8
     const lastIt = items[items.length - 1];
     if (!w && (prev || (lastIt && lastIt.price == null))) { // weight unreadable: "$2.14/kg W $4.10" -> weight = 4.10 / 2.14
       const u = L.match(/\$\s*(\d+[.,]\d{2})\s*\/\s*(kg|lb)\b(.*)$/i), t = u && rcMoney(u[3]);
@@ -1180,7 +1180,17 @@ function parseReceipt(text) {
   const kept = items.filter(it => it.price != null);
   for (const it of kept) { it.paid = it.price != null ? Math.round((it.price - (it.discount || 0)) * 100) / 100 : null; if (it.kind === 'upc') { it.cands = rcCandidates(it.code);
     if (wm && it.code.length === 12) { const u = rcLoblaw(it.code.slice(0, 11)); if (u) it.cands = [u, ...it.cands.filter(c => c !== u)]; } } }
-  const sum = Math.round(kept.reduce((s, it) => s + (it.paid || 0), 0) * 100) / 100;
+  let sum = Math.round(kept.reduce((s, it) => s + (it.paid || 0), 0) * 100) / 100;
+  // T&T prints "W $6.97"; OCR often turns "W $" into "$5" (6.97 -> 56.97). Undo it when that makes the lines match an amount printed below them.
+  if (store === 'T&T' && subtotal == null) {
+    const lastLi0 = Math.max(-1, ...kept.map(it => it.li ?? -1)), foot = lines.slice(lastLi0 + 1).map(rcMoney).filter(v => v != null && v > 0);
+    const sus = kept.filter(it => !it.weight && it.paid >= 50 && it.paid < 60).slice(0, 8);
+    const near = v => foot.some(f => Math.abs(f - v) < 0.011);
+    if (sus.length && !near(sum + fees)) for (let m = 1; m < (1 << sus.length); m++) {
+      const cut = sus.filter((_, j) => m & (1 << j)), v = Math.round((sum + fees - 50 * cut.length) * 100) / 100;
+      if (near(v)) { cut.forEach(it => { it.price = Math.round((it.price - 50) * 100) / 100; it.paid = Math.round((it.paid - 50) * 100) / 100; it.fixed = 'W$'; }); sum = Math.round((v - fees) * 100) / 100; break; }
+    }
+  }
   // no SUBTOTAL line (Co-op): work it out from the total minus GST (5%, or the GST line) and deposits / recycling fees
   let subFrom = '';
   if (tax != null && tax > sum * 0.2 + 0.05) tax = null; // a shifted footer put another amount on the GST line
@@ -1201,7 +1211,7 @@ function parseReceipt(text) {
 }
 
 // --- screen: #receipt (super user only while we test; everyone else sees "coming soon") ---
-let rcFiles = null, rcState = null;
+let rcFiles = null, rcState = null, rcTess = false;
 const RC_PLU = () => { try { return JSON.parse(lsGet('rcPlu') || '{}'); } catch (e) { return {}; } };
 function rcRotate(src, deg) { const c = document.createElement('canvas'), r = deg % 180 !== 0; c.width = r ? src.height : src.width; c.height = r ? src.width : src.height;
   const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); x.translate(c.width / 2, c.height / 2); x.rotate(deg * Math.PI / 180); x.drawImage(src, -src.width / 2, -src.height / 2); return c; }
@@ -1288,10 +1298,16 @@ async function viewReceipt() {
   if (rcFiles) {
     const files = rcFiles; rcFiles = null; const t0 = Date.now();
     app.innerHTML = `<div class="card empty" style="text-align:center">${dog('sniff', 'glass', 'bounce')}<div class="muted" id="rcMsg">Reading the receipt… (the first time takes a few seconds)</div></div>`;
-    try {
+    // 1.4.3: the super user's receipts are read by Gemini first (Tesseract if it fails, or on request to compare)
+    const forceTess = rcTess; rcTess = false;
+    if (aiOn() && !forceTess) { try { const m = $('#rcMsg'); if (m) m.textContent = `Gemini is reading ${files.length > 1 ? files.length + ' photos' : 'the receipt'}…`;
+        const r = await rcReadAi(files); r.storeGuessed = !r.store; r.storeRead = r.store; if (!r.store) r.store = lsGet('lastStore') || '';
+        rcState = Object.assign(await rcResolve(r), { text: '', parts: [], ms: Date.now() - t0, via: 'Gemini', model: r.model, files }); }
+      catch (e) { console.warn('gemini', e); rcState = null; toast('Gemini could not read it (' + String(e && (e.code || e.message) || e).slice(0, 60) + '). Using the built-in reader.', 3500); } }
+    if (!rcState) try {
       const parts = []; for (const [i, f] of files.entries()) parts.push(await rcOcr(f, deg => { const m = $('#rcMsg'); if (m) m.textContent = `Reading photo ${i + 1} of ${files.length}${deg ? ` (turned ${deg}°)` : ''}…`; }));
       const text = parts.map(p => p.text).join('\n'); const r = parseReceipt(text); r.storeGuessed = !r.store; r.storeRead = r.store; if (!r.store) r.store = lsGet('lastStore') || '';
-      rcState = Object.assign(await rcResolve(r), { text, parts: parts.map(p => ({ deg: p.deg, conf: Math.round(p.conf), score: p.score })), ms: Date.now() - t0 });
+      rcState = Object.assign(await rcResolve(r), { text, parts: parts.map(p => ({ deg: p.deg, conf: Math.round(p.conf), score: p.score })), ms: Date.now() - t0, via: 'Tesseract', files });
     } catch (e) { app.innerHTML = `<div class="card"><h2>Couldn't read it</h2><div class="muted">${esc(String(e && e.message || e))}</div></div>`; return; }
   }
   if (!rcState) { app.innerHTML = `<div class="card"><h2>🧾 Scan a receipt</h2><div class="muted" style="margin-bottom:10px">Lay the receipt flat, fill the screen and keep it straight. Long receipt? Take 2–3 photos from top to bottom and pick them all.</div><button class="btn" id="rcPick">🧾 Scan a receipt</button></div>`; $('#rcPick').onclick = rcPick; return; }
@@ -1344,7 +1360,8 @@ function rcRender() {
       <div class="price">${money(L.paid)}</div></div>`).join('') || '<div class="muted">No item lines found. Try a straighter, closer photo.</div>'}
     <button class="btn" id="rcSave" style="margin-top:10px" ${used.length ? '' : 'disabled'}>Log ${used.length} price${used.length === 1 ? '' : 's'} (${money(sumUsed)})</button>
     <button class="btn sec" id="rcAgain">📷 Scan another receipt</button></div>
-  <div class="card"><h2>🔧 Debug</h2><div class="muted" style="font-size:12px">${r.parts.map((p, i) => `photo ${i + 1}: turned ${p.deg}°, OCR confidence ${p.conf}, score ${p.score}`).join('<br>')} · ${(r.ms / 1000).toFixed(1)} s</div>
+  <div class="card"><h2>🔧 Debug</h2><div class="muted" style="font-size:12px">Read by <b>${r.via || 'Tesseract'}${r.model ? ' (' + r.model + ')' : ''}</b>${r.via === 'Gemini' ? ' (test: the photo was sent to Google Gemini)' : ''} · ${r.parts.map((p, i) => `photo ${i + 1}: turned ${p.deg}°, OCR confidence ${p.conf}, score ${p.score} · `).join('<br>')}${(r.ms / 1000).toFixed(1)} s</div>
+    ${r.files ? `<button class="btn sec small" id="rcOther" style="margin:6px 0 0;width:auto">🔁 Read again with ${r.via === 'Gemini' ? 'the built-in reader (compare)' : 'Gemini'}</button>` : ''}
     <details style="margin-top:6px"><summary>OCR text</summary><pre style="white-space:pre-wrap;font-size:11px;max-height:320px;overflow:auto">${esc(rcMaskCard(r.text))}</pre></details>
     <details><summary>Skipped lines (${r.log.length})</summary><pre style="white-space:pre-wrap;font-size:11px">${esc(rcMaskCard(r.log.join('\n')))}</pre></details></div>`;
   app.querySelectorAll('.rcUse').forEach(b => b.onchange = () => { r.items[+b.dataset.i].use = b.checked; rcRender(); });
@@ -1359,6 +1376,7 @@ function rcRender() {
   coinLine();
   $('#rcStore').onchange = () => { r.store = $('#rcStore').value; coinLine(); }; $('#rcDate').onchange = coinLine;
   $('#rcAgain').onclick = rcPick;
+  { const ro = $('#rcOther'); if (ro) ro.onclick = () => { const f = r.files, viaG = r.via === 'Gemini'; if (!viaG && !aiOn()) return toast('Gemini is only on for the super user'); rcTess = viaG; rcFiles = f; rcState = null; viewReceipt(); }; }
   app.querySelectorAll('.rcSet').forEach(b => b.onclick = () => { r.back = true; nav('#product/' + b.dataset.c); });
   $('#rcSave').onclick = async () => {
     const store = $('#rcStore').value, date = $('#rcDate').value || today(); if (!store) return toast('Pick the store first');
@@ -1410,6 +1428,103 @@ function rcValid(r, store, date, used) { // what makes a receipt worth 10 coins
   return '';
 }
 const rcMaskCard = s => String(s).replace(/(card\s*n|acct|account|auth|autor|ref\s*#|reference|member|instacart\s*shop|rrn|tc\s*#)[^\n]*/ig, '$1… (hidden)').replace(/[*•xX]{4,}[\d*•xX -]*/g, '••••');
+
+/* ---------- 1.4.3: Gemini (Firebase AI Logic, Gemini Developer API) reads receipts and price tags. Super user only while we test ---------- */
+// The Firebase SDK used for sync is 10.x; AI Logic needs a newer SDK, so it runs as its own small Firebase app named 'ai'.
+const AI_SDK = '13.1.0', AI_MODELS = ['gemini-3.5-flash-lite', 'gemini-3.8-flash']; // flash-lite answers in ~2 s on the free tier; 3.8-flash was timing out (503) on 2026-11-09, kept as a backup
+let aiCore = null;
+const aiOn = () => typeof isAdmin === 'function' && isAdmin() && lsGet('aiOff') !== '1';
+async function getAi() {
+  if (aiCore) return aiCore;
+  const base = `https://www.gstatic.com/firebasejs/${AI_SDK}/`;
+  const [A0, AI] = await Promise.all([import(base + 'firebase-app.js'), import(base + 'firebase-ai.js')]);
+  const app = A0.getApps().find(a => a.name === 'ai') || A0.initializeApp(FB_CONFIG, 'ai');
+  aiCore = { AI, ai: AI.getAI(app, { backend: new AI.GoogleAIBackend() }) };
+  return aiCore;
+}
+// photo -> base64 JPEG, longest side max px (colour kept: Gemini reads better from the real photo)
+async function aiImg(file, max = 2000) {
+  const img = await loadBitmap(file), s = Math.min(1, max / Math.max(img.width, img.height));
+  const c = document.createElement('canvas'); c.width = Math.round(img.width * s); c.height = Math.round(img.height * s);
+  const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); x.drawImage(img, 0, 0, c.width, c.height);
+  return c.toDataURL('image/jpeg', 0.85).split(',')[1];
+}
+async function aiJson(prompt, files, schema) {
+  const { AI, ai } = await getAi(); const S = AI.Schema;
+  const imgs = await Promise.all(files.map(f => aiImg(f))), parts = [prompt, ...imgs.map(data => ({ inlineData: { data, mimeType: 'image/jpeg' } }))];
+  let err = null;
+  for (const name of AI_MODELS) {
+    try { const model = AI.getGenerativeModel(ai, { model: name, generationConfig: { responseMimeType: 'application/json', responseSchema: schema(S), temperature: 0 } });
+      const res = await Promise.race([model.generateContent(parts), new Promise((_, no) => setTimeout(() => no(new Error('timeout')), 45000))]);
+      const j = JSON.parse(res.response.text()); j._model = name; return j; }
+    catch (e) { err = e; console.warn('gemini', name, e && e.message); }
+  }
+  throw err;
+}
+
+// ---- receipts ----
+const RC_AI_PROMPT = `You read Canadian grocery receipts from Calgary stores (No Frills, Superstore, Walmart, Costco, Co-op, T&T, Safeway, Sobeys, Save-On-Foods and others).
+The photos are parts of ONE receipt, top to bottom; parts may overlap, so never list the same line twice.
+Return every purchased product line, in order. Rules:
+- name: the product text exactly as printed (English only; ignore Chinese text lines, they repeat the English name).
+- code: the barcode / item number / produce code printed on the line, digits only, or "" if none.
+- price: what was charged for that line (after any instant discount printed on the line), as a number.
+- For weighed items ("1.332 kg @ $6.59/kg"): weight, weightUnit ("kg" or "lb") and unitPrice (price per kg or lb).
+- For quantity lines ("2 @ $1.99"): qty and unitPrice.
+- discount: a coupon / price reduction printed below an item (positive number), else 0. saved: "You Saved $x" amount, else 0. onSale: true if marked SALE / You Saved / a discount.
+- Deposits, environmental / recycling fees (CRF, enviro fee), bottle deposits and shopping bags: isFee true.
+- Never include card numbers, member / loyalty numbers, cashier names or transaction numbers anywhere.
+store: the chain name (e.g. "No Frills", "Walmart", "Costco", "Co-op", "T&T"), date: YYYY-MM-DD as printed, subtotal / tax / total: as printed (0 if not printed).`;
+const rcAiSchema = S => S.object({ properties: {
+  store: S.string(), date: S.string(), subtotal: S.number(), tax: S.number(), total: S.number(),
+  items: S.array({ items: S.object({ properties: { name: S.string(), code: S.string(), price: S.number(), qty: S.number(), unitPrice: S.number(), weight: S.number(), weightUnit: S.string(),
+    discount: S.number(), saved: S.number(), onSale: S.boolean(), isFee: S.boolean() }, optionalProperties: ['code', 'qty', 'unitPrice', 'weight', 'weightUnit', 'discount', 'saved', 'onSale', 'isFee'] }) }) },
+  optionalProperties: ['date', 'subtotal', 'tax', 'total'] });
+const rcR2 = v => Math.round((+v || 0) * 100) / 100;
+// Gemini's JSON -> the same shape parseReceipt() returns, so the review screen, matching, coins and saving stay the same
+function rcFromAi(j) {
+  const store = (CHAINS.find(c => c.toLowerCase() === String(j.store || '').toLowerCase()) || (RC_CHAINS.find(([rx]) => rx.test(String(j.store || ''))) || [])[1] || '');
+  const d = String(j.date || '').match(/^(\d{4})-(\d{2})-(\d{2})$/), date = d && rcDate(`${d[1]}/${d[2]}/${d[3]}`) ? `${d[1]}-${d[2]}-${d[3]}` : '';
+  const cc = store === 'Costco', wm = store === 'Walmart'; let fees = 0; const items = [];
+  for (const x of j.items || []) {
+    const name = String(x.name || '').replace(/[^\x20-\x7E]/g, '').trim().slice(0, 80), price = rcR2(x.price);
+    if (x.isFee || RC_FEE.test(name)) { fees = rcR2(fees + price); continue; }
+    if (!(price > 0) && !(x.weight > 0)) continue;
+    let code = String(x.code || '').replace(/\D/g, ''), kind = 'name';
+    if (code) { if (wm && /^0{6,}\d{5}$/.test(code)) code = code.slice(0, 11).replace(/^0+/, '');
+      kind = cc && code.length <= 7 ? 'item' : code.length <= 6 ? 'plu' : code.length >= 8 ? 'upc' : 'name'; }
+    const it = { raw: name, code: kind === 'name' ? '' : code, name, price, kind, li: 0 };
+    if (x.weight > 0 && x.unitPrice > 0) { it.weight = +x.weight; it.per = /lb/i.test(x.weightUnit || '') ? 'lb' : 'kg'; it.unitPrice = rcR2(x.unitPrice); }
+    else if (x.qty > 1 && x.unitPrice > 0) { it.qty = +x.qty; it.unitPrice = rcR2(x.unitPrice); }
+    if (x.discount > 0) it.discount = rcR2(x.discount);
+    if (x.saved > 0) it.saved = rcR2(x.saved); else if (x.onSale) it.sale = true;
+    it.paid = rcR2(price - (it.discount || 0));
+    if (kind === 'upc') { it.cands = rcCandidates(code); if (wm && code.length === 12) { const u = rcLoblaw(code.slice(0, 11)); if (u) it.cands = [u, ...it.cands.filter(c => c !== u)]; } }
+    items.push(it);
+  }
+  items.forEach(it => delete it.li);
+  const sum = rcR2(items.reduce((s, it) => s + (it.paid || 0), 0)), tax = j.tax > 0 ? rcR2(j.tax) : null, total = j.total > 0 ? rcR2(j.total) : null;
+  let subtotal = j.subtotal > 0 ? rcR2(j.subtotal) : null, subFrom = '';
+  if (subtotal == null && total != null) { subtotal = rcR2(total - (tax || 0) - fees); subFrom = 'total'; }
+  return { store, date, items, subtotal, sum, sumCheck: rcR2(sum + (subFrom === 'total' ? 0 : fees)), total, tax, fees, subFrom, log: [], ai: true, model: j._model || '' };
+}
+async function rcReadAi(files) { return rcFromAi(await aiJson(RC_AI_PROMPT, files, rcAiSchema)); }
+
+// ---- price tags ----
+const TAG_AI_PROMPT = `This is a photo of a grocery shelf price tag or sign in a Calgary store. Read the selling price.
+- price: the price the shopper pays now (the big number). If it is a multi-buy like "2 for $5", price is 5 and multi is 2; otherwise multi is 1.
+- per: "each" for a normal item price, "lb" or "kg" if the price is per pound / kilogram (if both are shown, give the per-lb price and per "lb"), "100g" if only a per-100 g price is shown.
+- regPrice: the regular price if a sale tag also shows it (crossed out or "Reg."), else 0. onSale: true for sale / clearance / instant savings tags.
+- saleEnds: YYYY-MM-DD if an end date is printed, else "". productName and size: as printed, else "".
+Ignore unit-price small print (e.g. "$1.20 /100 g") unless it is the only price.`;
+const tagAiSchema = S => S.object({ properties: { price: S.number(), multi: S.number(), per: S.string(), regPrice: S.number(), onSale: S.boolean(), saleEnds: S.string(), productName: S.string(), size: S.string() },
+  optionalProperties: ['multi', 'regPrice', 'onSale', 'saleEnds', 'productName', 'size'] });
+async function tagReadAi(file, weightMode) {
+  const j = await aiJson(TAG_AI_PROMPT, [file], tagAiSchema); if (!(j.price > 0)) return [];
+  let per = /lb/i.test(j.per || '') ? 'lb' : /kg/i.test(j.per || '') ? 'kg' : '';
+  if (weightMode && !per) per = '';
+  return [{ price: rcR2(j.price), multi: Math.max(1, Math.round(j.multi || 1)), score: 1e6, partial: false, per, ai: true, reg: j.regPrice > 0 ? rcR2(j.regPrice) : 0, sale: !!j.onSale || j.regPrice > j.price, until: /^\d{4}-\d{2}-\d{2}$/.test(j.saleEnds || '') ? j.saleEnds : '', pname: j.productName || '', psize: j.size || '' }];
+}
 
 /* ---------- Scanner (BarcodeDetector on Android, ZXing on iPhone) ---------- */
 let scanStream = null, scanTimer = null, detector = null, torchOn = false, zxCore = null, zxCanvas = null, scanCb = null;
@@ -1577,6 +1692,7 @@ async function prepForOcr(file, max) {
   return c;
 }
 async function readPriceTag(file, weightMode) {
+  if (aiOn()) { try { const a = await tagReadAi(file, weightMode); if (a.length) return a; } catch (e) { console.warn('gemini tag', e); toast('Gemini could not read the tag. Using the built-in reader.', 3000); } }
   const w = await getOcr(); const all = [];
   for (const max of [1600, 960, 560]) { const c = await prepForOcr(file, max); const { data } = await w.recognize(c); all.push(...extractPrices(data, c.height, weightMode)); }
   const best = {};
@@ -1958,7 +2074,7 @@ async function viewAdd(id, preVid) {
     const msg = $('#ocrMsg'); $('#chips').innerHTML = '';
     msg.textContent = ocrWorker ? t('ocrReading') : t('ocrFirst');
     try {
-      await getOcr(); msg.textContent = t('ocrReading');
+      if (!aiOn()) await getOcr(); msg.textContent = aiOn() ? 'Gemini is reading the tag…' : t('ocrReading');
       const c = await readPriceTag(f, weight);
       if (!c.length) { msg.textContent = t('ocrNone'); return; }
       msg.textContent = t('ocrPick');
@@ -1968,6 +2084,7 @@ async function viewAdd(id, preVid) {
         $('#aMulti').value = x.multi;
         if (weight && x.per) { per = x.per; $('#perSeg').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.p === per)); }
         if (x.partial) { const el = $('#aPrice'); el.value = Math.floor(x.price) + '.'; el.focus(); toast(t('ocrCents')); } else $('#aPrice').value = x.price.toFixed(2);
+        if (x.ai && x.sale && $('#aSale')) $('#aSale').checked = true;
         upd();
       };
       $('#chips').querySelectorAll('.chip').forEach(b => b.onclick = () => use(c[+b.dataset.i])); use(c[0]);
@@ -3692,6 +3809,7 @@ function showProduct(sc) {
 
 /* ---------- What's new (shown once after each update) ---------- */
 const CHANGES = {
+  '1.4.3': [['Small fixes and improvements.'], ['Small fixes and improvements.']],
   '1.4.2': [["Fix: your puppy's bond level could drop when the app was opened on another phone or computer with older puppy data.", 'Produce pages: the price summary and Recent prices now show prices per lb or kg; bags are listed under Bags & packs.'], ["Fix: your puppy's bond level could drop when the app was opened on another phone or computer with older puppy data.", 'Produce pages: the price summary and Recent prices now show prices per lb or kg; bags are listed under Bags & packs.']],
   '1.4.1': [['Every item page now has a Log a price button.', 'Produce: loose prices come first; bags and packs are tucked below.', 'Search a produce sticker number (e.g. 4011 for bananas) to find the item.', 'Search shows the closest name match first.'], ['Every item page now has a Log a price button.', 'Produce: loose prices come first; bags and packs are tucked below.', 'Search a produce sticker number (e.g. 4011 for bananas) to find the item.', 'Search shows the closest name match first.']],
   '1.4.0': [["New on the Scan page: a Receipt button. Receipt scanning is coming soon, so you'll be able to log every price on a receipt in one go."], ["New on the Scan page: a Receipt button. Receipt scanning is coming soon, so you'll be able to log every price on a receipt in one go."]],
