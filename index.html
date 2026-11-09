@@ -391,7 +391,7 @@ label.ck{display:flex;gap:8px;align-items:center;color:var(--text);font-size:15p
 
 <script>
 'use strict';
-const APP_VERSION = '1.4.1';
+const APP_VERSION = '1.4.2';
 const $ = s => document.querySelector(s);
 const app = $('#app');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -1724,19 +1724,19 @@ async function viewItem(id) {
   if (!it) { nav('#home', true); return; }
   setHeader(itemName(it), true); setTab('home');
   const obs = await obsFor(id);
-  const s = summarize(it, obs);
+  const W = it.mode === 'weight', perW = o => !o.vid || o.per === 'lb' || o.per === 'kg' || !!((it.variants || {})[o.vid] || {}).byWeight;
+  const looseW = W ? obs.filter(perW) : obs, s = summarize(it, W && looseW.length ? looseW : obs);
   const vars = Object.entries(it.variants || {});
   const vstat = vars.map(([vid, va]) => { const vo = obs.filter(o => o.vid === vid).sort((a, b) => (b.date || '').localeCompare(a.date || '')), vs = summarize(it, vo); return { vid, va, vo, vs, vb: vs && vs.low }; })
     .sort((a, b) => ((a.vb && a.vb.u.key === (s && s.key) ? a.vb.u.v : 1e9) - (b.vb && b.vb.u.key === (s && s.key) ? b.vb.u.v : 1e9)) || b.vo.length - a.vo.length);
   // current deals: valid flyer sales (incl. starting soon) + prices logged in the last 7 days; latest per store+variant
-  const pick = {}; obs.filter(o => (o.src === 'flyer' ? !isEnded(o) : daysAgo(o.date) <= 7 && !isEnded(o)))
+  const pick = {}; (W && looseW.length ? looseW : obs).filter(o => (o.src === 'flyer' ? !isEnded(o) : daysAgo(o.date) <= 7 && !isEnded(o)))
     .sort((a, b) => (b.date || '').localeCompare(a.date || '')).forEach(o => { const k = o.store + '|' + (o.vid || o.listing || ''); if (!pick[k]) pick[k] = o; });
   const cur = Object.values(pick).map(o => ({ o, u: unitPrice(it, o) }))
     .sort((a, b) => (isUpcoming(a.o) - isUpcoming(b.o)) || ((a.u && s && a.u.key === s.key ? a.u.v : 1e9) - (b.u && s && b.u.key === s.key ? b.u.v : 1e9)));
   const loose = obs.filter(o => !o.vid), ls = loose.length ? summarize(it, loose) : null;
   const sc = scanCtx && scanCtx.itemId === id && !scanCtx.known ? scanCtx : null;
   // produce / meat sold by weight: loose prices first; flyer bags and packs tucked away below
-  const W = it.mode === 'weight';
   const varH = !vstat.length ? '' : W ? `<details class="card"><summary style="cursor:pointer"><b>🛍️ Bags & packs (${vstat.length})</b><div class="muted" style="margin-top:2px">Only if you bought a bag or pack. Loose produce: log the price per lb.</div></summary>`+`${vstat.map(({ vid, va, vo, vs, vb }, i) => `<a class="item${i >= 10 ? ' more hidden' : ''}" href="#variant/${encodeURIComponent(id)}/${encodeURIComponent(vid)}">${thumb(variantPhoto(it, va), itemEmoji(it))}<div class="main"><div>${esc(variantText(it, vid))}</div><div class="muted">${vo.length ? `${vo.length} ${t('records')}` : t('noPrice')}${va.barcode ? ' · ' + esc(va.barcode) : ''}</div></div><div class="price">${vb ? fmtU(vb.u) : vo.length ? priceText(it, vo[0]) : '—'}<div class="muted">${vs ? t('histLow') : vo.length ? fmtDate(vo[0].date) : ''}</div></div><span class="chev">›</span></a>`).join('') + moreBtn(vstat.length, 10)}</details>` : `<div class="card"><h2>${t('variants')}</h2><div class="muted" style="margin-bottom:4px">${t('varHint')}</div>${vstat.map(({ vid, va, vo, vs, vb }, i) => `<a class="item${i >= 10 ? ' more hidden' : ''}" href="#variant/${encodeURIComponent(id)}/${encodeURIComponent(vid)}">${thumb(variantPhoto(it, va), itemEmoji(it))}<div class="main"><div>${esc(variantText(it, vid))}</div><div class="muted">${vo.length ? `${vo.length} ${t('records')}` : t('noPrice')}${va.barcode ? ' · ' + esc(va.barcode) : ''}</div></div><div class="price">${vb ? fmtU(vb.u) : vo.length ? priceText(it, vo[0]) : '—'}<div class="muted">${vs ? t('histLow') : vo.length ? fmtDate(vo[0].date) : ''}</div></div><span class="chev">›</span></a>`).join('') + moreBtn(vstat.length, 10)}</div>`;
   const looseH = ls ? `<div class="card"><h2>🐾 ${vstat.length ? t('looseTitle') : t('byStore')}</h2>${boardHtml(it, ls)}</div>${chartSvg(ls.rows, ls.low.u.v, ls.low.u)}` : '';
   app.innerHTML = `
@@ -2339,14 +2339,22 @@ function gDay(g) {
     for (const k in g.pup.sk) { const v = g.pup.sk[k]; if (v > 0 && at[k] && (Date.now() - at[k]) / 864e5 > 7) g.pup.sk[k] = Math.max(v >= 60 ? 60 : 0, v - 2); } }
   return g;
 }
-function gSave(g) { const fresh = !g.updated && !g.pup; g.updated = Date.now(); if (fbUser) g.uid = fbUser.uid; lsSet(GKEY, JSON.stringify(g));
-  if (!syncOn()) return; if (fresh) { gSync(); return; } // 1.0.2: a brand-new phone must never push its empty garden over the puppy in the cloud
-  fb.F.setDoc(favRef(), { garden: g }, { merge: true }).catch(() => {}); }
+let gSynced = false; // 1.4.2: true once this phone has compared its puppy with the cloud copy
+const gPush = g => fb.F.setDoc(favRef(), { garden: g }, { mergeFields: ['garden'] }).catch(() => {}); // replace the whole garden, never a half-old mix
+function gSave(g) { const fresh = !g.updated && !g.pup; if (fbUser) g.uid = fbUser.uid;
+  if (syncOn() && (fresh || !gSynced)) { lsSet(GKEY, JSON.stringify(g)); gSync(); return; } // 1.0.2 / 1.4.2: an empty or not-yet-synced phone keeps its old timestamp and never pushes over the cloud
+  g.updated = Date.now(); lsSet(GKEY, JSON.stringify(g)); if (syncOn()) gPush(g); }
 async function gSync() { // newest copy wins (phone vs cloud)
   let g = gLoad();
-  if (syncOn()) { try { const s = await fb.F.getDoc(favRef()); const r = s.exists() && s.data().garden;
+  if (syncOn()) { try { const s = await fb.F.getDocFromServer(favRef()); const r = s.exists() && s.data().garden;
     const cloudPup = r && r.pup && r.pup.v >= PUP_V, samePup = cloudPup && g.pup && g.pup.adopted === r.pup.adopted;
-    if (r && ((cloudPup && !samePup) || (r.updated || 0) > (g.updated || 0))) { g = gPoo(gDay({ ...r })); lsSet(GKEY, JSON.stringify(g)); } // the puppy in your account always wins over a different one on this phone
+    if (r && ((cloudPup && !samePup) || (r.updated || 0) > (g.updated || 0))) {
+      // 1.4.2: the bond only goes down at the shelter; an older copy never lowers it
+      const keepXp = samePup && (g.xp || 0) > (r.xp || 0) && !((r.xpDropAt || 0) > (g.updated || 0)) ? g.xp : null;
+      g = gPoo(gDay({ ...r })); if (keepXp != null) { g.xp = keepXp; g.updated = Date.now(); lsSet(GKEY, JSON.stringify(g)); gSynced = true; gPush(g); return g; }
+      lsSet(GKEY, JSON.stringify(g)); } // the puppy in your account always wins over a different one on this phone
+    else if (g.pup && r && (g.updated || 0) > (r.updated || 0) && samePup) { gSynced = true; gPush(g); return g; } // this phone has the newer copy
+    gSynced = true;
   } catch (e) {} }
   return g;
 }
@@ -3323,7 +3331,7 @@ function viewShelter() {
       Bring it home for free. Skills are kept; your bond drops 1 level.</div></div>
     <button class="btn" id="shBack">🏡 Bring ${esc(p.name)} home</button>`;
   $('#shBack').onclick = () => { const g2 = gLoad(); if (!g2.shelter) return viewGarden();
-    const L = bondOf(g2).L; if (L > 1) g2.xp = xpAt(L - 1); delete g2.shelter; delete g2.sick;
+    const L = bondOf(g2).L; if (L > 1) { g2.xp = xpAt(L - 1); g2.xpDropAt = Date.now(); } delete g2.shelter; delete g2.sick;
     g2.lastVisit = Date.now(); g2.lastFed = Date.now(); g2.recentFeeds = 1; g2.waterAt = Date.now(); g2.poos = []; g2.pendingPoo = 0; g2.joyV = 30; g2.joyAt = Date.now(); // the shelter fed and cleaned it
     gSave(g2); toast(`🏡 ${p.name} is home! It missed you.`, 3000); viewGarden(); };
 }
@@ -3684,6 +3692,7 @@ function showProduct(sc) {
 
 /* ---------- What's new (shown once after each update) ---------- */
 const CHANGES = {
+  '1.4.2': [["Fix: your puppy's bond level could drop when the app was opened on another phone or computer with older puppy data.", 'Produce pages: the price summary and Recent prices now show prices per lb or kg; bags are listed under Bags & packs.'], ["Fix: your puppy's bond level could drop when the app was opened on another phone or computer with older puppy data.", 'Produce pages: the price summary and Recent prices now show prices per lb or kg; bags are listed under Bags & packs.']],
   '1.4.1': [['Every item page now has a Log a price button.', 'Produce: loose prices come first; bags and packs are tucked below.', 'Search a produce sticker number (e.g. 4011 for bananas) to find the item.', 'Search shows the closest name match first.'], ['Every item page now has a Log a price button.', 'Produce: loose prices come first; bags and packs are tucked below.', 'Search a produce sticker number (e.g. 4011 for bananas) to find the item.', 'Search shows the closest name match first.']],
   '1.4.0': [["New on the Scan page: a Receipt button. Receipt scanning is coming soon, so you'll be able to log every price on a receipt in one go."], ["New on the Scan page: a Receipt button. Receipt scanning is coming soon, so you'll be able to log every price on a receipt in one go."]],
   '1.3.9': [['Search: products that people logged or scanned now come first; products only seen in store flyers are listed after them.'], ['Search: products that people logged or scanned now come first; products only seen in store flyers are listed after them.']],
