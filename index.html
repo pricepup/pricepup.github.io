@@ -391,7 +391,7 @@ label.ck{display:flex;gap:8px;align-items:center;color:var(--text);font-size:15p
 
 <script>
 'use strict';
-const APP_VERSION = '1.4.3';
+const APP_VERSION = '1.4.4';
 const $ = s => document.querySelector(s);
 const app = $('#app');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -1302,7 +1302,7 @@ async function viewReceipt() {
     const forceTess = rcTess; rcTess = false;
     if (aiOn() && !forceTess) { try { const m = $('#rcMsg'); if (m) m.textContent = `Gemini is reading ${files.length > 1 ? files.length + ' photos' : 'the receipt'}…`;
         const r = await rcReadAi(files); r.storeGuessed = !r.store; r.storeRead = r.store; if (!r.store) r.store = lsGet('lastStore') || '';
-        rcState = Object.assign(await rcResolve(r), { text: '', parts: [], ms: Date.now() - t0, via: 'Gemini', model: r.model, files }); }
+        rcState = Object.assign(await rcResolve(r), { text: '', parts: [], ms: Date.now() - t0, via: 'Gemini', model: r.model, usage: r.usage, files }); }
       catch (e) { console.warn('gemini', e); rcState = null; toast('Gemini could not read it (' + String(e && (e.code || e.message) || e).slice(0, 60) + '). Using the built-in reader.', 3500); } }
     if (!rcState) try {
       const parts = []; for (const [i, f] of files.entries()) parts.push(await rcOcr(f, deg => { const m = $('#rcMsg'); if (m) m.textContent = `Reading photo ${i + 1} of ${files.length}${deg ? ` (turned ${deg}°)` : ''}…`; }));
@@ -1360,7 +1360,7 @@ function rcRender() {
       <div class="price">${money(L.paid)}</div></div>`).join('') || '<div class="muted">No item lines found. Try a straighter, closer photo.</div>'}
     <button class="btn" id="rcSave" style="margin-top:10px" ${used.length ? '' : 'disabled'}>Log ${used.length} price${used.length === 1 ? '' : 's'} (${money(sumUsed)})</button>
     <button class="btn sec" id="rcAgain">📷 Scan another receipt</button></div>
-  <div class="card"><h2>🔧 Debug</h2><div class="muted" style="font-size:12px">Read by <b>${r.via || 'Tesseract'}${r.model ? ' (' + r.model + ')' : ''}</b>${r.via === 'Gemini' ? ' (test: the photo was sent to Google Gemini)' : ''} · ${r.parts.map((p, i) => `photo ${i + 1}: turned ${p.deg}°, OCR confidence ${p.conf}, score ${p.score} · `).join('<br>')}${(r.ms / 1000).toFixed(1)} s</div>
+  <div class="card"><h2>🔧 Debug</h2><div class="muted" style="font-size:12px">Read by <b>${r.via || 'Tesseract'}${r.model ? ' (' + r.model + ')' : ''}</b>${r.retried ? ` · checked twice (first read: ${esc(r.retried.join('; '))})` : ''}${r.problems && r.problems.length ? ` · ⚠️ ${esc(r.problems.join('; '))}` : ''}${r.via === 'Gemini' ? ' (test: the photo was sent to Google Gemini)' : ''}${r.usage ? ` · ${r.usage.in.toLocaleString()} in + ${r.usage.out.toLocaleString()} out tokens ≈ US$${(r.usage.in * 0.3e-6 + r.usage.out * 2.5e-6).toFixed(4)} on the paid tier` : ''} · ${r.parts.map((p, i) => `photo ${i + 1}: turned ${p.deg}°, OCR confidence ${p.conf}, score ${p.score} · `).join('<br>')}${(r.ms / 1000).toFixed(1)} s</div>
     ${r.files ? `<button class="btn sec small" id="rcOther" style="margin:6px 0 0;width:auto">🔁 Read again with ${r.via === 'Gemini' ? 'the built-in reader (compare)' : 'Gemini'}</button>` : ''}
     <details style="margin-top:6px"><summary>OCR text</summary><pre style="white-space:pre-wrap;font-size:11px;max-height:320px;overflow:auto">${esc(rcMaskCard(r.text))}</pre></details>
     <details><summary>Skipped lines (${r.log.length})</summary><pre style="white-space:pre-wrap;font-size:11px">${esc(rcMaskCard(r.log.join('\n')))}</pre></details></div>`;
@@ -1456,7 +1456,7 @@ async function aiJson(prompt, files, schema) {
   for (const name of AI_MODELS) {
     try { const model = AI.getGenerativeModel(ai, { model: name, generationConfig: { responseMimeType: 'application/json', responseSchema: schema(S), temperature: 0 } });
       const res = await Promise.race([model.generateContent(parts), new Promise((_, no) => setTimeout(() => no(new Error('timeout')), 45000))]);
-      const j = JSON.parse(res.response.text()); j._model = name; return j; }
+      const j = JSON.parse(res.response.text()); j._model = name; const u = res.response.usageMetadata || {}; j._usage = { in: u.promptTokenCount || 0, out: (u.candidatesTokenCount || 0) + (u.thoughtsTokenCount || 0) }; return j; }
     catch (e) { err = e; console.warn('gemini', name, e && e.message); }
   }
   throw err;
@@ -1466,28 +1466,32 @@ async function aiJson(prompt, files, schema) {
 const RC_AI_PROMPT = `You read Canadian grocery receipts from Calgary stores (No Frills, Superstore, Walmart, Costco, Co-op, T&T, Safeway, Sobeys, Save-On-Foods and others).
 The photos are parts of ONE receipt, top to bottom; parts may overlap, so never list the same line twice.
 Return every purchased product line, in order. Rules:
-- name: the product text exactly as printed (English only; ignore Chinese text lines, they repeat the English name).
+- name: the product text as printed (English only; ignore Chinese text lines, they repeat the English name). Leave out sale markers like "(SALE)" from the name and set onSale true instead.
 - code: the barcode / item number / produce code printed on the line, digits only, or "" if none.
 - price: what was charged for that line (after any instant discount printed on the line), as a number.
-- For weighed items ("1.332 kg @ $6.59/kg"): weight, weightUnit ("kg" or "lb") and unitPrice (price per kg or lb).
+- Weighed items: the weight line is usually printed on the line BELOW the name ("1.332 kg @ $6.59/kg  $8.78"). Always fill weight (e.g. 1.332), weightUnit ("kg" or "lb") and unitPrice (6.59) for them; use 0 / "" only for items that were not weighed.
 - For quantity lines ("2 @ $1.99"): qty and unitPrice.
 - discount: a coupon / price reduction printed below an item (positive number), else 0. saved: "You Saved $x" amount, else 0. onSale: true if marked SALE / You Saved / a discount.
+- Single letters printed after a price (G, J, D, H, P, MRJ, etc.) are TAX CODES, not sale markers.
+- Coupon / instant-savings lines that point to an item number (Costco: "0000399911 / 55502  5.00-") go in coupons with appliesTo = that item number and amount = 5.00; do not list them as items.
 - Deposits, environmental / recycling fees (CRF, enviro fee), bottle deposits and shopping bags: isFee true.
 - Never include card numbers, member / loyalty numbers, cashier names or transaction numbers anywhere.
-store: the chain name (e.g. "No Frills", "Walmart", "Costco", "Co-op", "T&T"), date: YYYY-MM-DD as printed, subtotal / tax / total: as printed (0 if not printed).`;
+store: the chain name (e.g. "No Frills", "Walmart", "Costco", "Co-op", "T&T"), date: the purchase date printed on the receipt converted to YYYY-MM-DD (Canadian receipts often print MM/DD/YY or YY/MM/DD; the date is within the last few weeks), "" if not printed, subtotal / tax / total: as printed (0 if not printed).`;
 const rcAiSchema = S => S.object({ properties: {
   store: S.string(), date: S.string(), subtotal: S.number(), tax: S.number(), total: S.number(),
   items: S.array({ items: S.object({ properties: { name: S.string(), code: S.string(), price: S.number(), qty: S.number(), unitPrice: S.number(), weight: S.number(), weightUnit: S.string(),
-    discount: S.number(), saved: S.number(), onSale: S.boolean(), isFee: S.boolean() }, optionalProperties: ['code', 'qty', 'unitPrice', 'weight', 'weightUnit', 'discount', 'saved', 'onSale', 'isFee'] }) }) },
-  optionalProperties: ['date', 'subtotal', 'tax', 'total'] });
+    discount: S.number(), saved: S.number(), onSale: S.boolean(), isFee: S.boolean() }, optionalProperties: ['code', 'qty', 'discount', 'saved', 'isFee'] }) }),
+  coupons: S.array({ items: S.object({ properties: { appliesTo: S.string(), amount: S.number() } }) }) },
+  optionalProperties: ['subtotal', 'tax', 'total', 'coupons'] });
 const rcR2 = v => Math.round((+v || 0) * 100) / 100;
 // Gemini's JSON -> the same shape parseReceipt() returns, so the review screen, matching, coins and saving stay the same
 function rcFromAi(j) {
   const store = (CHAINS.find(c => c.toLowerCase() === String(j.store || '').toLowerCase()) || (RC_CHAINS.find(([rx]) => rx.test(String(j.store || ''))) || [])[1] || '');
-  const d = String(j.date || '').match(/^(\d{4})-(\d{2})-(\d{2})$/), date = d && rcDate(`${d[1]}/${d[2]}/${d[3]}`) ? `${d[1]}-${d[2]}-${d[3]}` : '';
+  const date = rcDate(String(j.date || '').replace(/-/g, '/')); // any printed format; must be a real recent date
   const cc = store === 'Costco', wm = store === 'Walmart'; let fees = 0; const items = [];
   for (const x of j.items || []) {
-    const name = String(x.name || '').replace(/[^\x20-\x7E]/g, '').trim().slice(0, 80), price = rcR2(x.price);
+    let name = String(x.name || '').replace(/[^\x20-\x7E]/g, '').trim(); const price = rcR2(x.price);
+    const saleTag = /^\(?\s*sale\s*\)?\s*[:\-]?\s*/i.test(name) || /\s\(?sale\)?$/i.test(name); name = name.replace(/^\(?\s*sale\s*\)?\s*[:\-]?\s*/i, '').replace(/\s\(?sale\)?$/i, '').trim().slice(0, 80); // "(SALE) WINTER MELON" -> WINTER MELON + sale
     if (x.isFee || RC_FEE.test(name)) { fees = rcR2(fees + price); continue; }
     if (!(price > 0) && !(x.weight > 0)) continue;
     let code = String(x.code || '').replace(/\D/g, ''), kind = 'name';
@@ -1497,33 +1501,74 @@ function rcFromAi(j) {
     if (x.weight > 0 && x.unitPrice > 0) { it.weight = +x.weight; it.per = /lb/i.test(x.weightUnit || '') ? 'lb' : 'kg'; it.unitPrice = rcR2(x.unitPrice); }
     else if (x.qty > 1 && x.unitPrice > 0) { it.qty = +x.qty; it.unitPrice = rcR2(x.unitPrice); }
     if (x.discount > 0) it.discount = rcR2(x.discount);
-    if (x.saved > 0) it.saved = rcR2(x.saved); else if (x.onSale) it.sale = true;
+    if (x.saved > 0) it.saved = rcR2(x.saved); else if (x.onSale || saleTag) it.sale = true;
     it.paid = rcR2(price - (it.discount || 0));
     if (kind === 'upc') { it.cands = rcCandidates(code); if (wm && code.length === 12) { const u = rcLoblaw(code.slice(0, 11)); if (u) it.cands = [u, ...it.cands.filter(c => c !== u)]; } }
     items.push(it);
   }
+  for (const c of j.coupons || []) { const amt = rcR2(Math.abs(c.amount)), code = String(c.appliesTo || '').replace(/\D/g, ''); if (!(amt > 0)) continue; // Costco coupons name the item they belong to
+    const it = (code && [...items].reverse().find(x => x.code === code)) || items[items.length - 1]; if (!it) continue;
+    it.discount = rcR2((it.discount || 0) + amt); it.paid = rcR2(it.price - it.discount); it.sale = true; }
   items.forEach(it => delete it.li);
   const sum = rcR2(items.reduce((s, it) => s + (it.paid || 0), 0)), tax = j.tax > 0 ? rcR2(j.tax) : null, total = j.total > 0 ? rcR2(j.total) : null;
   let subtotal = j.subtotal > 0 ? rcR2(j.subtotal) : null, subFrom = '';
-  if (subtotal == null && total != null) { subtotal = rcR2(total - (tax || 0) - fees); subFrom = 'total'; }
-  return { store, date, items, subtotal, sum, sumCheck: rcR2(sum + (subFrom === 'total' ? 0 : fees)), total, tax, fees, subFrom, log: [], ai: true, model: j._model || '' };
+  if (subtotal == null && total != null) { subtotal = rcR2(total - (tax || 0) - fees); subFrom = 'total';
+    // no GST line printed (Co-op): whatever is left between the lines and the total is GST, if it is at most 5%
+    const gst = rcR2(subtotal - sum); if (tax == null && gst > 0 && gst <= sum * 0.05 + 0.02) subtotal = sum; }
+  return { store, date, items, subtotal, sum, sumCheck: rcR2(sum + (subFrom === 'total' ? 0 : fees)), total, tax, fees, subFrom, log: [], ai: true, model: j._model || '', usage: j._usage || null };
 }
-async function rcReadAi(files) { return rcFromAi(await aiJson(RC_AI_PROMPT, files, rcAiSchema)); }
+// Store reading rules (what we learned from real Calgary receipts). The super user can add or override them in Firestore meta/airules {stores: {name: text}, extra: text} without a new version.
+const RC_STORE_RULES = {
+  'T&T': 'Each price has a "W" before the "$" (W $6.97 means 6.97; never read W as 5). The weight line "1.332 kg @ $6.59/kg" is printed UNDER the product name and belongs to it. "(SALE)" before a name means on sale. The line under each product in Chinese repeats the name: skip it. The footer prints amounts one line below their labels (SUB TOTAL, GST, TOTAL), so pair them carefully.',
+  'Co-op': 'No barcodes. "You Saved $x" under a product means it is on sale and saved x. "PLUS .10 CRF/EA" and "PLUS .25 DEP/EA" are fees. GST is often not printed: the total ("BALANCE DUE") already includes GST. Weighed items: the name line, then "0.755 kg @ $4.39/kg" with the price on that line.',
+  'Walmart': 'Lines are NAME, a 12-digit code, the price and a tax letter (D or J). Produce codes look like 000000040110 (PLU 4011). A line "1.570 kg @ $1.92 /kg  $3.01" belongs to the produce line above. SHOPPING BAG is a fee. The date is near the bottom (MM/DD/YY).',
+  'Costco': 'The number before each name is the Costco item number (use it as code). "0000399911 / 55502 5.00-" is a coupon for item 55502 (put it in coupons). ENVIRO FEE and DEPOSIT lines are fees. Letters like G or E after a price are tax codes. Member / Instacart numbers are never item codes. The date is near the bottom (YYYY/MM/DD).',
+  'No Frills': 'An 11-digit barcode first, then the name, a tax code (MRJ / HMRJ) and the price. Produce: a store code and name on one line, the weight line ("0.825 kg @ $3.28/kg  2.71") below it. Dates print YY/MM/DD (26/11/07 = 2026-11-07).',
+  'Superstore': 'Same layout as No Frills: barcode first, tax codes MRJ / HMRJ, weight line under produce, dates YY/MM/DD.'
+};
+let rcRulesCache = null;
+async function rcRules() { if (rcRulesCache) return rcRulesCache; let x = {};
+  try { if (fb && syncOn()) { const d = await fb.F.getDoc(docRef('meta', 'airules')); if (d.exists()) x = d.data() || {}; } } catch (e) {}
+  return (rcRulesCache = { stores: { ...RC_STORE_RULES, ...(x.stores || {}) }, extra: x.extra || '' }); }
+// checks after reading; if the numbers don't add up, Gemini gets one more look with the problems spelled out
+function rcProblems(r) { const p = [];
+  if (r.subtotal != null && Math.abs((r.sumCheck ?? r.sum) - r.subtotal) > 0.011) p.push(`the product lines${r.fees && r.subFrom !== 'total' ? ' plus fees' : ''} add up to $${(r.sumCheck ?? r.sum).toFixed(2)} but the receipt's subtotal is $${r.subtotal.toFixed(2)}${r.subFrom === 'total' ? ' (total minus tax and fees)' : ''}: look for a missed, doubled or misread line, coupon or fee`);
+  for (const L of r.items) if (L.weight && L.unitPrice) { const c = L.weight * L.unitPrice; if (Math.abs(c - L.price) > Math.max(0.05, c * 0.03)) p.push(`"${L.name}": ${L.weight} ${L.per} x $${L.unitPrice} = $${c.toFixed(2)}, not $${L.price}`); }
+  return p; }
+async function rcReadAi(files) {
+  const R = await rcRules(), prompt = RC_AI_PROMPT + '\nStore rules:\n' + Object.entries(R.stores).map(([k, v]) => `- ${k}: ${v}`).join('\n') + (R.extra ? '\n' + R.extra : '');
+  const j = await aiJson(prompt, files, rcAiSchema), r = rcFromAi(j), p = rcProblems(r);
+  if (!p.length) return r;
+  try { const fix = `\n\nA first reading had these problems:\n- ${p.join('\n- ')}${r.date ? '' : '\n- no purchase date was found: look again (often near the top or bottom)'}\nLook at the photo again carefully and return the corrected FULL JSON. First reading: ${JSON.stringify(j).slice(0, 6000)}`;
+    const j2 = await aiJson(prompt + fix, files, rcAiSchema), r2 = rcFromAi(j2), p2 = rcProblems(r2);
+    if (p2.length < p.length || (p2.length === p.length && r2.items.length >= r.items.length)) { r2.retried = p; r2.problems = p2; if (r.usage && r2.usage) r2.usage = { in: r.usage.in + r2.usage.in, out: r.usage.out + r2.usage.out }; return r2; } } catch (e) { console.warn('gemini retry', e); }
+  r.problems = p; return r; }
 
-// ---- price tags ----
-const TAG_AI_PROMPT = `This is a photo of a grocery shelf price tag or sign in a Calgary store. Read the selling price.
-- price: the price the shopper pays now (the big number). If it is a multi-buy like "2 for $5", price is 5 and multi is 2; otherwise multi is 1.
-- per: "each" for a normal item price, "lb" or "kg" if the price is per pound / kilogram (if both are shown, give the per-lb price and per "lb"), "100g" if only a per-100 g price is shown.
-- regPrice: the regular price if a sale tag also shows it (crossed out or "Reg."), else 0. onSale: true for sale / clearance / instant savings tags.
-- saleEnds: YYYY-MM-DD if an end date is printed, else "". productName and size: as printed, else "".
-Ignore unit-price small print (e.g. "$1.20 /100 g") unless it is the only price.`;
-const tagAiSchema = S => S.object({ properties: { price: S.number(), multi: S.number(), per: S.string(), regPrice: S.number(), onSale: S.boolean(), saleEnds: S.string(), productName: S.string(), size: S.string() },
-  optionalProperties: ['multi', 'regPrice', 'onSale', 'saleEnds', 'productName', 'size'] });
+// ---- price tags (also used to set up a new product) ----
+const TAG_AI_PROMPT = `This is a photo of a grocery shelf price tag or sign in a Calgary store. We use it to log the price AND, if the product is new to us, to create the product.
+- price: the price the shopper pays now (the big number; Costco calls it SELL PRICE). Multi-buy "2 for $5": price 5, multi 2; else multi 1.
+- per: "each" for a normal item price; "lb" or "kg" if priced by weight (if both are shown give the per-lb price and per "lb").
+- regPrice: the regular price if a sale tag shows it (crossed out or "Reg."), else 0. onSale: true for sale / weekly sale / instant savings tags. saleEnds: YYYY-MM-DD if an end date is printed, else "".
+- itemNumber: the store item number printed on the tag (Costco prints it large at the top), digits only, else "". Do not use long internal shelf-label codes that are mostly zeros.
+- brand: the brand only (e.g. "Edge", "Nongshim"), "" for fresh produce. productName: the product without brand and size (e.g. "Shave Gel", "Shin Black Noodles", "Winter Melon").
+- packCount: number of units in the pack ("4 x 269 g" -> 4), 1 if single. sizeEach: size of one unit as a number (269), sizeUnit: "g", "kg", "mL", "L", "count" or "" (produce sold by weight: "").
+- unitPrice100: the small "price per 100 g / 100 mL" if printed, else 0.
+Ignore the small unit-price print when choosing price.`;
+const tagAiSchema = S => S.object({ properties: { price: S.number(), multi: S.number(), per: S.string(), regPrice: S.number(), onSale: S.boolean(), saleEnds: S.string(), itemNumber: S.string(),
+  brand: S.string(), productName: S.string(), packCount: S.number(), sizeEach: S.number(), sizeUnit: S.string(), unitPrice100: S.number() } });
 async function tagReadAi(file, weightMode) {
   const j = await aiJson(TAG_AI_PROMPT, [file], tagAiSchema); if (!(j.price > 0)) return [];
-  let per = /lb/i.test(j.per || '') ? 'lb' : /kg/i.test(j.per || '') ? 'kg' : '';
-  if (weightMode && !per) per = '';
-  return [{ price: rcR2(j.price), multi: Math.max(1, Math.round(j.multi || 1)), score: 1e6, partial: false, per, ai: true, reg: j.regPrice > 0 ? rcR2(j.regPrice) : 0, sale: !!j.onSale || j.regPrice > j.price, until: /^\d{4}-\d{2}-\d{2}$/.test(j.saleEnds || '') ? j.saleEnds : '', pname: j.productName || '', psize: j.size || '' }];
+  const per = /lb/i.test(j.per || '') ? 'lb' : /kg/i.test(j.per || '') ? 'kg' : '';
+  const unit = ({ g: 'g', kg: 'kg', ml: 'mL', l: 'L', count: 'count' })[String(j.sizeUnit || '').toLowerCase()] || '', pack = Math.max(1, Math.round(j.packCount || 1)), each = +j.sizeEach || 0;
+  const tc = s => typeof titleCase === 'function' ? titleCase(String(s || '').trim()) : String(s || '').trim();
+  const x = { price: rcR2(j.price), multi: Math.max(1, Math.round(j.multi || 1)), score: 1e6, partial: false, per, ai: true, reg: j.regPrice > j.price ? rcR2(j.regPrice) : 0,
+    sale: !!j.onSale || j.regPrice > j.price, until: /^\d{4}-\d{2}-\d{2}$/.test(j.saleEnds || '') ? j.saleEnds : '', brand: tc(j.brand), pname: tc(j.productName),
+    pack, sizeEach: each, sizeUnit: unit, itemNumber: /^0{4,}/.test(String(j.itemNumber || '')) ? '' : String(j.itemNumber || '').replace(/\D/g, ''), unit100: +j.unitPrice100 || 0, usage: j._usage || null };
+  x.qtyText = each && unit ? (pack > 1 ? `${pack} x ${each} ${unit}` : `${each} ${unit}`) : '';
+  // self-check: the tag's own price per 100 g / mL must match price / (pack x size)
+  const base = unit === 'kg' || unit === 'L' ? 1000 : unit === 'g' || unit === 'mL' ? 1 : 0;
+  if (x.unit100 > 0 && base && each > 0) { const calc = x.price / (pack * each * base) * 100; x.checked = Math.abs(calc - x.unit100) <= x.unit100 * 0.05; }
+  return [x];
 }
 
 /* ---------- Scanner (BarcodeDetector on Android, ZXing on iPhone) ---------- */
@@ -1930,7 +1975,8 @@ async function viewPick(code) {
   setHeader(t('chooseItem'), true); setTab('home');
   const items = await getAll('items');
   app.innerHTML = `<div class="card"><div id="pickMsg" class="muted"></div><div class="muted">${t('chooseItemHint')}</div>
-    <input id="pq" type="search" placeholder="${esc(t('search'))}" style="margin-top:8px"></div>
+    <input id="pq" type="search" placeholder="${esc(t('search'))}" style="margin-top:8px">
+    ${!code && aiOn() ? `<button class="btn sec small" id="pTag" style="margin-top:8px">📷 New product? Snap its price tag</button>` : ''}</div>
     <div class="card hidden" id="addProd"><h2 style="margin-top:0">${t('apTitle')}</h2><div class="muted">${t('apHint')}</div>
       <label>${t('apName')}</label><input id="apName" placeholder="e.g. Baking soda">
       <div class="row"><div><label>${t('brand')}</label><input id="apBrand" placeholder="e.g. Arm & Hammer"></div><div><label>${t('apSize')}</label><input id="apSize" placeholder="e.g. 500 g"></div></div>
@@ -1952,6 +1998,11 @@ async function viewPick(code) {
         sug = matchItems(info, items).slice(0, 5).map(x => x.it.id); $('#pq').value = ''; render(); toast(t('apThanks'), 2600); };
     }
   }
+  if ($('#pTag')) $('#pTag').onclick = async () => { const f = await pickFile($('#fileTag')); if (!f) return; const m = $('#pickMsg'); m.textContent = 'Gemini is reading the tag…';
+    try { const x = (await tagReadAi(f, false))[0]; if (!x) { m.textContent = t('ocrNone'); return; }
+      info = { brand: x.brand, name: x.pname, quantity: x.qtyText, tag: x }; sug = matchItems(info, items).slice(0, 5).map(y => y.it.id);
+      m.innerHTML = `📷 <b>${esc([x.brand, x.pname, x.qtyText].filter(Boolean).join(' ') || 'Price tag')}</b> · ${money(x.price)}${x.per ? '/' + x.per : ''}${x.sale ? ' · sale' : ''}${x.itemNumber ? ' · item # ' + esc(x.itemNumber) : ''}${x.checked === false ? '<br>⚠️ The tag\'s own unit price doesn\'t match this size. Please check the size before saving.' : x.checked ? ' · ✅ size checked' : ''}<br>Now pick the item it belongs to (suggested first), or tap New item.`;
+      $('#pq').value = ''; render(); } catch (e) { m.textContent = 'Gemini could not read it (' + String(e && (e.code || e.message) || e).slice(0, 60) + ')'; } };
   const go = id => {
     sessionStorage.setItem('pp_pending', JSON.stringify({ code: code || '', info }));
     nav(`#add/${encodeURIComponent(id)}/new`, true);
@@ -1961,7 +2012,7 @@ async function viewPick(code) {
     const si = id => { const k = sug.indexOf(id); return !q && k >= 0 ? k : 99; };
     const rows = items.filter(it => !q || pluItem(q) === it.id || [it.name, it.en, ...(it.aliases || [])].join(' ').toLowerCase().includes(q)).sort((a, b) => (si(a.id) - si(b.id)) || itemName(a).localeCompare(itemName(b))).slice(0, 80);
     $('#plist').innerHTML = rows.map(it => `<a class="item" href="javascript:void 0" data-id="${esc(it.id)}">${thumb(itemPhoto(it), itemEmoji(it))}<div class="main"><div class="name">${esc(itemName(it))}${si(it.id) < 99 ? `<span class="tag">${t('suggested')}</span>` : ''}</div><div class="muted">${esc([itemSub(it), placeLabel(it)].filter(Boolean).join(' · '))}</div></div></a>`).join('') || `<div class="muted">${t('noMatch')}</div>`;
-    $('#plist').querySelectorAll('[data-id]').forEach(a => a.onclick = () => code ? go(a.dataset.id) : nav(`#add/${encodeURIComponent(a.dataset.id)}`, true));
+    $('#plist').querySelectorAll('[data-id]').forEach(a => a.onclick = () => code || (info && info.tag) ? go(a.dataset.id) : nav(`#add/${encodeURIComponent(a.dataset.id)}`, true));
   };
   $('#pq').oninput = render; render();
   $('#pNew').onclick = () => { sessionStorage.setItem('pp_pending', JSON.stringify({ code: code || '', info, newItemName: $('#pq').value.trim() })); nav('#newitem', true); };
@@ -2069,6 +2120,13 @@ async function viewAdd(id, preVid) {
       const list = nearestChains(p); if (list[0].km != null && list[0].km <= .5) chain = list[0].c; drawChains(list); $('#aGeo').textContent = list[0].km <= .5 ? `📍 You're at ${list[0].c}` : '📍 Nearest stores first'; }
     catch (e) { $('#aGeo').innerHTML = `${esc(geoMsg(e))} <button type="button" class="btn sec small" id="aGeoRetry" style="display:inline-block;width:auto;margin:4px 0 0">${e && e.code === 'later' ? 'Use my location' : 'Try again'}</button>`; $('#aGeoRetry').onclick = findStores; } };
   findStores();
+  let tagX = pend.info && pend.info.tag || null; // what Gemini read from the tag: sale end date, regular price, store item number
+  const fromTag = x => { if (weight && x.per) { per = x.per; $('#perSeg').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.p === per)); $('#priceLbl').textContent = per === 'kg' ? t('priceKg') : t('priceLb'); }
+    if (x.ai && $('#vNew') && !$('#vNew').classList.contains('hidden')) { const e = k => $('#' + k);
+      if (x.brand && !e('vBrand').value) e('vBrand').value = x.brand; if (x.pname && !e('vDesc').value) e('vDesc').value = x.pname;
+      if (x.sizeEach && x.sizeUnit && !e('vSize').value) { e('vSize').value = x.sizeEach; e('vUnit').value = x.sizeUnit; e('vPack').value = x.pack || 1; } } };
+  if (tagX) { $('#aPrice').value = tagX.price.toFixed(2); $('#aMulti').value = tagX.multi || 1; if (tagX.sale) $('#aSale').checked = true; fromTag(tagX);
+    $('#ocrMsg').innerHTML = '📷 Filled in from the price tag' + (tagX.until ? ' · sale ends ' + esc(tagX.until) : '') + (tagX.checked === false ? '<br>⚠️ The tag\'s own unit price doesn\'t match this size. Please check it.' : ''); upd(); }
   $('#ocrBtn').onclick = async () => {
     const f = await pickFile($('#fileTag')); if (!f) return;
     const msg = $('#ocrMsg'); $('#chips').innerHTML = '';
@@ -2085,6 +2143,7 @@ async function viewAdd(id, preVid) {
         if (weight && x.per) { per = x.per; $('#perSeg').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.p === per)); }
         if (x.partial) { const el = $('#aPrice'); el.value = Math.floor(x.price) + '.'; el.focus(); toast(t('ocrCents')); } else $('#aPrice').value = x.price.toFixed(2);
         if (x.ai && x.sale && $('#aSale')) $('#aSale').checked = true;
+        if (x.ai) { tagX = x; fromTag(x); }
         upd();
       };
       $('#chips').querySelectorAll('.chip').forEach(b => b.onclick = () => use(c[+b.dataset.i])); use(c[0]);
@@ -2108,8 +2167,10 @@ async function viewAdd(id, preVid) {
     const multi = weight ? 1 : (parseInt($('#aMulti').value) || 1);
     const o = { id: newId(), itemId: id, vid: useVid, price: Math.round(price * 100) / 100, multi, per: weight ? per : 'pack', store: storeName, date: $('#aDate').value || today(),
                 sale: $('#aSale').checked, note: $('#aNote').value.trim(), src: 'app', by: fbUser ? fbUser.uid : '', ts: Date.now() };
+    if (tagX && o.sale) { if (tagX.reg > o.price) o.reg = tagX.reg; if (tagX.until) o.until = tagX.until; }
     const v = verdict(await getOne('items', id), o, sum);
     await save('obs', o);
+    if (tagX && tagX.itemNumber && storeName === 'Costco') rcDictPut('Costco', { code: tagX.itemNumber, kind: 'item', name: [tagX.brand, tagX.pname].filter(Boolean).join(' ').toUpperCase() }, it, useVid); // receipts with this item # now match
     if (earnCoin()) setTimeout(() => coinPop(1, 'Thanks for logging a price!'), 900); refStep('log');
     if (o.store) lsSet('lastStore', o.store);
     sessionStorage.removeItem('pp_pending');
@@ -3809,6 +3870,7 @@ function showProduct(sc) {
 
 /* ---------- What's new (shown once after each update) ---------- */
 const CHANGES = {
+  '1.4.4': [['Small fixes and improvements.'], ['Small fixes and improvements.']],
   '1.4.3': [['Small fixes and improvements.'], ['Small fixes and improvements.']],
   '1.4.2': [["Fix: your puppy's bond level could drop when the app was opened on another phone or computer with older puppy data.", 'Produce pages: the price summary and Recent prices now show prices per lb or kg; bags are listed under Bags & packs.'], ["Fix: your puppy's bond level could drop when the app was opened on another phone or computer with older puppy data.", 'Produce pages: the price summary and Recent prices now show prices per lb or kg; bags are listed under Bags & packs.']],
   '1.4.1': [['Every item page now has a Log a price button.', 'Produce: loose prices come first; bags and packs are tucked below.', 'Search a produce sticker number (e.g. 4011 for bananas) to find the item.', 'Search shows the closest name match first.'], ['Every item page now has a Log a price button.', 'Produce: loose prices come first; bags and packs are tucked below.', 'Search a produce sticker number (e.g. 4011 for bananas) to find the item.', 'Search shows the closest name match first.']],
