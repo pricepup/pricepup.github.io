@@ -391,7 +391,7 @@ label.ck{display:flex;gap:8px;align-items:center;color:var(--text);font-size:15p
 
 <script>
 'use strict';
-const APP_VERSION = '1.4.0';
+const APP_VERSION = '1.4.1';
 const $ = s => document.querySelector(s);
 const app = $('#app');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -839,7 +839,7 @@ const syncLabel = () => t({ off: 'sOff', connecting: 'sConnecting', synced: 'sSy
 async function onAuth(user) {
   stopListeners();
   if (!user) { fbUser = null; setSync('off'); if (location.hash === '#settings') viewSettings(); return; }
-  fbUser = user; lsSet('sync', '1'); setSync('connecting');
+  fbUser = user; lsSet('sync', '1'); setSync('connecting'); { const sn = $('#rcSoon'); if (sn) sn.classList.toggle('hidden', isAdmin()); }
   startListeners(); listenFavs(); touchProfile(true); gSync(); setTimeout(socialOnAuth, 2500); // bring the puppy + coins from the cloud right after sign-in
   if (location.hash === '#settings') viewSettings();
 }
@@ -1066,16 +1066,24 @@ async function findBarcode(code) {
   return null;
 }
 
+/* ---------- Produce sticker numbers (IFPS PLU list, Aug 2015): 4 digits, organic = 9 + the same 4 digits ---------- */
+const PLU_ITEMS = {"apple":"3000 3001 3002 3003 3004 3005 3006 3007 3008 3009 3010 3011 3065 3066 3067 3068 3069 3070 3071 3072 3073 3074 3075 3076 3077 3078 3104 3271 3272 3283 3284 3285 3290 3291 3292 3293 3294 3295 3296 3297 3298 3299 3300 3301 3315 3339 3340 3341 3342 3343 3344 3345 3346 3347 3348 3349 3350 3351 3352 3353 3435 3438 3442 3443 3444 3445 3447 3460 3600 3601 3602 3603 3604 3605 3607 3608 3612 3613 3615 3616 3618 3619 3620 3625 3627 3628 3629 3630 4015 4016 4017 4018 4019 4020 4021 4057 4058 4096 4097 4098 4099 4100 4101 4102 4103 4104 4105 4106 4107 4108 4109 4110 4111 4112 4113 4114 4115 4116 4117 4118 4119 4120 4121 4122 4123 4124 4125 4126 4127 4128 4129 4130 4131 4132 4133 4134 4135 4136 4137 4138 4139 4140 4141 4142 4143 4144 4145 4146 4147 4148 4149 4150 4151 4152 4153 4154 4155 4156 4157 4158 4160 4162 4167 4168 4169 4170 4171 4172 4173 4174 4176 4177 4178 4179 4180 4181 4182 4183 4185 4187 4189 4190 4191 4192","asparagus":"3079 3392 3393 3394 4080 4521 4522 4523 4524","avocado":"3080 3354 4046 4221 4222 4223 4224 4225 4226 4770 4771","banana":"4011 4186 4229 4230 4231 4233 4234 4236","beans-fresh":"3048 3049 4066 4527 4530 4533 4534","bitter-melon":"4783","blueberry":"4240","raspberry":"4054 4244 4245","strawberry":"3081 4251","napa":"4552","bok-choy":"3163 4544 4545","choy-sum":"3322 3323","broccoli":"3082 3277 4060 4547 4548","carrot":"3424 4094 4560 4561 4562 4563","cauliflower":"3320 3436 4079 4566 4567 4568 4572 4573","celery":"3321 4070 4071 4575 4576 4582 4583 4585","sweet-pepper":"3054 3055 3056 3057 3058 3119 3120 3121 3122 3123 3124 4065 4088 4679 4680 4681 4682 4683 4684 4688 4689","chili-pepper":"3125 3413 4677 4678 4685 4686 4687 4690 4691 4692 4693 4694 4695 4696 4697 4698 4699 4700 4701 4702 4703 4704 4705 4706 4707 4708 4709 4772","coconut":"4260 4261","corn":"3085 3086 3087 4077 4078 4589 4590","cucumber":"4062 4592 4593 4594 4595 4596","daikon":"4598","eggplant":"3089 3090 4081 4599 4600 4601 4602","garlic":"3052 3399 3400 3401 4608 4609","ginger":"4612","grapefruit":"3092 3129 3152 3157 3158 3159 3361 4027 4047 4279 4280 4281 4282 4283 4284 4285 4286 4287 4288 4289 4290 4291 4292 4293 4294 4295 4491 4492 4493 4494 4495 4496","grapes":"3043 3359 3360 3449 3450 3451 3452 4022 4023 4056 4270 4271 4272 4273 4274 4497 4498 4499 4635 4636 4637 4638 4957","green-onion":"4068","onion":"3286 3331 3412 4082 4093 4159 4161 4163 4164 4165 4166 4658 4659 4660 4661 4662 4663 4665","kiwi":"3279 3280 4030","leek":"3402 3403 4629 4630","lemon":"3362 3617 3626 4033 4053 4958","lettuce":"3097 3098 3169 3325 3326 3327 3328 3329 3330 4061 4075 4076 4631 4632 4633 4634 4639 4640","lime":"4048 4305","lotus-root":"3099","mandarin":"3029 3030 3031 3032 3144 3383 3384 3385 3386 3387 3388 3389 3425 3426 3427 3428 3429 3430 3431 3432 3433 3632 4055 4449 4450 4451 4452 4453 4454 4455","orange":"3027 3028 3036 3107 3108 3109 3110 3153 3154 3155 3156 3309 3310 3370 3371 3372 3373 3374 4012 4013 4014 4381 4382 4384 4385 4386 4387 4388","mango":"3042 3114 3363 3364 3365 3621 4051 4311 4312 4584 4959 4961","melon":"3033 3034 3100 3101 3281 3289 3306 3307 3308 3367 3368 3421 3456 3622 3623 3624 4031 4032 4034 4049 4050 4317 4318 4319 4320 4321 4322 4324 4325 4326 4327 4329 4330 4331 4332 4333 4334 4335 4336 4337 4338 4339 4340 4341 4342 4343 4344 4345 4346 4347 4348 4349 4350 4351 4352 4353 4354 4355 4356 4357 4358 4359 4360 4361 4362 4363 4364 4365 4366 4367 4368 4369 4370 4371 4372 4373 4374 4375 4376","mint":"4896","mushroom":"3102 3103 3404 3405 3406 3407 3408 3409 3410 3411 4085 4645 4646 4647 4648 4649 4650 4651 4652","pear":"3012 3013 3014 3015 3016 3017 3018 3019 3020 3021 3022 3023 3024 3025 3026 3118 3316 3317 3318 3376 3377 3378 3420 3434 3606 4024 4025 4026 4406 4407 4408 4409 4410 4411 4412 4413 4414 4415 4416 4417 4418 4419 4420 4421 4422 4423 4424 4553 4890 4960","persimmon":"3459 4427 4428","pineapple":"3037 3379 3380 4029 4430 4431 4432 4864","pomegranate":"3127 3440 4445","potato":"3128 3414 3415 4072 4073 4083 4723 4724 4725 4726 4727","yam":"3333 3334 4074 4091 4546 4816 4817","spinach":"3332 3417 4090","zucchini":"3418 4067 4086 4756","squash":"3059 3060 3140 3141 3142 3143 3441 4750 4751 4752 4753 4754 4755 4757 4758 4759 4760 4761 4763 4764 4765 4766 4767 4768 4769 4773 4774 4775 4776 4777 4779 4780 4781 4782 4784","tomato":"3061 3145 3146 3147 3148 3149 3150 3151 3282 3335 3336 3423 3458 4063 4064 4087 4664 4778 4796 4797 4798 4799 4800 4801 4802 4803 4804 4805"};
+let PLU_MAP = null;
+function pluItem(q) { const m = String(q || '').trim().match(/^9?(\d{4})$/); if (!m) return null;
+  if (!PLU_MAP) { PLU_MAP = {}; for (const [id, codes] of Object.entries(PLU_ITEMS)) codes.split(' ').forEach(c => PLU_MAP[c] = id); }
+  return PLU_MAP[m[1]] || null; }
 /* ---------- Receipt reader (1.4, super user only while we test) ---------- */
 // Pure functions: OCR text -> store, date, item lines. No photo or card data is kept.
-const RC_CHAINS = [[/no\s*fr[il1]{2,3}s|nofr[il1]{2,3}s/i, 'No Frills'], [/super\s*store|real canadian/i, 'Superstore'], [/wal\s*-?\s*mart/i, 'Walmart'], [/costco/i, 'Costco'],
-  [/safeway/i, 'Safeway'], [/sobeys/i, 'Sobeys'], [/save\s*-?\s*on/i, 'Save-On-Foods'], [/co\s*-?\s*op\b/i, 'Co-op'], [/\bt\s*&\s*t\b/i, 'T&T'], [/fresh\s*co/i, 'FreshCo'],
+const RC_CHAINS = [[/no\s*fr[il1]{2,3}s|nofr[il1]{2,3}s/i, 'No Frills'], [/super\s*store|real canadian/i, 'Superstore'], [/wal\s*-?\s*mart|\bWMT[A-Z]{2}/i, 'Walmart'], [/costco|c[o0]st\s*c[o0]\s*wholesale|\b[o0]stc[o0]\b|invoice\s*number|de\s*facture|\bwholesale\b(?!\s*club)/i, 'Costco'],
+  [/safeway/i, 'Safeway'], [/sobeys/i, 'Sobeys'], [/save\s*-?\s*on/i, 'Save-On-Foods'], [/co\s*-?\s*op\b/i, 'Co-op'], [/\bt\s*&\s*t\b|\bt\s*&\s*[tl1?]\s*super/i, 'T&T'], [/fresh\s*co/i, 'FreshCo'],
   [/wholesale\s*club/i, 'Wholesale Club'], [/shoppers/i, 'Shoppers'], [/london\s*drugs/i, 'London Drugs'], [/h\s*mart/i, 'H Mart']];
 // lines that are never products
-const RC_SKIP = /sub\s*-?\s*tot|\btotal|\btax\b|\bgst\b|\bpst\b|\bhst\b|points?\b|\bpts\b|balance|change\b|\bcash\b|debit|credit|visa|master\s*card|amex|\bauth|approv|\bref\b|trans\.?|account|card\s*(type|number)|number of items|items?\s*sold|retain|validation|customer copy|thank|survey|www\.|\.com|store\s*#|cashier|register|terminal/i;
-const RC_FEE = /deposit|env(iro)?\.?\s*fee|recycl|bottle dep|ecofee|bag fee/i;
+const RC_SKIP = /sub\s*-?\s*tot|\btotal|\btax\b|\bgst\b|\bpst\b|\bhst\b|points?\b|\bpts\b|balance|change\b|\bcash\b|debit|credit|visa|master\s*card|amex|\bauth|approv|\bref\b|trans\.?|account|card\s*(type|number)|\brrn\b|member|instacart|amount|montant|autor\b|facture|invoice|bottom of bask|\bbob\b|\btend\b|tender|purchase\b|number of items|items?\s*sold|retain|validation|customer copy|thank|survey|www\.|\.com|store\s*#|cashier|register|terminal/i;
+const RC_FEE = /deposit|env(iro)?\.?\s*fee|\benv\b|recycl|bottle dep|ecofee|bag fee|shop\w*\W*bag|\bdep\b|\b[co]r[fe]\b|^plus\b/i;
+// store header lines (address, phone, store number, GST number) are never products
+const RC_ADDR = /\b(trail|street|avenue|ave|road|rd|blvd|boulevard|drive|dr|way|crescent|cres|hwy|highway|nw|ne|sw|se)\b|\(\d{3}\)|\b\d{3}-\d{4}\b|#\s*\d|gst\s*#|\bcalgary\b|\bal?berta\b|\bab\b\s+t\d/i;
 // OCR often reads digits as letters inside number-like tokens
-const rcDigits = s => s.replace(/[Oo]/g, '0').replace(/[Il|]/g, '1').replace(/S/g, '5').replace(/B/g, '8').replace(/Z/g, '2');
+const rcDigits = s => s.replace(/[Oo]/g, '0').replace(/[Il|\]]/g, '1').replace(/S/g, '5').replace(/B/g, '8').replace(/Z/g, '2');
 function rcCheck(d12) { const a = d12.split('').map(Number); let s = 0; a.reverse().forEach((x, i) => { s += x * (i % 2 ? 1 : 3); }); return (10 - s % 10) % 10; }
 function rcLoblaw(d) { // Loblaw stores print the UPC without its check digit
   const b = d.padStart(11, '0'); if (b.length !== 11) return null; const u = b + rcCheck('0' + b); return '0' + u;
@@ -1089,50 +1097,107 @@ function rcCandidates(raw) {
   if (d.length >= 10 && d.length <= 13) for (let i = 0; i < d.length; i++) tryOne(d.slice(0, i) + d.slice(i + 1));
   return [...c];
 }
-const rcName = s => s.replace(/\s*-?\$?\s*\d{1,4}[.,]\d{2}-?\s*$/, '').replace(/(\s+(H?MRJ|MR|GST|PST|[A-Z]{1,2}))+\s*$/, '').trim();
-function rcMoney(s) { const m = String(s).replace(/\s+(?=\d{2}\b)/, '').match(/(-?)\$?\s*(\d{1,4})[.,](\d{2})(-?)\s*$/); if (!m) return null; const v = +(m[2] + '.' + m[3]); return (m[1] || m[4]) ? -v : v; }
+const rcName = s => s.replace(/[^\x20-\x7E]/g, '').replace(/^(?:[^A-Za-z0-9]+|\S*[a-z]\S*\s+)+(?=[A-Z0-9&]{2})/, '').replace(/\s*\$\s*\d{1,4}[.,]\s?\d{2}[^$]{0,12}$/, '').replace(/\s+\d{1,4}[.,]\d{2}\.?(\s+\S{1,2})?(\s+[a-z]\S*)?\s*$/, '').replace(/(\d[.,]\d{2})\s+[A-Z*]{1,2}\s*$/, '$1').replace(/\s*-?\$?\s*\d{1,4}[.,]\d{2}-?\s*$/, '').replace(/(\s+(H?MRJ|MR|GST|PST|[A-Z]{1,2}))+\s*$/, '').replace(/(\s+(\S*[a-z]\S*|[^\w\s&%]+))+\s*$/, '').replace(/[\s\\\/|.,:;"'-]+$/, '').trim();
+function rcMoney(s) { const v0 = rcMoney0(s); if (v0 != null) return v0; const f = String(s).match(/\$\s*(\d{1,4})[.,]\s?(\d{2})(-?)(?:[^$\d]{0,3}\d?){0,3}$/); if (f) return (f[3] ? -1 : 1) * +(f[1] + '.' + f[2]);
+  const g = String(s).match(/(?:^|\s)\$?(\d{1,4})[.,]\s?(\d{2})(-?)\.?\s*[°'"]?[A-Z0-9]?\s+[^A-Z\d$]{1,10}$/); return g ? (g[3] ? -1 : 1) * +(g[1] + '.' + g[2]) : null; }
+function rcMoney0(s) { const m = String(s).replace(/(\d[.,]\s?\d{2}-?)(\s+[A-Z*]{1,3})?\s*[^\w$]{0,4}(\s[A-Za-z])?[^\w$]{0,4}$/, '$1').replace(/\s+(?=\d{2}\b)/, '').match(/(-?)\$?\s*(\d{1,4})[.,](\d{2})(-?)\s*$/); if (!m) return null; const v = +(m[2] + '.' + m[3]); return (m[1] || m[4]) ? -v : v; }
 function rcDate(text) {
-  const now = new Date(), ok = d => d && !isNaN(d) && d <= new Date(now.getTime() + 864e5) && now - d < 120 * 864e5;
+  const now = new Date(), ok = d => d && !isNaN(d) && d <= new Date(now.getTime() + 864e5) && now - d < 120 * 864e5; let best = '';
   for (const m of text.matchAll(/(\d{2,4})\s*[\/\-.]\s*(\d{1,2})\s*[\/\-.]\s*(\d{2,4})/g)) {
     const [a, b, c] = [m[1], m[2], m[3]].map(Number), Y = x => x < 100 ? 2000 + x : x;
     const tries = m[1].length === 4 ? [[Y(a), b, c]] : m[3].length === 4 ? [[Y(c), a, b], [Y(c), b, a]] : [[Y(a), b, c], [Y(c), a, b], [Y(c), b, a]];
-    for (const [y, mo, da] of tries) { if (mo < 1 || mo > 12 || da < 1 || da > 31) continue; const d = new Date(y, mo - 1, da); if (ok(d)) return `${y}-${String(mo).padStart(2, '0')}-${String(da).padStart(2, '0')}`; }
+    for (const [y, mo, da] of tries) { if (mo < 1 || mo > 12 || da < 1 || da > 31) continue; const d = new Date(y, mo - 1, da); if (ok(d)) { const k = `${y}-${String(mo).padStart(2, '0')}-${String(da).padStart(2, '0')}`; if (k > best) best = k; break; } }
   }
-  return '';
+  return best;
 }
+const rcFix = L => L.replace(/(\d\s*|\/\s*)k[g9qa]\b/ig, '$1kg').replace(/\$\s*(\d{1,3})\s*[.,]?\s+(\d{2})\s*\/\s*(kg|lb)/ig, '$$$1.$2/$3'); // "$4, 39/kg" "$7 69/kg"
 function parseReceipt(text) {
-  const lines = text.split(/\n/).map(s => s.replace(/\s+/g, ' ').trim()).filter(Boolean);
-  const store = (RC_CHAINS.find(([rx]) => rx.test(text)) || [])[1] || '';
+  const lines = text.split(/\n/).map(s => rcFix(s.replace(/\s+/g, ' ').trim())).filter(Boolean)
+    .map(s => { const m = s.match(/^(.*?[A-Za-z].*?)[\s.-]+([0-9OoIl\]|]{11,13})(?=[\s.,]|$)[.,]*\s*(.*)$/); if (!m) return s; const nm = m[1].replace(/^[^A-Za-z]*(\b[A-Za-z]{1,3}\b[^A-Za-z]+(?=[A-Z]{2}))?/, '');
+      return nm && !/\b(rrn|ref|aid|tc|auth|approval|terminal)\b/i.test(m[1]) ? `${rcDigits(m[2])} ${nm} ${m[3]}`.trim() : s; }); // Walmart: "CHEX CINN GF 065633400130 $3.97 D"
+  const pluW = (text.match(/\b0{6}\d{5}0\b/g) || []).length; // Walmart prints produce as 0000000 + PLU + 0
+  const cc = /costco|c[o0]st\s*c[o0]\s*wholesale|\b[o0]stc[o0]\b|invoice\s*number|de\s*facture|\bwholesale\b(?!\s*club)/i.test(text);
+  const wm = /walmart|\bWMT[A-Z]{2}/i.test(text) || pluW >= 2 || (pluW >= 1 && /items?\s*sold/i.test(text));
+  if (/costco|c[o0]st\s*c[o0]\s*wholesale|\b[o0]stc[o0]\b|invoice\s*number|de\s*facture|\bwholesale\b(?!\s*club)/i.test(text)) for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].match(/(?:^|\s)(\d{4,7})\s+([A-Z][A-Z0-9 &\/.'-]*?[A-Z0-9])[\s.,|]*\s(\d{1,4}[.,]\d{2}-?)(\s+[A-Z])?(?=\s|$)/);
+    if (m && !/member|instacart/i.test(lines[i])) lines[i] = `${m[1]} ${m[2]} ${m[3]}${m[4] || ''}`;
+  }
+  let store = (RC_CHAINS.find(([rx]) => rx.test(text)) || [])[1] || '';
+  if (!store && wm) store = 'Walmart';
   const date = rcDate(text);
-  let subtotal = null; const items = [], log = [];
+  let subtotal = null, total = null, tax = null, fees = 0, pend = null, feeQ = 0; const items = [], log = [];
   for (let i = 0; i < lines.length; i++) {
-    const L = lines[i];
+    let L = lines[i]; const prev = pend; pend = null;
+    // T&T: "(SALE) WINTER MELON" (OCR often keeps only "LE)" or "E)")
+    let sale = false; const sm = L.match(/^\W{0,3}\(?\s*[A-Z]{0,4}\s*\)\s*(?=[A-Z]{2})/i); if (sm) { sale = true; L = L.slice(sm[0].length); }
     if (/sub\s*-?\s*tot/i.test(L)) { const v = rcMoney(L); if (v != null) subtotal = v; continue; }
-    // weight line: "0.825 kg @ $3.28/kg 2.71"
-    const w = L.match(/(\d+[.,]\d{1,3})\s*(kg|lb)\s*[@a&]?\s*\$?\s*(\d+[.,]\d{2})\s*\/?\s*(kg|lb)?/i);
-    if (w && items.length) { const it = items[items.length - 1]; it.weight = +w[1].replace(',', '.'); it.per = w[2].toLowerCase(); it.unitPrice = +w[3].replace(',', '.'); const t = rcMoney(L); if (t != null && t > 0) it.price = t; continue; }
+    if (/balance\s*due|^[^A-Za-z0-9]*\d{0,3}\s*total\b(?!\s*number)|^total\s*(due|sale)?\b/i.test(L)) { const v = rcMoney(L); if (v != null && total == null) total = v; continue; }
+    if (/^(gst|hst|tax)\b(?!\s*#)/i.test(L)) { const v = rcMoney(L); if (v != null) tax = Math.round(((tax || 0) + v) * 100) / 100; continue; }
+    // weight line: "0.825 kg @ $3.28/kg 2.71" (belongs to the name line just above, or to the last coded item)
+    let w = L.match(/(\d*[.,]\d{1,3})\s*(kg|lb)\s*[@a&]?\s*\$?\s*(\d+[.,]\d{2})\s*\/?\s*(kg|lb)?/i);
+    const lastIt = items[items.length - 1];
+    if (!w && (prev || (lastIt && lastIt.price == null))) { // weight unreadable: "$2.14/kg W $4.10" -> weight = 4.10 / 2.14
+      const u = L.match(/\$\s*(\d+[.,]\d{2})\s*\/\s*(kg|lb)\b(.*)$/i), t = u && rcMoney(u[3]);
+      if (u && t > 0) w = Object.assign([u[0], String(Math.round(t / +u[1].replace(',', '.') * 1000) / 1000), u[2], u[1], u[2]], { index: u.index, guessW: true });
+    }
+    if (w && (prev || (lastIt && lastIt.price == null))) {
+      const it = prev ? (items.push(prev), prev) : lastIt;
+      it.weight = +('0' + w[1].replace(',', '.')); it.per = w[2].toLowerCase(); it.unitPrice = +w[3].replace(',', '.');
+      const rest = w.guessW ? w[0].slice(w[0].search(/\/\s*(kg|lb)/i)) : L.slice(w.index + w[0].length), t = rcMoney(rest); const calc = Math.round(it.weight * it.unitPrice * 100) / 100;
+      it.price = t != null && t > 0 && Math.abs(t - calc) < Math.max(0.05, calc * 0.03) ? t : calc; // the total is sometimes misread ("Soil"): weight x price/kg
+      if (/\s[A-Z]\s*$/.test(rest) && !/\s(kg|lb)\s*$/i.test(rest)) it.taxed = true; continue; }
     // quantity line: "2 @ $1.99" or "2 @ 2/$5.00"
     const q = L.match(/^(\d{1,2})\s*[@x]\s*\$?\s*(\d+[.,]\d{2})/i);
     if (q && items.length) { const it = items[items.length - 1]; it.qty = +q[1]; it.unitPrice = +q[2].replace(',', '.'); const t = rcMoney(L); if (t != null && t > 0) it.price = t; continue; }
-    if (RC_SKIP.test(L)) continue;
+    // "You Saved $1.72": the price above is already the sale price (Co-op)
+    if (/you\s*sav/i.test(L)) { const v = rcMoney(L), it = items[items.length - 1]; if (v != null && it) it.saved = Math.round(((it.saved || 0) + Math.abs(v)) * 100) / 100; continue; }
     const money = rcMoney(L);
+    // T&T prints fee amounts a line below their labels: "Bottle deposit" / "Env fee (CRF) $0.25" / "$0.10"
+    if (RC_FEE.test(L) && money == null && !/^\d{4,}/.test(L)) { feeQ++; log.push('fee label: ' + L); continue; }
+    if (feeQ && money != null && money > 0 && money < 20 && /^[^A-Za-z]*\$?\s*\d{1,3}[.,]\d{2}[\sA-Z]{0,5}$/.test(L)) { feeQ--; fees = Math.round((fees + money) * 100) / 100; log.push('fee: ' + L); continue; }
+    if (RC_FEE.test(L) && money != null && money > 0 && money < (/deposit|env|recycl|eco/i.test(L) ? 20 : 1)) { fees = Math.round((fees + money) * 100) / 100; log.push('fee: ' + L); continue; }
+    if (RC_SKIP.test(L)) { log.push('skip: ' + L); continue; }
     // discount / coupon line belongs to the item above
-    if (money != null && money < 0 && items.length) { const it = items[items.length - 1]; it.discount = Math.round(((it.discount || 0) - money) * 100) / 100; continue; }
+    if (money != null && money < 0 && items.length) { const ref = (L.match(/\/\s*(\d{4,7})\b/) || [])[1]; const it = (ref && [...items].reverse().find(x => x.code === ref)) || items[items.length - 1]; it.discount = Math.round(((it.discount || 0) - money) * 100) / 100; continue; }
     const tok = L.split(' '); const codeTok = rcDigits(tok[0] || '');
-    if (/^\d{4,14}$/.test(codeTok) && money != null) {
+    const taxed = /\d[.,]\d{2}\s+[A-Z]{1,2}\s*$/.test(L) && !/\b(MRJ|HMRJ)\s*$/.test(L) ? true : undefined;
+    let codeU = codeTok; if (wm && /^\d{12}$/.test(codeU)) { codeU = /^0{6,}/.test(codeU) ? codeU.slice(0, 11).replace(/^0+/, '') : codeU; }
+    if (/^\d{4,14}$/.test(codeTok) && !(codeTok.length <= 6 && RC_ADDR.test(L))) {
       const name = rcName(tok.slice(1).join(' '));
-      if (RC_FEE.test(name)) { log.push('fee: ' + L); continue; }
-      items.push({ raw: L, code: codeTok, name, price: money, kind: codeTok.length <= 6 ? 'plu' : 'upc' });
-      continue;
+      if (money != null) { if (RC_FEE.test(name)) { fees = Math.round((fees + money) * 100) / 100; log.push('fee: ' + L); continue; }
+        items.push({ raw: L, code: codeU, name, price: money, kind: cc && codeU.length <= 7 ? 'item' : codeU.length <= 6 ? 'plu' : 'upc', taxed }); continue; }
+      if (tok.length > 1) { items.push({ raw: L, code: codeU, name, price: null, kind: codeU.length <= 6 ? 'plu' : 'upc' }); continue; }
     }
-    // a code line whose price sits on the next line (weighed produce)
-    if (/^\d{4,6}$/.test(codeTok) && tok.length > 1 && money == null) { items.push({ raw: L, code: codeTok, name: rcName(tok.slice(1).join(' ')), price: null, kind: 'plu' }); continue; }
-    if (/^\d{4,14}$/.test(codeTok) && money == null && tok.length > 1) { items.push({ raw: L, code: codeTok, name: rcName(tok.slice(1).join(' ')), price: null, kind: codeTok.length <= 6 ? 'plu' : 'upc' }); continue; }
+    // stores like Co-op print no codes: a product name with its price, or a produce name with the weight line under it
+    const letters = (L.match(/[A-Za-z]/g) || []).length;
+    if (!RC_ADDR.test(L) && letters >= 3) {
+      const name = rcName(L).replace(/(\s+[*xX])+\s*$/, '').replace(/\s*\*\s*$/, '').trim();
+      if (money != null && money > 0 && name.length >= 3) { items.push({ raw: L, code: '', name, price: money, kind: 'name', taxed, sale: sale || undefined, li: i }); continue; }
+      if (money == null && /^[A-Za-z&][A-Za-z0-9&\/%.,' -]{2,}\*?$/.test(L)) { pend = { raw: L, code: '', name, price: null, kind: 'name', sale: sale || undefined, li: i }; log.push('name? ' + L); continue; }
+    }
     log.push('skip: ' + L);
   }
-  for (const it of items) { it.paid = it.price != null ? Math.round((it.price - (it.discount || 0)) * 100) / 100 : null; if (it.kind === 'upc') it.cands = rcCandidates(it.code); }
-  const sum = Math.round(items.reduce((s, it) => s + (it.paid || 0), 0) * 100) / 100;
-  return { store, date, items, subtotal, sum, log };
+  const kept = items.filter(it => it.price != null);
+  for (const it of kept) { it.paid = it.price != null ? Math.round((it.price - (it.discount || 0)) * 100) / 100 : null; if (it.kind === 'upc') { it.cands = rcCandidates(it.code);
+    if (wm && it.code.length === 12) { const u = rcLoblaw(it.code.slice(0, 11)); if (u) it.cands = [u, ...it.cands.filter(c => c !== u)]; } } }
+  const sum = Math.round(kept.reduce((s, it) => s + (it.paid || 0), 0) * 100) / 100;
+  // no SUBTOTAL line (Co-op): work it out from the total minus GST (5%, or the GST line) and deposits / recycling fees
+  let subFrom = '';
+  if (tax != null && tax > sum * 0.2 + 0.05) tax = null; // a shifted footer put another amount on the GST line
+  if (total != null && total < sum * 0.9) total = null;
+  // T&T prints the amounts a line below their labels: take the footer amount that equals the lines (+ deposits / fees)
+  const lastLi = Math.max(-1, ...kept.map(it => it.li ?? -1));
+  if (subtotal == null && lastLi >= 0) { const want = Math.round((sum + fees) * 100) / 100;
+    for (const L of lines.slice(lastLi + 1)) { const v = rcMoney(L); if (v != null && Math.abs(v - want) < 0.011) { subtotal = v; subFrom = 'found'; break; } } }
+  // a misread subtotal (e.g. 67.51 for 57.51) is caught when total minus tax disagrees with it
+  if (subtotal != null && total != null && tax != null && Math.abs(total - tax - subtotal) > 0.011 && Math.abs(total - tax - sum - fees) < Math.abs(subtotal - sum - fees)) { subtotal = Math.round((total - tax) * 100) / 100; subFrom = 'fixed'; }
+  if (subtotal == null && total != null && total >= sum * 0.9) {
+    const taxedSum = kept.reduce((s, it) => s + (it.taxed ? it.paid || 0 : 0), 0), gst = tax != null ? tax : Math.round(taxedSum * 5) / 100;
+    subtotal = Math.round((total - gst - fees) * 100) / 100; subFrom = 'total';
+  }
+  const sumCheck = Math.round((sum + (subFrom === 'total' ? 0 : fees)) * 100) / 100;
+  for (const it of kept) delete it.li; // a printed subtotal includes deposits / bags
+  return { store, date, items: kept, subtotal, sum, sumCheck, total, tax, fees, subFrom, log };
 }
 
 // --- screen: #receipt (super user only while we test; everyone else sees "coming soon") ---
@@ -1140,15 +1205,36 @@ let rcFiles = null, rcState = null;
 const RC_PLU = () => { try { return JSON.parse(lsGet('rcPlu') || '{}'); } catch (e) { return {}; } };
 function rcRotate(src, deg) { const c = document.createElement('canvas'), r = deg % 180 !== 0; c.width = r ? src.height : src.width; c.height = r ? src.width : src.height;
   const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); x.translate(c.width / 2, c.height / 2); x.rotate(deg * Math.PI / 180); x.drawImage(src, -src.width / 2, -src.height / 2); return c; }
+// Photos are often taken on a table or in the car: crop to the white paper, then even out shadows (receipt text reads much better)
+function rcPrep(src) {
+  const W = src.width, H = src.height, k = Math.max(1, Math.round(Math.max(W, H) / 300)), sw = Math.ceil(W / k), sh = Math.ceil(H / k);
+  const sm = document.createElement('canvas'); sm.width = sw; sm.height = sh; const sx = sm.getContext('2d', { willReadFrequently: true }); sx.drawImage(src, 0, 0, sw, sh);
+  const d = sx.getImageData(0, 0, sw, sh).data, cols = new Float32Array(sw), rows = new Float32Array(sh);
+  for (let y = 0; y < sh; y++) for (let x = 0; x < sw; x++) { const i = (y * sw + x) * 4, mx = Math.max(d[i], d[i + 1], d[i + 2]), mn = Math.min(d[i], d[i + 1], d[i + 2]);
+    if (mx > 150 && (mx - mn) / (mx + 1) < 0.22) { cols[x]++; rows[y]++; } }
+  const span = (v, n, th) => { let a = -1, b = -1; for (let i = 0; i < v.length; i++) if (v[i] / n > th) { if (a < 0) a = i; b = i; } return a < 0 ? [0, v.length - 1] : [a, b]; };
+  let [x0, x1] = span(cols, sh, 0.45), [y0, y1] = span(rows, sw, 0.15);
+  if ((x1 - x0) < sw * 0.25 || (y1 - y0) < sh * 0.25) { x0 = 0; x1 = sw - 1; y0 = 0; y1 = sh - 1; } // no clear paper: keep the whole photo
+  const pad = Math.round(sw * 0.01); x0 = Math.min(x1, x0 + pad); x1 = Math.max(x0, x1 - pad);
+  const cx = x0 * k, cy = y0 * k, cw = Math.min(W - cx, (x1 - x0 + 1) * k), ch = Math.min(H - cy, (y1 - y0 + 1) * k);
+  const out = document.createElement('canvas'); out.width = cw; out.height = ch; const ox = out.getContext('2d', { willReadFrequently: true }); ox.drawImage(src, cx, cy, cw, ch, 0, 0, cw, ch);
+  const bw = Math.max(4, Math.round(cw / 24)), bh = Math.max(4, Math.round(ch / 24)); // background = a very blurred copy
+  const bg = document.createElement('canvas'); bg.width = bw; bg.height = bh; const bgx = bg.getContext('2d'); bgx.imageSmoothingQuality = 'high'; bgx.drawImage(out, 0, 0, bw, bh);
+  const big = document.createElement('canvas'); big.width = cw; big.height = ch; const bx2 = big.getContext('2d', { willReadFrequently: true }); bx2.imageSmoothingQuality = 'high'; bx2.drawImage(bg, 0, 0, cw, ch);
+  const im = ox.getImageData(0, 0, cw, ch), bd = bx2.getImageData(0, 0, cw, ch).data, p = im.data;
+  for (let i = 0; i < p.length; i += 4) { const g = (p[i] * 0.299 + p[i + 1] * 0.587 + p[i + 2] * 0.114), b = (bd[i] * 0.299 + bd[i + 1] * 0.587 + bd[i + 2] * 0.114) + 1, v = Math.min(255, g / b * 255); p[i] = p[i + 1] = p[i + 2] = v; }
+  ox.putImageData(im, 0, 0); return out;
+}
 async function rcOcr(file, onStep) {
   const w = await getOcr(); await w.setParameters({ tessedit_pageseg_mode: '6' });
   try {
     const img = await loadBitmap(file), s = Math.min(1, 1800 / Math.max(img.width, img.height));
     const base = document.createElement('canvas'); base.width = Math.round(img.width * s); base.height = Math.round(img.height * s);
     const bx = base.getContext('2d'); bx.fillStyle = '#fff'; bx.fillRect(0, 0, base.width, base.height); bx.drawImage(img, 0, 0, base.width, base.height);
+    const prep = rcPrep(base);
     let best = null; // photos of receipts are often sideways: keep the turn that reads the most price lines
     for (const deg of [0, 90, 270, 180]) {
-      onStep && onStep(deg); const { data } = await w.recognize(rcRotate(base, deg));
+      onStep && onStep(deg); const { data } = await w.recognize(rcRotate(prep, deg));
       const score = (data.text.match(/\d[.,]\d{2}\b/g) || []).length + (data.text.match(/\b\d{8,13}\b/g) || []).length * 2;
       if (!best || score > best.score) best = { text: data.text, score, deg, conf: data.confidence };
       if (best.score >= 6 && deg === 0) break;
@@ -1159,18 +1245,42 @@ async function rcOcr(file, onStep) {
 async function rcResolve(r) {
   const items = await getAll('items'), byCode = new Map(); const strip = c => String(c || '').replace(/\D/g, '').replace(/^0+/, '');
   for (const it of items) for (const [vid, va] of Object.entries(it.variants || {})) if (va && va.barcode) byCode.set(strip(va.barcode), { it, vid, va });
-  const plu = RC_PLU();
+  const plu = RC_PLU(), fresh = items.filter(it => isFresh(it) || it.mode === 'weight'), dict = await rcDictLoad(r.store);
   for (const L of r.items) {
     L.use = false; L.status = 'none';
     if (L.kind === 'upc') {
       const hit = L.cands.map(c => ({ c, h: byCode.get(strip(c)) })).find(x => x.h);
       if (hit) { L.code13 = hit.c; L.match = hit.h; L.status = hit.c === L.cands[0] ? 'match' : 'fuzzy'; }
       else if (L.cands.length && L.code.replace(/\D/g, '').length >= 10) { L.code13 = L.cands[0]; L.status = 'new'; }
-    } else { const k = (r.store || '') + '|' + L.code; if (plu[k]) { const it = items.find(x => x.id === plu[k]); if (it) { L.match = { it, vid: '' }; L.status = 'plu'; } } if (L.status === 'none') L.status = 'pluask'; }
-    L.use = L.paid > 0 && ['match', 'fuzzy', 'new', 'plu'].includes(L.status);
+    } else if (!L.weight) L.status = L.paid > 0 ? 'text' : 'none'; // no weight: a packaged product or produce sold each (no per-lb price), goes to Unsorted for the data audit
+    else { const k = rcPluKey(r.store, L); if (plu[k]) { const it = items.find(x => x.id === plu[k]); if (it) { L.match = { it, vid: '' }; L.status = 'plu'; } }
+      if (L.status === 'none' && L.name) { const g = rcGuess(L.name, fresh); if (g) { L.match = { it: g, vid: '' }; L.status = 'guess'; } }
+      if (L.status === 'none') L.status = 'pluask'; }
+    // a produce sticker number (IFPS PLU, e.g. Walmart prints 4011) names the item for sure
+    if (L.kind === 'plu' && L.status !== 'plu') { const pi = pluItem(L.code), it = pi && items.find(x => x.id === pi); if (it && (L.weight || it.mode !== 'weight')) { L.match = { it, vid: '' }; L.status = 'pluok'; } }
+    // learned from earlier receipts at this store
+    if (!['match', 'fuzzy', 'pluok'].includes(L.status)) { const d = dict[rcDictKey(L)], it = d && items.find(x => x.id === d.itemId);
+      if (it && (!d.vid || (it.variants || {})[d.vid]) && (d.vid || L.weight || it.mode !== 'weight')) { L.match = { it, vid: d.vid || '' }; L.status = 'dict'; } }
+    L.use = L.paid > 0 && ['match', 'fuzzy', 'new', 'plu', 'pluok', 'dict', 'guess', 'text'].includes(L.status);
   }
-  r.fresh = items.filter(it => isFresh(it) || it.mode === 'weight').sort((a, b) => itemName(a).localeCompare(itemName(b)));
+  r.fresh = fresh.sort((a, b) => itemName(a).localeCompare(itemName(b)));
   return r;
+}
+// Receipt-name dictionary (shared): store + receipt code or text -> item / variant. Filled by the data audit (and the super user's picks).
+const rcDictId = (store, key) => (String(store) + '|' + String(key)).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 140);
+const rcDictKey = L => L.code && L.kind !== 'upc' ? L.code : L.code13 || String(L.name || '').toUpperCase().trim();
+async function rcDictLoad(store) { if (!store || !fb || !syncOn()) return {};
+  try { const s = await fb.F.getDocs(fb.F.query(col('rcnames'), fb.F.where('store', '==', store))); const m = {}; s.docs.forEach(d => { const x = d.data(); if (!x.deleted) m[x.key] = x; }); return m; } catch (e) { return {}; } }
+async function rcDictPut(store, L, it, vid) { if (!isAdmin() || !store || !fb || !syncOn()) return; const key = rcDictKey(L); if (!key) return;
+  try { await fb.F.setDoc(docRef('rcnames', rcDictId(store, key)), { store, key, name: String(L.name || '').slice(0, 60), itemId: it ? it.id : '', vid: vid || '', by: fbUser.uid, ts: Date.now(), updated: Date.now(), deleted: !it }); } catch (e) { console.warn('rcnames', e.code); } }
+// common receipt abbreviations, so Unsorted rows read better for the data audit
+const RC_ABBR = { 'D/LAND': 'DAIRYLAND', 'F&F': 'FOUNDERS & FARMERS', 'CHR': 'CHERRY', 'YRGT': 'YOGURT', 'YOG': 'YOGURT', 'OIKO': 'OIKOS', 'DANO': 'DANONE', 'CAPCHN': 'CAPPUCCINO', 'APPL': 'APPLE', 'SLD': 'SALAD', 'ASN': 'ASIAN', 'CROIS': 'CROISSANTS', 'CINN': 'CINNAMON', 'GF': 'GLUTEN FREE', 'VP': 'VARIETY PACK', 'POPCN': 'POPCORN', 'CHOC': 'CHOCOLATE', 'BEV': 'BEVERAGE', 'SWEETEN': 'SWEETENED', 'ORG': 'ORGANIC', 'PC': 'PRESIDENT\'S CHOICE', 'NN': 'NO NAME', 'CKN': 'CHICKEN', 'BNLS': 'BONELESS', 'SKNLS': 'SKINLESS', 'BRST': 'BREAST', 'GRD': 'GROUND', 'VEG': 'VEGETABLE', 'BTL': 'BOTTLE', 'PK': 'PACK', 'ASST': 'ASSORTED', 'WHT': 'WHITE', 'WW': 'WHOLE WHEAT', 'BRD': 'BREAD', 'CHS': 'CHEESE', 'MOZZ': 'MOZZARELLA', 'CHED': 'CHEDDAR', 'STRWB': 'STRAWBERRY', 'BLUEB': 'BLUEBERRY', 'RASPB': 'RASPBERRY', 'GOUR': 'GOURMET' };
+const rcExpand = n => String(n || '').split(/\s+/).map(w => RC_ABBR[w.toUpperCase()] || w).join(' ');
+const rcPluKey = (store, L) => (store || '') + '|' + (L.code || String(L.name || '').toUpperCase());
+function rcGuess(name, fresh) { // "PEPPERS RED" -> the produce item sharing the most words
+  const q = new Set(toks(name)); if (!q.size) return null; let best = null, bs = 0;
+  for (const it of fresh) { const t = new Set(toks([it.en, it.name, ...(it.aliases || [])].join(' '))); let h = 0; const same = (a, b) => a === b || (Math.min(a.length, b.length) >= 4 && (a.startsWith(b) || b.startsWith(a))); t.forEach(w => { if ([...q].some(x => same(x, w))) h++; }); const sc = h ? h * 10 - t.size * 0.1 : 0; if (sc > bs) { bs = sc; best = it; } }
+  return best;
 }
 async function viewReceipt() {
   setHeader('🧾 Receipt (beta)', true); setTab('scan');
@@ -1180,7 +1290,7 @@ async function viewReceipt() {
     app.innerHTML = `<div class="card empty" style="text-align:center">${dog('sniff', 'glass', 'bounce')}<div class="muted" id="rcMsg">Reading the receipt… (the first time takes a few seconds)</div></div>`;
     try {
       const parts = []; for (const [i, f] of files.entries()) parts.push(await rcOcr(f, deg => { const m = $('#rcMsg'); if (m) m.textContent = `Reading photo ${i + 1} of ${files.length}${deg ? ` (turned ${deg}°)` : ''}…`; }));
-      const text = parts.map(p => p.text).join('\n'); const r = parseReceipt(text); r.storeGuessed = !r.store; if (!r.store) r.store = lsGet('lastStore') || '';
+      const text = parts.map(p => p.text).join('\n'); const r = parseReceipt(text); r.storeGuessed = !r.store; r.storeRead = r.store; if (!r.store) r.store = lsGet('lastStore') || '';
       rcState = Object.assign(await rcResolve(r), { text, parts: parts.map(p => ({ deg: p.deg, conf: Math.round(p.conf), score: p.score })), ms: Date.now() - t0 });
     } catch (e) { app.innerHTML = `<div class="card"><h2>Couldn't read it</h2><div class="muted">${esc(String(e && e.message || e))}</div></div>`; return; }
   }
@@ -1214,23 +1324,23 @@ function rcCamera(shots) {
     $('#rcRead').onclick = () => rcGo(shots); $('#rcMore').onclick = () => rcCamera(shots); $('#rcX').onclick = closeSheet; });
 }
 function rcRender() {
-  const r = rcState, ICON = { match: '✅', fuzzy: '🟡', new: '🆕', plu: '🥬', pluask: '❓', none: '⚠️' };
-  const SAY = { match: 'Matched by barcode', fuzzy: 'Matched after fixing a misread digit', new: 'New barcode: goes to Unsorted', plu: 'Store produce code', pluask: 'Produce code: pick the item', none: 'Couldn’t read the code' };
+  const r = rcState, ICON = { match: '✅', fuzzy: '🟡', new: '🆕', plu: '🥬', guess: '🟡', pluask: '❓', text: '📝', pluok: '✅', dict: '✅', none: '⚠️' };
+  const SAY = { match: 'Matched by barcode', fuzzy: 'Matched after fixing a misread digit', new: 'New barcode: goes to Unsorted', plu: 'Store produce code', pluask: 'Produce: pick the item', guess: 'Best guess: please check', pluok: 'Matched by produce code (PLU)', dict: 'Known from earlier receipts', text: 'Goes to Unsorted (we sort it later)', none: 'Couldn’t read the code' };
   const used = r.items.filter(L => L.use), sumUsed = Math.round(used.reduce((s, L) => s + (L.paid || 0), 0) * 100) / 100;
-  const okSum = r.subtotal != null && Math.abs(r.sum - r.subtotal) < 0.011;
+  const okSum = r.subtotal != null && Math.abs((r.sumCheck ?? r.sum) - r.subtotal) < 0.011;
   const stores = [...new Set([r.store, ...CHAINS].filter(Boolean))];
   app.innerHTML = `
   <div class="card"><h2>🧾 Receipt (beta)</h2>
     <label>Store${r.storeGuessed ? ' <span class="muted">(not found on the receipt, please check)</span>' : ''}</label><select id="rcStore">${stores.map(s => `<option${s === r.store ? ' selected' : ''}>${esc(s)}</option>`).join('')}<option value=""${r.store ? '' : ' selected'}>— pick the store —</option></select>
     <label>Date</label><input id="rcDate" type="date" value="${esc(r.date || today())}">
-    <div id="rcCoin" class="muted" style="margin-top:8px"></div><div class="muted" style="margin-top:8px">${r.items.length} lines read · lines add up to <b>${money(r.sum)}</b>${r.subtotal != null ? ` · subtotal on receipt <b>${money(r.subtotal)}</b> ${okSum ? '✅' : '⚠️ check the prices'}` : ' · no subtotal found'}</div></div>
+    <div id="rcCoin" class="muted" style="margin-top:8px"></div><div class="muted" style="margin-top:8px">${r.items.length} lines read · lines add up to <b>${money(r.sum)}</b>${r.fees && r.subFrom !== 'total' ? ` + ${money(r.fees)} deposits/bags` : ''}${r.subtotal != null ? (r.subFrom === 'total' ? ` · total on receipt <b>${money(r.total)}</b>, minus GST and deposits = <b>${money(r.subtotal)}</b>` : ` · subtotal on receipt <b>${money(r.subtotal)}</b>`) + ` ${okSum ? '✅' : '⚠️ check the prices'}` : ' · no subtotal found'}</div></div>
   <div class="card"><h2>Items</h2>
     ${r.items.map((L, i) => `<div class="item rcl" style="align-items:flex-start">
       <input type="checkbox" class="rcUse" data-i="${i}" ${L.use ? 'checked' : ''} ${L.paid > 0 && L.status !== 'pluask' && L.status !== 'none' ? '' : 'disabled'} style="width:22px;height:22px;margin-top:6px">
       <div class="main"><div class="name vname rcNm" data-i="${i}">${ICON[L.status]} ${esc(L.match ? (L.match.vid ? variantText(L.match.it, L.match.vid) : itemName(L.match.it)) : L.info ? [L.info.brand, L.info.name].filter(Boolean).join(' ') + (L.info.quantity ? ' · ' + L.info.quantity : '') : L.name || '(no name)')}</div>
-        <div class="muted" style="font-size:12px">${esc(L.code)} ${esc(L.name)} · ${SAY[L.status]}${L.code13 ? ' · ' + L.code13 : ''}${L.weight ? ` · ${L.weight} ${L.per} @ ${money(L.unitPrice)}/${L.per}` : ''}${L.qty ? ` · ${L.qty} @ ${money(L.unitPrice)}` : ''}${L.discount ? ` · −${money(L.discount)} off` : ''}</div>
+        <div class="muted" style="font-size:12px">${esc(L.code)} ${esc(L.name)} · ${SAY[L.status]}${L.code13 ? ' · ' + L.code13 : ''}${L.weight ? ` · ${L.weight} ${L.per} @ ${money(L.unitPrice)}/${L.per}` : ''}${L.qty ? ` · ${L.qty} @ ${money(L.unitPrice)}` : ''}${L.discount ? ` · −${money(L.discount)} off` : ''}${L.saved ? ` · sale, saved ${money(L.saved)}` : L.sale ? ' · sale' : ''}</div>
         ${L.status === 'new' ? `<button class="btn sec small rcSet" data-c="${esc(L.code13)}" style="margin:4px 0 0;width:auto">🛠️ Set up this product</button>` : ''}
-        ${L.status === 'pluask' || L.status === 'plu' ? `<select class="rcPlu" data-i="${i}" style="margin-top:4px"><option value="">Which item is this?</option>${r.fresh.map(it => `<option value="${esc(it.id)}"${L.match && L.match.it.id === it.id ? ' selected' : ''}>${esc(itemName(it))}</option>`).join('')}</select>` : ''}</div>
+        ${L.status === 'pluask' || L.status === 'plu' || L.status === 'guess' ? `<select class="rcPlu" data-i="${i}" style="margin-top:4px"><option value="">Which item is this?</option>${r.fresh.map(it => `<option value="${esc(it.id)}"${L.match && L.match.it.id === it.id ? ' selected' : ''}>${esc(itemName(it))}</option>`).join('')}</select>` : ''}</div>
       <div class="price">${money(L.paid)}</div></div>`).join('') || '<div class="muted">No item lines found. Try a straighter, closer photo.</div>'}
     <button class="btn" id="rcSave" style="margin-top:10px" ${used.length ? '' : 'disabled'}>Log ${used.length} price${used.length === 1 ? '' : 's'} (${money(sumUsed)})</button>
     <button class="btn sec" id="rcAgain">📷 Scan another receipt</button></div>
@@ -1238,11 +1348,11 @@ function rcRender() {
     <details style="margin-top:6px"><summary>OCR text</summary><pre style="white-space:pre-wrap;font-size:11px;max-height:320px;overflow:auto">${esc(rcMaskCard(r.text))}</pre></details>
     <details><summary>Skipped lines (${r.log.length})</summary><pre style="white-space:pre-wrap;font-size:11px">${esc(rcMaskCard(r.log.join('\n')))}</pre></details></div>`;
   app.querySelectorAll('.rcUse').forEach(b => b.onchange = () => { r.items[+b.dataset.i].use = b.checked; rcRender(); });
-  app.querySelectorAll('.rcPlu').forEach(s => s.onchange = () => { const L = r.items[+s.dataset.i], it = r.fresh.find(x => x.id === s.value); const k = ($('#rcStore').value || '') + '|' + L.code, m = RC_PLU();
-    if (it) { L.match = { it, vid: '' }; L.status = 'plu'; L.use = L.paid > 0; m[k] = it.id; } else { L.match = null; L.status = 'pluask'; L.use = false; delete m[k]; } lsSet('rcPlu', JSON.stringify(m)); rcRender(); });
+  app.querySelectorAll('.rcPlu').forEach(s => s.onchange = () => { const L = r.items[+s.dataset.i], it = r.fresh.find(x => x.id === s.value); const k = rcPluKey($('#rcStore').value, L), m = RC_PLU();
+    if (it) { L.match = { it, vid: '' }; L.status = 'plu'; L.use = L.paid > 0; m[k] = it.id; } else { L.match = null; L.status = 'pluask'; L.use = false; delete m[k]; } lsSet('rcPlu', JSON.stringify(m)); rcDictPut($('#rcStore').value, L, it, ''); rcRender(); });
   const coinLine = async () => { const store = $('#rcStore').value, date = $('#rcDate').value || today(), el = $('#rcCoin'); if (!el) return;
     const why = rcValid(r, store, date, r.items.filter(L => L.use)); r.dup = null;
-    if (!why) { r.key = await rcKey(store, date, r.subtotal); r.dup = await rcSeen(r.key); }
+    if (!why) { r.key = await rcKey(r.storeRead, r.date, r.subtotal); r.dup = await rcSeen(r.key); }
     el.innerHTML = r.dup ? `⛔ <b>This receipt was already scanned</b>${r.dup.ts ? ' on ' + fmtDate(new Date(r.dup.ts).toISOString().slice(0, 10)) : ''}. Its prices are in already, so no coins.`
       : why ? `🪙 No coins yet: ${esc(why)}.` : `🪙 <b>+${RC_COINS} coins</b> when you log this receipt`;
     const b = $('#rcSave'); if (b && r.dup) { b.textContent = isAdmin() ? 'Log again anyway (test, no coins)' : 'Already logged'; b.disabled = !isAdmin(); } };
@@ -1253,19 +1363,19 @@ function rcRender() {
   $('#rcSave').onclick = async () => {
     const store = $('#rcStore').value, date = $('#rcDate').value || today(); if (!store) return toast('Pick the store first');
     if (r.dup && !isAdmin()) return toast('This receipt was already logged');
-    let n = 0; const fp = r.subtotal != null ? await rcKey(store, date, r.subtotal) : '';
+    let n = 0; const fp = r.subtotal != null && r.storeRead && r.date ? await rcKey(r.storeRead, r.date, r.subtotal) : ''; // the fingerprint uses what's printed, so editing the store or date can't earn coins twice
     const why = rcValid(r, store, date, r.items.filter(x => x.use)), earn = !why && !(await rcSeen(fp)), rk = earn ? fp : newId();
     for (const L of r.items.filter(x => x.use)) {
-      const o = { id: newId(), multi: 1, store, date, sale: !!L.discount, note: 'receipt', src: 'receipt', by: fbUser ? fbUser.uid : '', ts: Date.now() };
-      if (L.weight && L.unitPrice) { o.price = L.unitPrice; o.per = L.per; } else { o.price = L.qty && L.unitPrice ? Math.round((L.paid / L.qty) * 100) / 100 : L.paid; o.per = 'pack'; }
-      if (L.match) { o.itemId = L.match.it.id; o.vid = L.match.vid || ''; } else { o.itemId = ''; o.vid = ''; o.pname = L.name.slice(0, 80); }
+      const o = { id: newId(), multi: 1, store, date, sale: !!(L.discount || L.saved || L.sale), note: 'receipt', src: 'receipt', by: fbUser ? fbUser.uid : '', ts: Date.now() };
+      if (L.weight && L.unitPrice) { o.price = L.unitPrice; o.per = L.per; } else { o.price = L.qty && L.unitPrice ? Math.round((L.paid / L.qty) * 100) / 100 : L.paid; o.per = 'pack'; if (L.saved && !L.qty) o.reg = Math.round((L.paid + L.saved) * 100) / 100; }
+      if (L.match) { o.itemId = L.match.it.id; o.vid = L.match.vid || ''; } else { o.itemId = ''; o.vid = ''; o.pname = rcExpand(L.name).slice(0, 80); }
       if (L.code13) o.bc = L.code13;
-      o.rline = (L.code + ' ' + L.name).slice(0, 80); o.rk = rk; // keeps the receipt's own wording and groups lines from one receipt (for the data audit)
+      o.rline = (L.code + ' ' + L.name).trim().slice(0, 80); o.rk = rk; // keeps the receipt's own wording and groups lines from one receipt (for the data audit)
       await save('obs', o); n++;
     }
     lsSet('lastStore', store);
     let coins = 0;
-    await rcSaveSummary(rk, { store, date, subtotal: r.subtotal, sum: r.sum, n, coins: earn ? RC_COINS : 0, fp, why: earn ? '' : (why || 'already scanned'), lines: r.items.map(rcLine) });
+    await rcSaveSummary(rk, { store, date, subtotal: r.subtotal, sum: r.sum, total: r.total ?? null, fees: r.fees || 0, subFrom: r.subFrom || '', n, coins: earn ? RC_COINS : 0, fp, why: earn ? '' : (why || 'already scanned'), lines: r.items.map(rcLine) });
     if (earn) { const g = gLoad(); g.coins += RC_COINS; gSave(g); coins = RC_COINS; }
     toast(`✅ Logged ${n} price${n === 1 ? '' : 's'} from the receipt`, 2800); if (coins) setTimeout(() => coinPop(coins, 'Thanks for scanning a receipt!'), 900);
     rcState = null; nav('#home', true);
@@ -1284,20 +1394,22 @@ async function rcSeen(key) {
 // receipts/{id}: one summary per logged receipt, for the data audit. The id is the fingerprint when the receipt earned coins
 // (that's what blocks a second scan); otherwise a random id with the fingerprint in fp. Nothing personal: no photo, no OCR text, no card / loyalty / transaction numbers.
 const rcLine = L => { const x = { code: L.code, name: String(L.name || '').slice(0, 60), paid: L.paid, status: L.status, used: !!L.use };
-  for (const k of ['price', 'weight', 'per', 'unitPrice', 'qty', 'discount', 'code13']) if (L[k] != null && L[k] !== '') x[k] = L[k];
+  for (const k of ['price', 'weight', 'per', 'unitPrice', 'qty', 'discount', 'saved', 'sale', 'taxed', 'code13']) if (L[k] != null && L[k] !== '') x[k] = L[k];
   if (L.match) { x.itemId = L.match.it.id; x.vid = L.match.vid || ''; } return x; };
 async function rcSaveSummary(id, info) { const t = Date.now(); if (info.coins) { const m = rcSeenLocal(); m[id] = t; lsSet('rcSeen', JSON.stringify(m)); }
   try { if (fb && syncOn()) await fb.F.setDoc(docRef('receipts', id), { by: fbUser ? fbUser.uid : '', ts: t, updated: t, ...info }); } catch (e) { console.warn('receipt save', e.code); } }
 function rcValid(r, store, date, used) { // what makes a receipt worth 10 coins
   const total = r.subtotal != null ? r.subtotal : null, age = (new Date(today()) - new Date(date)) / 864e5;
   if (!store) return 'pick the store';
+  if (!r.storeRead) return 'the store name wasn’t found on the receipt (keep the top in the photo)';
+  if (!r.date) return 'the date wasn’t found on the receipt (keep it in the photo)';
   if (total == null) return 'the subtotal wasn’t found, so we can’t check it’s a real receipt';
   if (!(age >= 0 && age <= RC_MAX_AGE)) return `receipts older than ${RC_MAX_AGE} days don’t earn coins`;
   if (!used.length) return 'tick at least one price';
-  if (Math.abs(r.sum - total) >= 0.011 && used.length < 3) return 'the lines don’t add up to the subtotal yet';
+  if (Math.abs((r.sumCheck ?? r.sum) - total) >= 0.011 && used.length < 3) return 'the lines don’t add up to the subtotal yet';
   return '';
 }
-const rcMaskCard = s => String(s).replace(/(card\s*n|acct|account|auth|ref\s*#)[^\n]*/ig, '$1… (hidden)').replace(/[*•xX]{4,}[\d*•xX -]*/g, '••••');
+const rcMaskCard = s => String(s).replace(/(card\s*n|acct|account|auth|autor|ref\s*#|reference|member|instacart\s*shop|rrn|tc\s*#)[^\n]*/ig, '$1… (hidden)').replace(/[*•xX]{4,}[\d*•xX -]*/g, '••••');
 
 /* ---------- Scanner (BarcodeDetector on Android, ZXing on iPhone) ---------- */
 let scanStream = null, scanTimer = null, detector = null, torchOn = false, zxCore = null, zxCanvas = null, scanCb = null;
@@ -1566,7 +1678,9 @@ async function viewHome() {
     const view = homeView || (FAVS.size ? 'fav' : 'all'), top = view.startsWith('cat:') ? 'all' : view;
     $('#hView').innerHTML = [['fav', `${t('tabFav')} (${FAVS.size})`], ['all', t('allCats')], ['track', `🔔 ${t('tabTrack')} (${TRACK.size})`]].map(([v, l]) => `<button type="button" class="chip${v === top ? ' on' : ''}" data-v="${v}">${esc(l)}</button>`).join('');
     const box = $('#list');
-    if (q) { const irows = list.filter(x => itemHay(x).includes(q)), vrows = [];
+    if (q) { const pi = pluItem(q), wq = new RegExp('\\b' + q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+      const irank = x => { const n = (itemName(x.it) + ' ' + (x.it.en || '')).toLowerCase(); return x.it.id === pi ? -1 : itemName(x.it).toLowerCase().startsWith(q) || (x.it.en || '').toLowerCase().startsWith(q) ? 0 : wq.test(n) ? 1 : n.includes(q) ? 2 : 3; };
+      const irows = list.filter(x => x.it.id === pi || itemHay(x).includes(q)).map((x, i) => ({ x, i, r: irank(x) })).sort((a, b) => a.r - b.r || a.i - b.i).map(o => o.x), vrows = [];
       for (const x of list) { const obs = by[x.it.id] || [];
         for (const [vid, va] of Object.entries(x.it.variants || {})) { if (!va || va.deleted || !`${va.brand || ''} ${va.desc || ''}`.toLowerCase().includes(q)) continue;
           const vo = obs.filter(o => o.vid === vid).sort((a, b) => (b.date || '').localeCompare(a.date || '')), vs = summarize(x.it, vo); vrows.push({ it: x.it, vid, va, vo, vs, vb: vs && vs.low, fl: vid.startsWith('v-f') && !va.barcode && !vo.some(o => o.src !== 'flyer') }); } }
@@ -1621,10 +1735,15 @@ async function viewItem(id) {
     .sort((a, b) => (isUpcoming(a.o) - isUpcoming(b.o)) || ((a.u && s && a.u.key === s.key ? a.u.v : 1e9) - (b.u && s && b.u.key === s.key ? b.u.v : 1e9)));
   const loose = obs.filter(o => !o.vid), ls = loose.length ? summarize(it, loose) : null;
   const sc = scanCtx && scanCtx.itemId === id && !scanCtx.known ? scanCtx : null;
+  // produce / meat sold by weight: loose prices first; flyer bags and packs tucked away below
+  const W = it.mode === 'weight';
+  const varH = !vstat.length ? '' : W ? `<details class="card"><summary style="cursor:pointer"><b>🛍️ Bags & packs (${vstat.length})</b><div class="muted" style="margin-top:2px">Only if you bought a bag or pack. Loose produce: log the price per lb.</div></summary>`+`${vstat.map(({ vid, va, vo, vs, vb }, i) => `<a class="item${i >= 10 ? ' more hidden' : ''}" href="#variant/${encodeURIComponent(id)}/${encodeURIComponent(vid)}">${thumb(variantPhoto(it, va), itemEmoji(it))}<div class="main"><div>${esc(variantText(it, vid))}</div><div class="muted">${vo.length ? `${vo.length} ${t('records')}` : t('noPrice')}${va.barcode ? ' · ' + esc(va.barcode) : ''}</div></div><div class="price">${vb ? fmtU(vb.u) : vo.length ? priceText(it, vo[0]) : '—'}<div class="muted">${vs ? t('histLow') : vo.length ? fmtDate(vo[0].date) : ''}</div></div><span class="chev">›</span></a>`).join('') + moreBtn(vstat.length, 10)}</details>` : `<div class="card"><h2>${t('variants')}</h2><div class="muted" style="margin-bottom:4px">${t('varHint')}</div>${vstat.map(({ vid, va, vo, vs, vb }, i) => `<a class="item${i >= 10 ? ' more hidden' : ''}" href="#variant/${encodeURIComponent(id)}/${encodeURIComponent(vid)}">${thumb(variantPhoto(it, va), itemEmoji(it))}<div class="main"><div>${esc(variantText(it, vid))}</div><div class="muted">${vo.length ? `${vo.length} ${t('records')}` : t('noPrice')}${va.barcode ? ' · ' + esc(va.barcode) : ''}</div></div><div class="price">${vb ? fmtU(vb.u) : vo.length ? priceText(it, vo[0]) : '—'}<div class="muted">${vs ? t('histLow') : vo.length ? fmtDate(vo[0].date) : ''}</div></div><span class="chev">›</span></a>`).join('') + moreBtn(vstat.length, 10)}</div>`;
+  const looseH = ls ? `<div class="card"><h2>🐾 ${vstat.length ? t('looseTitle') : t('byStore')}</h2>${boardHtml(it, ls)}</div>${chartSvg(ls.rows, ls.low.u.v, ls.low.u)}` : '';
   app.innerHTML = `
     <div class="card"><div class="item" style="padding:0;border:0">${thumb(itemPhoto(it), itemEmoji(it))}<div class="main">
       <div class="name" style="white-space:normal">${esc(itemName(it))}</div>
       <div class="muted">${esc(placeLabel(it))}</div></div><span id="favWrap" class="hbtns">${starBtn(id, true)}</span></div></div>
+    ${sc ? '' : `<button class="btn" id="iLog" style="margin:0 0 10px">➕ ${t('addPrice')}${W ? ' (per lb)' : ''}</button>`}
     ${sc ? `<div class="card scan"><a href="javascript:void 0" class="scprod">${thumb(sc.info && sc.info.image, '📷')}</a><div><a href="javascript:void 0" class="scprod scname"><b>${t('scanGot')}</b>${esc([sc.info && sc.info.brand, sc.info && sc.info.name, sc.info && sc.info.quantity].filter(Boolean).join(' ') || sc.code)} <span class="scmore">${t('scanTapInfo')} ›</span></a>
       <div class="muted" style="margin:4px 0 8px">${tf('scanGuess', esc(itemName(it)))}</div>
       <div class="row" style="flex-wrap:wrap;gap:6px"><button class="btn small" id="scLog" style="margin:0">${t('scanLog')}</button><button class="btn sec small" id="scOther" style="margin:0">${t('scanOther')}</button></div>
@@ -1640,9 +1759,9 @@ async function viewItem(id) {
         <div class="main"><div class="name">${esc(r.o.store)}${i === 0 && cur.length > 1 && r.u && s && r.u.key === s.key && isCurrent(r.o) ? `<span class="tag">🏆 ${t('cheapest')}</span>` : ''}${isUpcoming(r.o) ? `<span class="tag up">${fmtDate(r.o.date).slice(5)} ${t('starts')}</span>` : r.o.sale ? `<span class="tag">${t('sale')}</span>` : `<span class="tag off">${t('logged')}</span>`}</div>
         <div class="muted">${esc(obsText(it, r.o))}</div><div class="muted">${fmtDate(r.o.date)}${r.o.until ? '–' + fmtDate(r.o.until).slice(5) : ''}</div></div>
         <div class="price">${priceText(it, r.o)}<div class="muted">${r.u && it.mode !== 'weight' ? fmtU(r.u) : ''}${r.o.reg ? `<br>${t('reg')} ${money(r.o.reg)}` : ''}</div></div></a>`; }).join('') + moreBtn(cur.length, 8) : `<div class="muted">${t('curNone')}</div>`}</div>
-    ${vstat.length ? `<div class="card"><h2>${t('variants')}</h2><div class="muted" style="margin-bottom:4px">${t('varHint')}</div>${vstat.map(({ vid, va, vo, vs, vb }, i) => `<a class="item${i >= 10 ? ' more hidden' : ''}" href="#variant/${encodeURIComponent(id)}/${encodeURIComponent(vid)}">${thumb(variantPhoto(it, va), itemEmoji(it))}<div class="main"><div>${esc(variantText(it, vid))}</div><div class="muted">${vo.length ? `${vo.length} ${t('records')}` : t('noPrice')}${va.barcode ? ' · ' + esc(va.barcode) : ''}</div></div><div class="price">${vb ? fmtU(vb.u) : vo.length ? priceText(it, vo[0]) : '—'}<div class="muted">${vs ? t('histLow') : vo.length ? fmtDate(vo[0].date) : ''}</div></div><span class="chev">›</span></a>`).join('') + moreBtn(vstat.length, 10)}</div>` : ''}
-    ${ls ? `<div class="card"><h2>🐾 ${vstat.length ? t('looseTitle') : t('byStore')}</h2>${boardHtml(it, ls)}</div>${chartSvg(ls.rows, ls.low.u.v, ls.low.u)}` : ''}`}`;
+    ${W ? looseH + varH : varH + looseH}`}`;
   bindUnitChip(() => viewItem(id));
+  { const il = $('#iLog'); if (il) il.onclick = () => location.hash = '#add/' + encodeURIComponent(id); }
   app.querySelectorAll('.showMore').forEach(b => b.onclick = () => { b.parentElement.querySelectorAll('.more').forEach(x => x.classList.remove('hidden')); b.remove(); });
   $('#favWrap').onclick = e => { if (!e.target.closest('[data-fav]')) return; toggleFav(id); $('#favWrap').innerHTML = starBtn(id, true); };
   if (sc) {
@@ -1724,7 +1843,7 @@ async function viewPick(code) {
   const render = () => {
     const q = $('#pq').value.trim().toLowerCase();
     const si = id => { const k = sug.indexOf(id); return !q && k >= 0 ? k : 99; };
-    const rows = items.filter(it => !q || [it.name, it.en, ...(it.aliases || [])].join(' ').toLowerCase().includes(q)).sort((a, b) => (si(a.id) - si(b.id)) || itemName(a).localeCompare(itemName(b))).slice(0, 80);
+    const rows = items.filter(it => !q || pluItem(q) === it.id || [it.name, it.en, ...(it.aliases || [])].join(' ').toLowerCase().includes(q)).sort((a, b) => (si(a.id) - si(b.id)) || itemName(a).localeCompare(itemName(b))).slice(0, 80);
     $('#plist').innerHTML = rows.map(it => `<a class="item" href="javascript:void 0" data-id="${esc(it.id)}">${thumb(itemPhoto(it), itemEmoji(it))}<div class="main"><div class="name">${esc(itemName(it))}${si(it.id) < 99 ? `<span class="tag">${t('suggested')}</span>` : ''}</div><div class="muted">${esc([itemSub(it), placeLabel(it)].filter(Boolean).join(' · '))}</div></div></a>`).join('') || `<div class="muted">${t('noMatch')}</div>`;
     $('#plist').querySelectorAll('[data-id]').forEach(a => a.onclick = () => code ? go(a.dataset.id) : nav(`#add/${encodeURIComponent(a.dataset.id)}`, true));
   };
@@ -3565,6 +3684,7 @@ function showProduct(sc) {
 
 /* ---------- What's new (shown once after each update) ---------- */
 const CHANGES = {
+  '1.4.1': [['Every item page now has a Log a price button.', 'Produce: loose prices come first; bags and packs are tucked below.', 'Search a produce sticker number (e.g. 4011 for bananas) to find the item.', 'Search shows the closest name match first.'], ['Every item page now has a Log a price button.', 'Produce: loose prices come first; bags and packs are tucked below.', 'Search a produce sticker number (e.g. 4011 for bananas) to find the item.', 'Search shows the closest name match first.']],
   '1.4.0': [["New on the Scan page: a Receipt button. Receipt scanning is coming soon, so you'll be able to log every price on a receipt in one go."], ["New on the Scan page: a Receipt button. Receipt scanning is coming soon, so you'll be able to log every price on a receipt in one go."]],
   '1.3.9': [['Search: products that people logged or scanned now come first; products only seen in store flyers are listed after them.'], ['Search: products that people logged or scanned now come first; products only seen in store flyers are listed after them.']],
   '1.3.8': [['Search by brand or product name now lists every matching product (e.g. all Dawn bottles), with the cheapest unit price first.'], ['Search by brand or product name now lists every matching product (e.g. all Dawn bottles), with the cheapest unit price first.']],
