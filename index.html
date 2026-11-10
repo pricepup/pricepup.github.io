@@ -391,7 +391,7 @@ label.ck{display:flex;gap:8px;align-items:center;color:var(--text);font-size:15p
 
 <script>
 'use strict';
-const APP_VERSION = '1.4.5';
+const APP_VERSION = '1.4.6';
 const $ = s => document.querySelector(s);
 const app = $('#app');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -1292,6 +1292,33 @@ function rcGuess(name, fresh) { // "PEPPERS RED" -> the produce item sharing the
   for (const it of fresh) { const t = new Set(toks([it.en, it.name, ...(it.aliases || [])].join(' '))); let h = 0; const same = (a, b) => a === b || (Math.min(a.length, b.length) >= 4 && (a.startsWith(b) || b.startsWith(a))); t.forEach(w => { if ([...q].some(x => same(x, w))) h++; }); const sc = h ? h * 10 - t.size * 0.1 : 0; if (sc > bs) { bs = sc; best = it; } }
   return best;
 }
+/* 1.4.6: photos for Claude (super user only; Claude reads them in the daily data audit and then deletes them). The photo is squeezed to ~1 MB and waits in Firestore (rcimg) until Claude reads and logs it; then it is deleted.
+   rcinbox/<id> = small record (status, count, thumbnails); rcimg/<id>_<n> = the big photo. Stays inside the free Spark quota because photos are deleted after reading. */
+async function rcCompress(file) {
+  let bmp; try { bmp = await createImageBitmap(file, { imageOrientation: 'from-image' }); } catch (e) { bmp = await new Promise((ok, no) => { const im = new Image(); im.onload = () => ok(im); im.onerror = no; im.src = URL.createObjectURL(file); }); }
+  const w0 = bmp.width || bmp.naturalWidth, h0 = bmp.height || bmp.naturalHeight;
+  const draw = side => { const k = Math.min(1, side / Math.max(w0, h0)), c = document.createElement('canvas'); c.width = Math.max(1, Math.round(w0 * k)); c.height = Math.max(1, Math.round(h0 * k)); c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height); return c; };
+  let img = '';
+  for (const side of [2400, 2000, 1600, 1300, 1000]) { const c = draw(side); for (const q of [0.72, 0.6, 0.5, 0.4]) { const u = c.toDataURL('image/jpeg', q); if (u.length <= 880000) { img = u; break; } } if (img) break; }
+  if (!img) throw new Error('photo too large');
+  return { img, thumb: draw(240).toDataURL('image/jpeg', 0.6) };
+}
+async function rcSendInbox(files, quiet) {
+  if (!isAdmin() || !fb || !syncOn()) { toast('Sign in as the super user to send photos to Claude', 2600); return null; }
+  const g = newId(), now = Date.now(), done = []; if (!quiet) toast(`📤 Sending ${files.length} photo${files.length === 1 ? '' : 's'} to Claude…`, 5000);
+  try {
+    const thumbs = [];
+    for (const [i, f] of files.entries()) { const { img, thumb } = await rcCompress(f); thumbs.push(thumb); const ref = docRef('rcimg', g + '_' + (i + 1)); await fb.F.setDoc(ref, { g, part: i + 1, img, by: fbUser.uid, ts: now, updated: now }); done.push(ref); }
+    await fb.F.setDoc(docRef('rcinbox', g), { by: fbUser.uid, ts: now, updated: now, status: 'pending', n: files.length, thumbs });
+    toast('📤 Sent to Claude', 2400); return g;
+  } catch (e) { console.warn('inbox', e); for (const r of done) { try { await fb.F.deleteDoc(r); } catch (x) {} } toast('Could not send the photo (' + String(e && (e.code || e.message) || e).slice(0, 50) + ')', 3800); return null; }
+}
+async function rcInboxDone(g, why) {
+  try { const m = await fb.F.getDoc(docRef('rcinbox', g)), n = m.exists() ? (m.data().n || 0) : 0, b = fb.F.writeBatch(fb.db);
+    for (let i = 1; i <= n; i++) b.delete(docRef('rcimg', g + '_' + i));
+    b.set(docRef('rcinbox', g), { status: 'done', doneAt: Date.now(), updated: Date.now(), why: why || '', thumbs: [] }, { merge: true }); await b.commit(); return true;
+  } catch (e) { console.warn('inbox done', e); toast('Could not remove the photo (' + String(e && (e.code || e.message) || e).slice(0, 50) + ')', 3500); return false; }
+}
 async function viewReceipt() {
   setHeader('🧾 Receipt (beta)', true); setTab('scan');
   if (!isAdmin()) { app.innerHTML = `<div class="card empty" style="text-align:center">${dog('sniff', 'glass')}<h2 style="margin:8px 0 4px">Receipt scanning is coming soon</h2><div class="muted">We're testing it now. You'll be able to snap a receipt and log every price in one go.</div></div>`; return; }
@@ -1330,15 +1357,16 @@ function rcGo(files) { rcFiles = files; rcState = null; closeSheet(); if (locati
 function rcPick() {
   showSheet(`<h2 style="margin:0 0 4px">🧾 Scan a receipt</h2><div class="muted" style="margin-bottom:12px">Lay it flat in good light and fill the screen. Long receipt? Take it in 2–3 parts, top to bottom.</div>
     <button class="btn" id="rcCam">📷 Take a photo</button><button class="btn sec" id="rcLib">🖼️ Choose from Photos</button><button class="btn sec small" id="rcX" style="margin-top:4px">Cancel</button>`);
-  $('#rcX').onclick = closeSheet; $('#rcLib').onclick = () => rcInput('#fileReceipt', f => rcGo(f)); $('#rcCam').onclick = () => rcCamera([]);
+  $('#rcX').onclick = closeSheet; $('#rcLib').onclick = () => rcInput('#fileReceipt', f => rcStep(f)); $('#rcCam').onclick = () => rcCamera([]);
 }
 function rcInput(sel, done) { const inp = $(sel); inp.value = ''; inp.onchange = () => { if (inp.files.length) done([...inp.files]); }; inp.click(); }
-function rcCamera(shots) {
-  rcInput('#fileReceiptCam', f => { shots = shots.concat(f);
-    showSheet(`<h2 style="margin:0 0 4px">📷 ${shots.length} photo${shots.length === 1 ? '' : 's'} taken</h2><div class="muted" style="margin-bottom:12px">Is the whole receipt in? If not, take the next part (a little overlap is fine).</div>
-      <button class="btn" id="rcRead">✅ Read the receipt</button><button class="btn sec" id="rcMore">📷 Take the next part</button><button class="btn sec small" id="rcX" style="margin-top:4px">Cancel</button>`);
-    $('#rcRead').onclick = () => rcGo(shots); $('#rcMore').onclick = () => rcCamera(shots); $('#rcX').onclick = closeSheet; });
+function rcStep(shots) {
+  showSheet(`<h2 style="margin:0 0 4px">📷 ${shots.length} photo${shots.length === 1 ? '' : 's'} ready</h2><div class="muted" style="margin-bottom:12px">Is the whole receipt in? If not, add the next part (a little overlap is fine). Then read it now, or send it to Claude.</div>
+    <button class="btn" id="rcRead">✅ Read the receipt</button><button class="btn sec" id="rcSend">📤 Send to Claude (read later)</button><button class="btn sec" id="rcMore">📷 Add the next part</button><button class="btn sec small" id="rcX" style="margin-top:4px">Cancel</button>`);
+  $('#rcRead').onclick = () => rcGo(shots); $('#rcMore').onclick = () => rcCamera(shots); $('#rcX').onclick = closeSheet;
+  $('#rcSend').onclick = async () => { closeSheet(); await rcSendInbox(shots); };
 }
+function rcCamera(shots) { rcInput('#fileReceiptCam', f => rcStep(shots.concat(f))); }
 function rcRender() {
   const r = rcState, ICON = { match: '✅', fuzzy: '🟡', new: '🆕', plu: '🥬', guess: '🟡', pluask: '❓', text: '📝', pluok: '✅', dict: '✅', none: '⚠️' };
   const SAY = { match: 'Matched by barcode', fuzzy: 'Matched after fixing a misread digit', new: 'New barcode: goes to Unsorted', plu: 'Store produce code', pluask: 'Produce: pick the item', guess: 'Best guess: please check', pluok: 'Matched by produce code (PLU)', dict: 'Known from earlier receipts', text: 'Goes to Unsorted (we sort it later)', none: 'Couldn’t read the code' };
@@ -3874,6 +3902,7 @@ function showProduct(sc) {
 
 /* ---------- What's new (shown once after each update) ---------- */
 const CHANGES = {
+  '1.4.6': [['Small fixes and improvements.'], ['Small fixes and improvements.']],
   '1.4.5': [['Same product, different barcode? After you scan it, pick the product and PricePup remembers both barcodes, so the next scan finds it.', 'You can add other barcodes to a product when you edit it.'], ['Same product, different barcode? After you scan it, pick the product and PricePup remembers both barcodes, so the next scan finds it.', 'You can add other barcodes to a product when you edit it.']],
   '1.4.4': [['Small fixes and improvements.'], ['Small fixes and improvements.']],
   '1.4.3': [['Small fixes and improvements.'], ['Small fixes and improvements.']],
