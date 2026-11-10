@@ -391,7 +391,7 @@ label.ck{display:flex;gap:8px;align-items:center;color:var(--text);font-size:15p
 
 <script>
 'use strict';
-const APP_VERSION = '1.4.4';
+const APP_VERSION = '1.4.5';
 const $ = s => document.querySelector(s);
 const app = $('#app');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -1062,7 +1062,7 @@ function parseQty(s) {
   return null;
 }
 async function findBarcode(code) {
-  for (const it of await getAll('items')) for (const [vid, va] of Object.entries(it.variants || {})) if (va.barcode === code) return { it, vid };
+  for (const it of await getAll('items')) for (const [vid, va] of Object.entries(it.variants || {})) if (va.barcode === code || (va.alts || []).includes(code)) return { it, vid };
   return null;
 }
 
@@ -1254,7 +1254,7 @@ async function rcOcr(file, onStep) {
 }
 async function rcResolve(r) {
   const items = await getAll('items'), byCode = new Map(); const strip = c => String(c || '').replace(/\D/g, '').replace(/^0+/, '');
-  for (const it of items) for (const [vid, va] of Object.entries(it.variants || {})) if (va && va.barcode) byCode.set(strip(va.barcode), { it, vid, va });
+  for (const it of items) for (const [vid, va] of Object.entries(it.variants || {})) if (va && va.barcode) { byCode.set(strip(va.barcode), { it, vid, va }); (va.alts || []).forEach(a => byCode.set(strip(a), { it, vid, va })); }
   const plu = RC_PLU(), fresh = items.filter(it => isFresh(it) || it.mode === 'weight'), dict = await rcDictLoad(r.store);
   for (const L of r.items) {
     L.use = false; L.status = 'none';
@@ -2062,6 +2062,7 @@ async function viewAdd(id, preVid) {
     <div class="card"><div class="item" style="padding:0;border:0"><span id="iThumb">${thumb(itemPhoto(it), itemEmoji(it))}</span><div class="main"><div class="name">${esc(itemName(it))}</div><div class="muted">${esc(placeLabel(it))}</div></div>
       ${!itemPhoto(it) && weight ? `<button class="btn sec small" id="iPhoto" style="flex:0 0 auto;margin:0">📷 ${t('takePhoto')}</button>` : ''}</div></div>
     ${weight ? '' : `<div class="card"><h2>${t('variant')}</h2>
+      ${pend.code ? `<div id="linkRow" class="hidden muted" style="margin:6px 0"><label style="display:flex;gap:8px;align-items:center;color:var(--text);font-size:14px"><input id="linkBc" type="checkbox" checked style="width:auto"> Same product, different barcode: remember ${esc(pend.code)} for it</label></div>` : ''}
       <div class="chips" id="vChips">${vars.map(([k]) => `<button class="chip" data-v="${esc(k)}">${esc(variantText(it, k))}</button>`).join('')}<button class="chip" data-v="__new">${t('newVariant')}</button></div>
       <div id="vNew" class="hidden">
         <div class="row"><div><label>${t('brand')}</label><input id="vBrand" value="${esc(pend.info ? pend.info.brand : '')}"></div><div><label>${t('desc')}</label><input id="vDesc" value="${esc(pend.info ? pend.info.name : '')}"></div></div>
@@ -2101,7 +2102,7 @@ async function viewAdd(id, preVid) {
     $('#verdict').innerHTML = verdictHtml(v, v.u ? [fmtU(v.u), altU(v.u)].filter(Boolean).join(' · ') : '');
   };
   if (!weight) {
-    const selV = k => { vid = k; $('#vChips').querySelectorAll('.chip').forEach(c => c.classList.toggle('on', c.dataset.v === k)); $('#vNew').classList.toggle('hidden', k !== '__new'); upd(); };
+    const selV = k => { vid = k; $('#vChips').querySelectorAll('.chip').forEach(c => c.classList.toggle('on', c.dataset.v === k)); $('#vNew').classList.toggle('hidden', k !== '__new'); if ($('#linkRow')) $('#linkRow').classList.toggle('hidden', !k || k === '__new'); upd(); };
     $('#vChips').querySelectorAll('.chip').forEach(c => c.onclick = () => selV(c.dataset.v));
     if (preVid === 'new' || !vars.length) selV('__new'); else if (vid) selV(vid);
     ['vSize', 'vUnit', 'vUses', 'vPack'].forEach(k => { const e = $('#' + k); if (e) e.oninput = upd; }); suggest($('#vBrand'), 'B'); suggest($('#vDesc'), 'N');
@@ -2170,6 +2171,9 @@ async function viewAdd(id, preVid) {
     if (tagX && o.sale) { if (tagX.reg > o.price) o.reg = tagX.reg; if (tagX.until) o.until = tagX.until; }
     const v = verdict(await getOne('items', id), o, sum);
     await save('obs', o);
+    if (pend.code && !weight && vid && vid !== '__new' && $('#linkBc') && $('#linkBc').checked) { try { const fr = await getOne('items', id), va = fr && (fr.variants || {})[vid]; // remember the second barcode so the next scan finds this product
+        if (va && va.barcode !== pend.code && !(va.alts || []).includes(pend.code)) { va.alts = [...(va.alts || []), pend.code]; va.editedBy = fbUser ? fbUser.uid : ''; va.editedAt = Date.now(); await save('items', fr);
+          if (syncOn()) fb.F.setDoc(bcRef(pend.code), { status: 'linked', itemId: id, vid, updated: Date.now() }, { merge: true }).catch(e => console.warn('barcode link', e.code)); toast('✅ Barcode remembered for this product', 2200); } } catch (e) { console.warn('alt barcode', e); } }
     if (tagX && tagX.itemNumber && storeName === 'Costco') rcDictPut('Costco', { code: tagX.itemNumber, kind: 'item', name: [tagX.brand, tagX.pname].filter(Boolean).join(' ').toUpperCase() }, it, useVid); // receipts with this item # now match
     if (earnCoin()) setTimeout(() => coinPop(1, 'Thanks for logging a price!'), 900); refStep('log');
     if (o.store) lsSet('lastStore', o.store);
@@ -3718,7 +3722,7 @@ function editProduct(code, info, link, name, size) {
 }
 async function loadUnsorted() { const box = $('#unsortedBody'); if (!box) return;
   try { const bcs = (await fb.F.getDocsFromServer(fb.F.collection(fb.db, 'households', HOUSEHOLD, 'barcodes'))).docs.map(d => ({ code: d.id, ...d.data() }));
-    const linked = new Set(); (await getAll('items')).forEach(i => Object.values(i.variants || {}).forEach(v => v.barcode && linked.add(v.barcode)));
+    const linked = new Set(); (await getAll('items')).forEach(i => Object.values(i.variants || {}).forEach(v => { v.barcode && linked.add(v.barcode); (v.alts || []).forEach(a => linked.add(a)); }));
     const un = bcs.filter(b => !linked.has(b.code)).sort((a, b) => (b.ts || 0) - (a.ts || 0)), obs = await getAll('obs'), np = c => obs.filter(o => o.bc === c && !o.itemId).length;
     box.innerHTML = `<div style="font-weight:700;color:var(--text)">${un.length} product${un.length === 1 ? '' : 's'} waiting · ${obs.filter(o => o.bc && !o.itemId).length} prices</div>
       <table style="margin-top:6px">${un.slice(0, 40).map(b => `<tr><td>${esc([b.brand, b.name].filter(Boolean).join(' ') || b.code)}<div class="muted">${esc(b.quantity || '')} · ${esc(b.code)}</div></td><td class="r">${np(b.code)}</td></tr>`).join('')}</table>
@@ -3870,6 +3874,7 @@ function showProduct(sc) {
 
 /* ---------- What's new (shown once after each update) ---------- */
 const CHANGES = {
+  '1.4.5': [['Same product, different barcode? After you scan it, pick the product and PricePup remembers both barcodes, so the next scan finds it.', 'You can add other barcodes to a product when you edit it.'], ['Same product, different barcode? After you scan it, pick the product and PricePup remembers both barcodes, so the next scan finds it.', 'You can add other barcodes to a product when you edit it.']],
   '1.4.4': [['Small fixes and improvements.'], ['Small fixes and improvements.']],
   '1.4.3': [['Small fixes and improvements.'], ['Small fixes and improvements.']],
   '1.4.2': [["Fix: your puppy's bond level could drop when the app was opened on another phone or computer with older puppy data.", 'Produce pages: the price summary and Recent prices now show prices per lb or kg; bags are listed under Bags & packs.'], ["Fix: your puppy's bond level could drop when the app was opened on another phone or computer with older puppy data.", 'Produce pages: the price summary and Recent prices now show prices per lb or kg; bags are listed under Bags & packs.']],
@@ -4553,6 +4558,7 @@ async function editVariant(id, vid) {
     <label>Product name</label><input id="evDesc" value="${esc(va.desc || '')}" placeholder="e.g. Greek Yogurt Vanilla">
     ${sizeHTML('ev', q, !!va.byWeight)}
     <label>Barcode</label><input id="evBc" inputmode="numeric" value="${esc(va.barcode || '')}" placeholder="optional">
+    <label>Other barcodes (same product in another store)</label><input id="evAlts" inputmode="numeric" value="${esc((va.alts || []).join(', '))}" placeholder="optional, separate with commas">
     <div style="display:flex;gap:10px;align-items:center;margin-top:10px"><div id="evThumb" style="flex:0 0 54px">${thumb(variantPhoto(it, va), itemEmoji(it))}</div><button class="btn sec small" id="evPhoto" style="flex:1;margin:0">📷 New photo</button></div>
     <div class="row" style="margin-top:12px"><button class="btn sec" id="evX" style="margin:0">${t('close')}</button><button class="btn" id="evOk" style="margin:0">${t('save')}</button></div>`);
   sizeWire('ev', m); suggest(m.querySelector('#evDesc'), 'N'); suggest(m.querySelector('#evBrand'), 'B');
@@ -4561,11 +4567,12 @@ async function editVariant(id, vid) {
   m.querySelector('#evOk').onclick = async () => {
     const desc = m.querySelector('#evDesc').value.trim(); if (!desc) return toast(t('needName'));
     const raw = m.querySelector('#evBc').value.trim(), bc = raw ? normCode(raw) : ''; if (raw && bc.length < 8) return toast(t('badCode'));
-    const sg = sizeGet('ev', m), fresh = await getOne('items', id), v2 = fresh && (fresh.variants || {})[vid]; if (!v2) return closeSheet(); const before = JSON.stringify([v2.brand, v2.desc, v2.size, v2.unit, !!v2.byWeight, v2.barcode || '', v2.pcs || 1]);
+    const sg = sizeGet('ev', m), fresh = await getOne('items', id), v2 = fresh && (fresh.variants || {})[vid]; if (!v2) return closeSheet(); const before = JSON.stringify([v2.brand, v2.desc, v2.size, v2.unit, !!v2.byWeight, v2.barcode || '', v2.pcs || 1, (v2.alts || []).join()]);
     v2.brand = titleCase(m.querySelector('#evBrand').value); v2.desc = titleCase(desc);
     if (sg.byWeight) { v2.byWeight = true; v2.size = 1; v2.unit = 'lb'; } else { delete v2.byWeight; const qs = qtySplit(sg.quantity); if (qs.n) { v2.size = +qs.n; v2.unit = qs.u === 'EA' ? 'count' : qs.u; } if (sg.pcs > 1) v2.pcs = sg.pcs; else delete v2.pcs; }
     if (bc) v2.barcode = bc; else delete v2.barcode;
-    const changed = !!photo || before !== JSON.stringify([v2.brand, v2.desc, v2.size, v2.unit, !!v2.byWeight, v2.barcode || '', v2.pcs || 1]); if (!changed) { closeSheet(); return toast('Nothing changed', 1600); }
+    { const al = [...new Set(m.querySelector('#evAlts').value.split(/[^0-9]+/).filter(Boolean).map(normCode))].filter(c => c.length >= 8 && c !== bc); if (al.length) v2.alts = al; else delete v2.alts; }
+    const changed = !!photo || before !== JSON.stringify([v2.brand, v2.desc, v2.size, v2.unit, !!v2.byWeight, v2.barcode || '', v2.pcs || 1, (v2.alts || []).join()]); if (!changed) { closeSheet(); return toast('Nothing changed', 1600); }
     if (photo) { v2.photo = photo; v2.photoBy = fbUser.uid; } v2.editedBy = fbUser.uid; v2.editedAt = Date.now();
     try { await save('items', fresh); } catch (e) { return toast('Could not save: ' + (e.code || e.message), 3000); }
     closeSheet(); toast('✅ Thanks! Product details updated for everyone.', 2400); viewVariant(id, vid);
