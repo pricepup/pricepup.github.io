@@ -391,7 +391,7 @@ label.ck{display:flex;gap:8px;align-items:center;color:var(--text);font-size:15p
 
 <script>
 'use strict';
-const APP_VERSION = '1.4.6';
+const APP_VERSION = '1.4.7';
 const $ = s => document.querySelector(s);
 const app = $('#app');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -1839,6 +1839,19 @@ async function loadAll() {
   return { items, obs, by };
 }
 
+/* 1.4.7 search: each word of the search must match a word in the text, in any order ("kum lee" works).
+   If nothing matches exactly, a second pass allows one wrong letter per word (chu hau finds Chu Hou). Scanned products with no price yet are searched too. */
+const sTok = s => String(s || '').toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '').split(/[^a-z0-9㐀-鿿]+/).filter(Boolean);
+function lev1(a, b) { if (a === b) return true; const la = a.length, lb = b.length; if (Math.abs(la - lb) > 1) return false; let i = 0, j = 0, d = 0;
+  while (i < la && j < lb) { if (a[i] === b[j]) { i++; j++; continue; } if (++d > 1) return false; if (la > lb) i++; else if (lb > la) j++; else { i++; j++; } } return d + (la - i) + (lb - j) <= 1; }
+const wordHit = (q, w, fz) => w.startsWith(q) || (fz && q.length >= 3 && (lev1(q, w) || (q.length >= 5 && w.length > q.length && lev1(q, w.slice(0, q.length)))));
+function sMatch(q, text, fz) { const low = String(text || '').toLowerCase(); if (low.includes(q)) return true; const qs = sTok(q); if (!qs.length) return false; const ws = sTok(text);
+  const hit = (x, f) => ws.some(w => wordHit(x, w, f)) || (/[㐀-鿿]/.test(x) && low.includes(x));
+  // with a typo allowed, at least one word must still match exactly (stops "chu hau" also finding "char siu sauce")
+  return qs.every(x => hit(x, fz)) && (!fz || qs.length < 2 || qs.some(x => hit(x, false))); }
+let BCS = null; // scanned products, loaded once when the user first searches
+async function loadBcs() { if (BCS) return BCS; if (!fb || !syncOn()) return [];
+  try { BCS = (await fb.F.getDocs(fb.F.collection(fb.db, 'households', HOUSEHOLD, 'barcodes'))).docs.map(d => ({ code: d.id, ...d.data() })); } catch (e) { BCS = []; } return BCS; }
 let homeQ = '', homeView = lsGet('homeView') || '', homeAisle = '';
 if (!['fav', 'all', 'track'].includes(homeView) && !homeView.startsWith('cat:')) homeView = '';
 const catEmoji = c => itemEmoji({ cat: c });
@@ -1867,20 +1880,26 @@ async function viewHome() {
     const view = homeView || (FAVS.size ? 'fav' : 'all'), top = view.startsWith('cat:') ? 'all' : view;
     $('#hView').innerHTML = [['fav', `${t('tabFav')} (${FAVS.size})`], ['all', t('allCats')], ['track', `🔔 ${t('tabTrack')} (${TRACK.size})`]].map(([v, l]) => `<button type="button" class="chip${v === top ? ' on' : ''}" data-v="${v}">${esc(l)}</button>`).join('');
     const box = $('#list');
-    if (q) { const pi = pluItem(q), wq = new RegExp('\\b' + q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    if (q) { if (!BCS) loadBcs().then(b => { if (b && b.length && $('#q') && homeQ.trim()) render(); });
+      const fz = !(list.some(x => sMatch(q, hay(x))) || (BCS || []).some(b => sMatch(q, `${b.brand || ''} ${b.name || ''}`))), M = s => sMatch(q, s, fz);
+      const pi = pluItem(q), wq = new RegExp('\\b' + q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
       const irank = x => { const n = (itemName(x.it) + ' ' + (x.it.en || '')).toLowerCase(); return x.it.id === pi ? -1 : itemName(x.it).toLowerCase().startsWith(q) || (x.it.en || '').toLowerCase().startsWith(q) ? 0 : wq.test(n) ? 1 : n.includes(q) ? 2 : 3; };
-      const irows = list.filter(x => x.it.id === pi || itemHay(x).includes(q)).map((x, i) => ({ x, i, r: irank(x) })).sort((a, b) => a.r - b.r || a.i - b.i).map(o => o.x), vrows = [];
+      const irows = list.filter(x => x.it.id === pi || M(itemHay(x))).map((x, i) => ({ x, i, r: irank(x) })).sort((a, b) => a.r - b.r || a.i - b.i).map(o => o.x), vrows = [];
       for (const x of list) { const obs = by[x.it.id] || [];
-        for (const [vid, va] of Object.entries(x.it.variants || {})) { if (!va || va.deleted || !`${va.brand || ''} ${va.desc || ''}`.toLowerCase().includes(q)) continue;
+        for (const [vid, va] of Object.entries(x.it.variants || {})) { if (!va || va.deleted || !M(`${va.brand || ''} ${va.desc || ''}`)) continue;
           const vo = obs.filter(o => o.vid === vid).sort((a, b) => (b.date || '').localeCompare(a.date || '')), vs = summarize(x.it, vo); vrows.push({ it: x.it, vid, va, vo, vs, vb: vs && vs.low, fl: vid.startsWith('v-f') && !va.barcode && !vo.some(o => o.src !== 'flyer') }); } }
       // same product type together, cheapest unit price first; products with no price go last
       vrows.sort((a, b) => a.fl - b.fl || itemName(a.it).localeCompare(itemName(b.it)) || (!a.vb) - (!b.vb) || (a.vb && b.vb ? a.vb.u.v - b.vb.u.v : 0) || variantText(a.it, a.vid).localeCompare(variantText(b.it, b.vid)));
+      const linked = new Set(); list.forEach(x => Object.values(x.it.variants || {}).forEach(v => { if (!v) return; if (v.barcode) linked.add(v.barcode); (v.alts || []).forEach(a => linked.add(a)); }));
+      const brows = (BCS || []).filter(b => !linked.has(b.code) && b.status !== 'linked' && (b.name || b.brand) && M(`${b.brand || ''} ${b.name || ''}`)), pn = vrows.length + brows.length;
+      const brow = b => `<a class="item" href="#product/${encodeURIComponent(b.code)}">${thumb(b.image || '', '📦')}<div class="main"><div class="name vname">${esc([b.brand, b.name, b.quantity].filter(Boolean).join(' · '))}</div><div class="muted">Scanned product</div></div>
+        <div class="price">—<div class="muted">${t('noPrice')}</div></div><span class="chev">›</span></a>`;
       const vrow = ({ it, vid, va, vo, vs, vb }, i) => `<a class="item${i >= 30 ? ' more hidden' : ''}" href="#variant/${encodeURIComponent(it.id)}/${encodeURIComponent(vid)}">${thumb(variantPhoto(it, va), itemEmoji(it))}
         <div class="main"><div class="name vname">${esc(variantText(it, vid))}</div><div class="muted">${esc(itemName(it))}${vb ? ` · ${esc(vb.o.store)} · ${fmtDate(vb.o.date)}` : ''}</div></div>
         <div class="price">${vb ? fmtU(vb.u) : vo.length ? priceText(it, vo[0]) : '—'}<div class="muted">${vs ? t('histLow') : t('noPrice')}</div></div><span class="chev">›</span></a>`;
-      const ihtml = irows.length ? `<div class="card">${vrows.length ? `<h2>${t('srchItems')}</h2>` : ''}${irows.slice(0, 300).map(row).join('')}</div>` : '';
-      const vhtml = vrows.length ? `<div class="card"><h2>${t('srchProducts')} <span class="muted">${vrows.length}</span></h2>${vrows.map((r, i) => (r.fl && (i === 0 || !vrows[i - 1].fl) ? `<div class="aislehead${i >= 30 ? ' more hidden' : ''}">${t('srchFlyers')}</div>` : '') + vrow(r, i)).join('')}${moreBtn(vrows.length, 30)}</div>` : '';
-      box.innerHTML = ihtml || vhtml ? (irows.length && !vrows.length ? ihtml : !irows.length ? vhtml : ihtml + vhtml) : `<div class="card"><div class="empty">${dog('sad')}<div class="muted">${t('noMatch')}</div></div></div>`;
+      const ihtml = irows.length ? `<div class="card">${pn ? `<h2>${t('srchItems')}</h2>` : ''}${irows.slice(0, 300).map(row).join('')}</div>` : '';
+      const vhtml = pn ? `<div class="card"><h2>${t('srchProducts')} <span class="muted">${pn}</span></h2>${brows.map(brow).join('')}${vrows.map((r, i) => (r.fl && (i === 0 || !vrows[i - 1].fl) ? `<div class="aislehead${i >= 30 ? ' more hidden' : ''}">${t('srchFlyers')}</div>` : '') + vrow(r, i)).join('')}${moreBtn(vrows.length, 30)}</div>` : '';
+      box.innerHTML = ihtml || vhtml ? (irows.length && !pn ? ihtml : !irows.length ? vhtml : ihtml + vhtml) : `<div class="card"><div class="empty">${dog('sad')}<div class="muted">${t('noMatch')}</div></div></div>`;
       box.querySelectorAll('.showMore').forEach(b => b.onclick = () => { b.parentElement.querySelectorAll('.more').forEach(x => x.classList.remove('hidden')); b.remove(); }); return; }
     if (view === 'track') { box.innerHTML = `<div class="card">${trackRows(items, by) || `<div class="empty">${dog('sniff', 'glass')}<div class="muted">${t('trackNone')}</div></div>`}</div>`; return; }
     if (view === 'all') { // catalogue: departments first, then aisles
@@ -3902,6 +3921,7 @@ function showProduct(sc) {
 
 /* ---------- What's new (shown once after each update) ---------- */
 const CHANGES = {
+  '1.4.7': [['Small fixes and improvements.'], ['Search is smarter: words in any order, small typos are OK, and scanned products with no price yet show up too.']],
   '1.4.6': [['Small fixes and improvements.'], ['Small fixes and improvements.']],
   '1.4.5': [['Same product, different barcode? After you scan it, pick the product and PricePup remembers both barcodes, so the next scan finds it.', 'You can add other barcodes to a product when you edit it.'], ['Same product, different barcode? After you scan it, pick the product and PricePup remembers both barcodes, so the next scan finds it.', 'You can add other barcodes to a product when you edit it.']],
   '1.4.4': [['Small fixes and improvements.'], ['Small fixes and improvements.']],
